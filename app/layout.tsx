@@ -1,17 +1,20 @@
 import { ClerkProvider } from '@clerk/nextjs';
 import "./globals.css";
 import type { Metadata } from "next";
+import { syncCurrentUserEmail } from "@/lib/sync-user";
 
 export const metadata: Metadata = {
   title: "Next.js Premium Startup Boilerplate",
   description: "Created using the ultimate interactive Next.js stack generator CLI.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await syncCurrentUserEmail();
+
   return (
     <ClerkProvider>
       <html lang="en">
