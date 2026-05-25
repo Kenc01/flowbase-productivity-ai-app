@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useUser } from "@clerk/react";
 import {
   LayoutDashboard,
   Bot,
@@ -74,6 +75,11 @@ const TASKS = [
 
 export default function DashboardPage() {
   const [searchFocused, setSearchFocused] = useState(false);
+  const { user } = useUser();
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const displayName = user?.firstName || user?.username || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "User";
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
@@ -223,15 +229,18 @@ export default function DashboardPage() {
               fontWeight: 700,
               color: "#fff",
               fontFamily: "'Outfit', sans-serif",
+              overflow: "hidden",
             }}
           >
-            KB
+            {user?.imageUrl ? (
+              <img src={user.imageUrl} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : initials}
           </div>
           <span
             className="fb-dashboard-user-name"
             style={{ fontSize: "0.78rem", fontWeight: 500, color: "var(--fb-text)" }}
           >
-            Keith
+            {displayName}
           </span>
           <ChevronDown size={12} color="var(--fb-text-muted)" strokeWidth={2} />
         </div>
@@ -264,7 +273,7 @@ export default function DashboardPage() {
               letterSpacing: 0,
             }}
           >
-            Welcome back, Keith 👋
+            Welcome back, {displayName} 👋
           </h2>
           <p style={{ fontSize: "0.82rem", color: "var(--fb-text-muted)", margin: "4px 0 0" }}>
             You have <strong style={{ color: "var(--fb-text)" }}>3 tasks due today</strong> and{" "}

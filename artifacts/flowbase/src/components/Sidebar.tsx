@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useClerk } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import {
   Bell,
@@ -204,6 +205,7 @@ function FooterButton({
   collapsed,
   danger,
   badge,
+  onClick,
 }: {
   icon: React.ElementType;
   label: string;
@@ -211,11 +213,13 @@ function FooterButton({
   collapsed: boolean;
   danger?: boolean;
   badge?: number;
+  onClick?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
     <button
       type="button"
+      onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -306,6 +310,8 @@ export default function Sidebar() {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { signOut } = useClerk();
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   useEffect(() => {
     setMounted(true);
@@ -513,7 +519,7 @@ export default function Sidebar() {
       >
         <FooterButton icon={Bell} label="Notifications" color="var(--fb-amber)" collapsed={collapsed} badge={3} />
         <FooterButton icon={HelpCircle} label="Help & Support" color="var(--fb-sky)" collapsed={collapsed} />
-        <FooterButton icon={LogOut} label="Sign Out" color="var(--fb-rose)" collapsed={collapsed} danger />
+        <FooterButton icon={LogOut} label="Sign Out" color="var(--fb-rose)" collapsed={collapsed} danger onClick={() => signOut({ redirectUrl: basePath || "/" })} />
         {!collapsed && (
           <div
             style={{
