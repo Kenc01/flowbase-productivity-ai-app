@@ -152,7 +152,7 @@ function DashboardRoute({ children }: { children: React.ReactNode }) {
         <DashboardLayout>{children}</DashboardLayout>
       </Show>
       <Show when="signed-out">
-        <Redirect to="/" />
+        <Redirect to="/sign-in" />
       </Show>
     </>
   );
