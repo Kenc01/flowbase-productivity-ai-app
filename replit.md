@@ -1,9 +1,10 @@
-# [Project name]
+# FlowBase
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+FlowBase is an all-in-one productivity workspace combining notes, kanban, whiteboard, AI assistant, and calendar features in a beautiful sidebar-driven UI.
 
 ## Run & Operate
 
+- `pnpm --filter @workspace/flowbase run dev` — run the frontend (port assigned by workflow)
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
@@ -14,6 +15,7 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite (Tailwind v4, wouter routing, lucide-react icons)
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
@@ -22,15 +24,29 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/flowbase/` — React + Vite frontend (FlowBase UI)
+- `artifacts/api-server/` — Express API backend
+- `artifacts/flowbase/src/pages/` — Route pages (home, dashboard/*)
+- `artifacts/flowbase/src/components/Sidebar.tsx` — Collapsible sidebar navigation
+- `artifacts/flowbase/src/index.css` — Global CSS with FlowBase design tokens (`--fb-*`)
+- `lib/api-spec/openapi.yaml` — OpenAPI contract (source of truth)
+- `lib/db/src/schema/` — Drizzle schema
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Migrated from Next.js to Vite + React; all routing via wouter (not file-based)
+- Sidebar uses localStorage to persist collapsed state
+- Design tokens are CSS variables with `--fb-` prefix (violet, cyan, amber, emerald, rose, etc.)
+- Dashboard sub-routes share a `DashboardLayout` wrapper with the sidebar
+- No Clerk auth in Vite port — the original Next.js app used `@clerk/nextjs` which is not compatible with Vite
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Landing page at `/` with hero and feature cards
+- Dashboard at `/dashboard` with stats, recent items, task list, and AI banner
+- Sidebar navigation to: AI Assistant, Calendar, Kanban, Notes, Whiteboard, Pages, Templates, Settings
+- Collapsible sidebar with tooltip labels in collapsed mode
+- All sub-pages functional with placeholder content
 
 ## User preferences
 
@@ -38,7 +54,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Tailwind v4 — uses `@import "tailwindcss"` not `@tailwind base/components/utilities`
+- `postcss.config.mjs` from the original Next.js project conflicts with Tailwind v4 + Vite; it was not copied over
+- wouter `useLocation` returns the current path; active route detection checks `startsWith` for nested routes
 
 ## Pointers
 
