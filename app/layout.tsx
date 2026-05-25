@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 import { syncCurrentUserEmail } from "@/lib/sync-user";
 
 export const metadata: Metadata = {
-  title: "Next.js Premium Startup Boilerplate",
+  title: "FlowBase — Your All-in-One Productivity Workspace",
   description:
-    "Created using the ultimate interactive Next.js stack generator CLI.",
+    "FlowBase combines the power of Notion and Miro into one beautiful, AI-powered productivity workspace.",
 };
 
 export default function RootLayout({
