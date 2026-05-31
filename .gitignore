@@ -47,8 +47,3 @@ Thumbs.db
 # Replit
 .cache/
 .local/
-
-# Environment secrets — never commit real values
-.env
-.env.local
-.env.*.local
