@@ -75,12 +75,14 @@ function TaskChip({
   task,
   compact = false,
   onRemove,
+  onClick,
   draggable,
   onDragStart,
 }: {
   task: CalendarTask | DraftTask;
   compact?: boolean;
   onRemove?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
 }) {
@@ -89,12 +91,13 @@ function TaskChip({
     <div
       draggable={draggable}
       onDragStart={onDragStart}
+      onClick={onClick}
       style={{
         backgroundColor: cat.bg,
         borderLeft: `3px solid ${cat.color}`,
-        cursor: draggable ? "grab" : "default",
+        cursor: onClick ? "pointer" : draggable ? "grab" : "default",
       }}
-      className={`flex items-center gap-1 rounded-md text-xs font-medium select-none ${
+      className={`flex items-center gap-1 rounded-md text-xs font-medium select-none transition-opacity hover:opacity-80 ${
         compact ? "px-1.5 py-0.5 truncate max-w-full" : "px-2 py-1.5 w-full"
       }`}
     >
@@ -127,13 +130,21 @@ function TaskDialog({
   initialDate,
   onSave,
   asDraft,
+  editTask,
+  onUpdate,
+  onDelete,
 }: {
   open: boolean;
   onClose: () => void;
   initialDate?: string;
   onSave: (task: CalendarTask | DraftTask, saveToDraft: boolean) => void;
   asDraft?: boolean;
+  editTask?: CalendarTask | null;
+  onUpdate?: (task: CalendarTask) => void;
+  onDelete?: (id: string) => void;
 }) {
+  const isEdit = !!editTask;
+
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(initialDate ?? toKey(new Date()));
   const [category, setCategory] = useState("work");
@@ -143,19 +154,33 @@ function TaskDialog({
 
   useEffect(() => {
     if (open) {
-      setTitle("");
-      setDate(initialDate ?? toKey(new Date()));
-      setCategory("work");
-      setType("task");
-      setNotes("");
-      setToDraft(asDraft ?? false);
+      if (editTask) {
+        setTitle(editTask.title);
+        setDate(editTask.date);
+        setCategory(editTask.category);
+        setType(editTask.type);
+        setNotes(editTask.notes);
+        setToDraft(false);
+      } else {
+        setTitle("");
+        setDate(initialDate ?? toKey(new Date()));
+        setCategory("work");
+        setType("task");
+        setNotes("");
+        setToDraft(asDraft ?? false);
+      }
     }
-  }, [open, initialDate, asDraft]);
+  }, [open, initialDate, asDraft, editTask]);
 
   if (!open) return null;
 
   const handleSave = () => {
     if (!title.trim()) return;
+    if (isEdit && onUpdate && editTask) {
+      onUpdate({ ...editTask, title: title.trim(), date, category, type, notes });
+      onClose();
+      return;
+    }
     if (toDraft) {
       onSave({ id: uid(), title: title.trim(), category, type, notes }, true);
     } else {
@@ -163,6 +188,15 @@ function TaskDialog({
     }
     onClose();
   };
+
+  const handleDelete = () => {
+    if (editTask && onDelete) {
+      onDelete(editTask.id);
+      onClose();
+    }
+  };
+
+  const cat = isEdit ? getCat(category) : null;
 
   return (
     <div
@@ -176,15 +210,34 @@ function TaskDialog({
       >
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold" style={{ color: "var(--fb-text)" }}>
-            New Task
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
-          >
-            <X size={15} style={{ color: "var(--fb-text-muted)" }} />
-          </button>
+          <div className="flex items-center gap-2.5">
+            {isEdit && cat && (
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ background: cat.color }}
+              />
+            )}
+            <h2 className="text-base font-semibold" style={{ color: "var(--fb-text)" }}>
+              {isEdit ? "Edit Task" : "New Task"}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {isEdit && onDelete && (
+              <button
+                onClick={handleDelete}
+                title="Delete task"
+                className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-red-50"
+              >
+                <Trash2 size={14} style={{ color: "#F43F5E" }} />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+            >
+              <X size={15} style={{ color: "var(--fb-text-muted)" }} />
+            </button>
+          </div>
         </div>
 
         {/* Title */}
@@ -236,29 +289,29 @@ function TaskDialog({
             Category
           </label>
           <div className="flex gap-2 flex-wrap">
-            {CATEGORIES.map((cat) => (
+            {CATEGORIES.map((c) => (
               <button
-                key={cat.id}
-                onClick={() => setCategory(cat.id)}
+                key={c.id}
+                onClick={() => setCategory(c.id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
                 style={{
-                  background: category === cat.id ? cat.color : cat.bg,
-                  color: category === cat.id ? "#fff" : cat.color,
-                  border: `1.5px solid ${cat.color}`,
-                  opacity: category === cat.id ? 1 : 0.7,
+                  background: category === c.id ? c.color : c.bg,
+                  color: category === c.id ? "#fff" : c.color,
+                  border: `1.5px solid ${c.color}`,
+                  opacity: category === c.id ? 1 : 0.7,
                 }}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: category === cat.id ? "#fff" : cat.color }}
+                  style={{ background: category === c.id ? "#fff" : c.color }}
                 />
-                {cat.label}
+                {c.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Date (hidden when saving to draft) */}
+        {/* Date */}
         {!toDraft && (
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: "var(--fb-text-muted)" }}>
@@ -297,22 +350,24 @@ function TaskDialog({
           />
         </div>
 
-        {/* Save to Draft toggle */}
-        <label className="flex items-center gap-2.5 cursor-pointer select-none">
-          <div
-            onClick={() => setToDraft(!toDraft)}
-            className="w-9 h-5 rounded-full transition-all relative"
-            style={{ background: toDraft ? "#7467F0" : "var(--fb-border)" }}
-          >
+        {/* Save to Draft toggle — only for new tasks */}
+        {!isEdit && (
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
             <div
-              className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all"
-              style={{ left: toDraft ? "18px" : "2px" }}
-            />
-          </div>
-          <span className="text-xs" style={{ color: "var(--fb-text-muted)" }}>
-            Save to Draft (schedule later)
-          </span>
-        </label>
+              onClick={() => setToDraft(!toDraft)}
+              className="w-9 h-5 rounded-full transition-all relative"
+              style={{ background: toDraft ? "#7467F0" : "var(--fb-border)" }}
+            >
+              <div
+                className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all"
+                style={{ left: toDraft ? "18px" : "2px" }}
+              />
+            </div>
+            <span className="text-xs" style={{ color: "var(--fb-text-muted)" }}>
+              Save to Draft (schedule later)
+            </span>
+          </label>
+        )}
 
         {/* Actions */}
         <div className="flex gap-2 pt-1">
@@ -336,7 +391,7 @@ function TaskDialog({
               cursor: title.trim() ? "pointer" : "not-allowed",
             }}
           >
-            {toDraft ? "Save to Drafts" : "Add to Calendar"}
+            {isEdit ? "Save Changes" : toDraft ? "Save to Drafts" : "Add to Calendar"}
           </button>
         </div>
       </div>
@@ -353,6 +408,7 @@ function MonthView({
   onDropOnDate,
   onRemoveTask,
   onDragTaskStart,
+  onTaskClick,
   dragOverDate,
   setDragOverDate,
 }: {
@@ -362,6 +418,7 @@ function MonthView({
   onDropOnDate: (date: string) => void;
   onRemoveTask: (id: string) => void;
   onDragTaskStart: (task: CalendarTask) => void;
+  onTaskClick: (task: CalendarTask) => void;
   dragOverDate: string | null;
   setDragOverDate: (d: string | null) => void;
 }) {
@@ -474,6 +531,7 @@ function MonthView({
                     compact
                     draggable
                     onDragStart={(e) => { e.stopPropagation(); onDragTaskStart(t); }}
+                    onClick={(e) => { e.stopPropagation(); onTaskClick(t); }}
                     onRemove={() => onRemoveTask(t.id)}
                   />
                 ))}
@@ -500,6 +558,7 @@ function WeekView({
   onDropOnDate,
   onRemoveTask,
   onDragTaskStart,
+  onTaskClick,
   dragOverDate,
   setDragOverDate,
 }: {
@@ -509,6 +568,7 @@ function WeekView({
   onDropOnDate: (date: string) => void;
   onRemoveTask: (id: string) => void;
   onDragTaskStart: (task: CalendarTask) => void;
+  onTaskClick: (task: CalendarTask) => void;
   dragOverDate: string | null;
   setDragOverDate: (d: string | null) => void;
 }) {
@@ -577,6 +637,7 @@ function WeekView({
                   task={t}
                   draggable
                   onDragStart={(e) => { e.stopPropagation(); onDragTaskStart(t); }}
+                  onClick={(e) => { e.stopPropagation(); onTaskClick(t); }}
                   onRemove={() => onRemoveTask(t.id)}
                 />
               ))}
@@ -741,6 +802,7 @@ export default function CalendarPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogDate, setDialogDate] = useState<string | undefined>();
   const [dialogAsDraft, setDialogAsDraft] = useState(false);
+  const [editingTask, setEditingTask] = useState<CalendarTask | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
   const draggedTaskRef = useRef<CalendarTask | null>(null);
@@ -778,10 +840,27 @@ export default function CalendarPage() {
   // ── Dialog handlers ─────────────────────────────────────────
 
   const openAddTask = (date?: string, asDraft = false) => {
+    setEditingTask(null);
     setDialogDate(date);
     setDialogAsDraft(asDraft);
     setDialogOpen(true);
   };
+
+  const handleTaskClick = useCallback((task: CalendarTask) => {
+    setEditingTask(task);
+    setDialogAsDraft(false);
+    setDialogOpen(true);
+  }, []);
+
+  const handleUpdateTask = useCallback((updated: CalendarTask) => {
+    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    setEditingTask(null);
+  }, []);
+
+  const handleDeleteTask = useCallback((id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setEditingTask(null);
+  }, []);
 
   const handleSave = useCallback(
     (task: CalendarTask | DraftTask, saveToDraft: boolean) => {
@@ -941,6 +1020,7 @@ export default function CalendarPage() {
               onDropOnDate={handleDropOnDate}
               onRemoveTask={handleRemoveTask}
               onDragTaskStart={handleDragTaskStart}
+              onTaskClick={handleTaskClick}
               dragOverDate={dragOverDate}
               setDragOverDate={setDragOverDate}
             />
@@ -952,6 +1032,7 @@ export default function CalendarPage() {
               onDropOnDate={handleDropOnDate}
               onRemoveTask={handleRemoveTask}
               onDragTaskStart={handleDragTaskStart}
+              onTaskClick={handleTaskClick}
               dragOverDate={dragOverDate}
               setDragOverDate={setDragOverDate}
             />
@@ -970,10 +1051,13 @@ export default function CalendarPage() {
       {/* ── Dialog ──────────────────────────────────────────── */}
       <TaskDialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={() => { setDialogOpen(false); setEditingTask(null); }}
         initialDate={dialogDate}
         onSave={handleSave}
         asDraft={dialogAsDraft}
+        editTask={editingTask}
+        onUpdate={handleUpdateTask}
+        onDelete={handleDeleteTask}
       />
     </div>
   );
