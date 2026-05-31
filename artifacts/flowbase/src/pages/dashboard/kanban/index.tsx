@@ -4,6 +4,7 @@ import {
   CalendarDays, FileText, Flag,
   MoreHorizontal,
 } from "lucide-react";
+import { api } from "../../../lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -569,27 +570,40 @@ function BoardPanel({ boards, activeBoardId, onSelectBoard, onCreateBoard, onDel
   );
 }
 
-// ─── Storage keys ─────────────────────────────────────────────────────────────
-
-const SK = { boards: "fb_kb_boards", columns: "fb_kb_cols", tasks: "fb_kb_tasks", active: "fb_kb_active" };
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function KanbanPage() {
-  const [boards, setBoards] = useState<KanbanBoard[]>(() => loadLS(SK.boards, []));
-  const [columns, setColumns] = useState<KanbanColumn[]>(() => loadLS(SK.columns, []));
-  const [tasks, setTasks] = useState<KanbanTask[]>(() => loadLS(SK.tasks, []));
-  const [activeBoardId, setActiveBoardId] = useState<string | null>(() => loadLS(SK.active, null));
+  const [boards, setBoards] = useState<KanbanBoard[]>([]);
+  const [columns, setColumns] = useState<KanbanColumn[]>([]);
+  const [tasks, setTasks] = useState<KanbanTask[]>([]);
+  const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [boardDlg, setBoardDlg] = useState<{ open: boolean; edit?: KanbanBoard | null }>({ open: false });
   const [taskDlg, setTaskDlg] = useState<{ open: boolean; columnId: string; edit?: KanbanTask | null }>({ open: false, columnId: "" });
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
-  useEffect(() => { localStorage.setItem(SK.boards, JSON.stringify(boards)); }, [boards]);
-  useEffect(() => { localStorage.setItem(SK.columns, JSON.stringify(columns)); }, [columns]);
-  useEffect(() => { localStorage.setItem(SK.tasks, JSON.stringify(tasks)); }, [tasks]);
-  useEffect(() => { localStorage.setItem(SK.active, JSON.stringify(activeBoardId)); }, [activeBoardId]);
+  useEffect(() => {
+    api.get<{ boards: KanbanBoard[]; columns: KanbanColumn[]; tasks: KanbanTask[] }>("/kanban/boards")
+      .then(data => {
+        setBoards(data.boards);
+        setColumns(data.columns);
+        setTasks(data.tasks);
+        setActiveBoardId(prev => {
+          const saved = localStorage.getItem("fb_kb_active");
+          const savedId = saved ? JSON.parse(saved) : null;
+          if (savedId && data.boards.find((b: KanbanBoard) => b.id === savedId)) return savedId;
+          return data.boards[0]?.id ?? null;
+        });
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (activeBoardId) localStorage.setItem("fb_kb_active", JSON.stringify(activeBoardId));
+  }, [activeBoardId]);
 
   const activeBoard = boards.find(b => b.id === activeBoardId) ?? null;
   const activeCols = activeBoard
@@ -598,76 +612,105 @@ export default function KanbanPage() {
 
   // ── Board CRUD ────────────────────────────────────────────────────────────
 
-  const createBoard = useCallback((name: string, color: string) => {
+  const createBoard = useCallback(async (name: string, color: string) => {
     const boardId = uid();
     const newCols: KanbanColumn[] = DEFAULT_COLS.map((n, i) => ({ id: uid(), boardId, name: n, order: i }));
     const board: KanbanBoard = { id: boardId, name, color, columnOrder: newCols.map(c => c.id) };
     setBoards(p => [...p, board]);
     setColumns(p => [...p, ...newCols]);
     setActiveBoardId(boardId);
+    try {
+      await api.post("/kanban/boards", board);
+      await Promise.all(newCols.map(col => api.post("/kanban/columns", col)));
+    } catch (e) { console.error(e); }
   }, []);
 
-  const updateBoard = useCallback((name: string, color: string) => {
+  const updateBoard = useCallback(async (name: string, color: string) => {
     if (!boardDlg.edit) return;
-    setBoards(p => p.map(b => b.id === boardDlg.edit!.id ? { ...b, name, color } : b));
-  }, [boardDlg.edit]);
+    const id = boardDlg.edit.id;
+    const existing = boards.find(b => b.id === id);
+    setBoards(p => p.map(b => b.id === id ? { ...b, name, color } : b));
+    try { await api.put(`/kanban/boards/${id}`, { name, color, columnOrder: existing?.columnOrder }); } catch (e) { console.error(e); }
+  }, [boardDlg.edit, boards]);
 
-  const deleteBoard = useCallback((id: string) => {
-    setBoards(p => p.filter(b => b.id !== id));
+  const deleteBoard = useCallback(async (id: string) => {
+    setBoards(p => {
+      const remaining = p.filter(b => b.id !== id);
+      setActiveBoardId(prev => prev === id ? (remaining[0]?.id ?? null) : prev);
+      return remaining;
+    });
     setColumns(p => p.filter(c => c.boardId !== id));
-    const removed = tasks.filter(t => t.boardId === id);
-    removed.forEach(t => syncToCalendar(t, true));
     setTasks(p => p.filter(t => t.boardId !== id));
-    if (activeBoardId === id) {
-      setActiveBoardId(boards.filter(b => b.id !== id)[0]?.id ?? null);
-    }
-  }, [tasks, activeBoardId, boards]);
+    try { await api.delete(`/kanban/boards/${id}`); } catch (e) { console.error(e); }
+  }, []);
 
   // ── Column CRUD ───────────────────────────────────────────────────────────
 
-  const addColumn = useCallback(() => {
+  const addColumn = useCallback(async () => {
     if (!activeBoard || activeBoard.columnOrder.length >= MAX_COLS) return;
     const col: KanbanColumn = { id: uid(), boardId: activeBoard.id, name: "New Column", order: activeBoard.columnOrder.length };
+    const newOrder = [...activeBoard.columnOrder, col.id];
     setColumns(p => [...p, col]);
-    setBoards(p => p.map(b => b.id === activeBoard.id ? { ...b, columnOrder: [...b.columnOrder, col.id] } : b));
+    setBoards(p => p.map(b => b.id === activeBoard.id ? { ...b, columnOrder: newOrder } : b));
+    try {
+      await api.post("/kanban/columns", col);
+      await api.put(`/kanban/boards/${activeBoard.id}`, { name: activeBoard.name, color: activeBoard.color, columnOrder: newOrder });
+    } catch (e) { console.error(e); }
   }, [activeBoard]);
 
-  const deleteColumn = useCallback((colId: string) => {
+  const deleteColumn = useCallback(async (colId: string) => {
     if (!activeBoard) return;
-    tasks.filter(t => t.columnId === colId).forEach(t => syncToCalendar(t, true));
+    const newOrder = activeBoard.columnOrder.filter(id => id !== colId);
     setTasks(p => p.filter(t => t.columnId !== colId));
     setColumns(p => p.filter(c => c.id !== colId));
-    setBoards(p => p.map(b => b.id === activeBoard.id ? { ...b, columnOrder: b.columnOrder.filter(id => id !== colId) } : b));
-  }, [activeBoard, tasks]);
+    setBoards(p => p.map(b => b.id === activeBoard.id ? { ...b, columnOrder: newOrder } : b));
+    try {
+      await api.delete(`/kanban/columns/${colId}`);
+      await api.put(`/kanban/boards/${activeBoard.id}`, { name: activeBoard.name, color: activeBoard.color, columnOrder: newOrder });
+    } catch (e) { console.error(e); }
+  }, [activeBoard]);
 
-  const renameColumn = useCallback((colId: string, name: string) => {
+  const renameColumn = useCallback(async (colId: string, name: string) => {
     setColumns(p => p.map(c => c.id === colId ? { ...c, name } : c));
+    try { await api.put(`/kanban/columns/${colId}`, { name }); } catch (e) { console.error(e); }
   }, []);
 
   // ── Task CRUD ─────────────────────────────────────────────────────────────
 
-  const saveTask = useCallback((task: KanbanTask) => {
-    setTasks(p => {
-      const exists = p.find(t => t.id === task.id);
-      if (exists) { syncToCalendar(task, !task.syncCalendar); syncToCalendar(task); return p.map(t => t.id === task.id ? task : t); }
-      syncToCalendar(task);
-      return [...p, task];
-    });
-  }, []);
-
-  const deleteTask = useCallback((id: string) => {
-    const t = tasks.find(t => t.id === id);
-    if (t) syncToCalendar(t, true);
-    setTasks(p => p.filter(t => t.id !== id));
+  const saveTask = useCallback(async (task: KanbanTask) => {
+    const exists = tasks.find(t => t.id === task.id);
+    setTasks(p => exists ? p.map(t => t.id === task.id ? task : t) : [...p, task]);
+    try {
+      if (exists) await api.put(`/kanban/tasks/${task.id}`, task);
+      else await api.post("/kanban/tasks", task);
+    } catch (e) { console.error(e); }
   }, [tasks]);
+
+  const deleteTask = useCallback(async (id: string) => {
+    setTasks(p => p.filter(t => t.id !== id));
+    try { await api.delete(`/kanban/tasks/${id}`); } catch (e) { console.error(e); }
+  }, []);
 
   // ── Drag & Drop ───────────────────────────────────────────────────────────
 
-  const handleDrop = useCallback((targetColId: string) => {
+  const handleDrop = useCallback(async (targetColId: string) => {
     if (!draggedId) return;
+    const task = tasks.find(t => t.id === draggedId);
     setTasks(p => p.map(t => t.id === draggedId ? { ...t, columnId: targetColId } : t));
     setDraggedId(null); setDragOverCol(null);
-  }, [draggedId]);
+    if (task && task.columnId !== targetColId) {
+      try { await api.put(`/kanban/tasks/${draggedId}`, { ...task, columnId: targetColId }); } catch (e) { console.error(e); }
+    }
+  }, [draggedId, tasks]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-full" style={{ background: "var(--fb-bg)" }}>
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: "#7467F022", borderTopColor: "#7467F0" }} />
+        <p className="text-sm" style={{ color: "var(--fb-text-muted)" }}>Loading boards…</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: "var(--fb-bg)" }}>

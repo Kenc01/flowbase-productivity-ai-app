@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { api } from "../../../lib/api";
 import {
   ChevronLeft,
   ChevronRight,
@@ -778,27 +779,12 @@ function DraftPanel({
 
 // ─── Main Calendar Page ───────────────────────────────────────────────────────
 
-const STORAGE_KEY_TASKS = "fb_cal_tasks";
-const STORAGE_KEY_DRAFTS = "fb_cal_drafts";
-
-function loadStorage<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export default function CalendarPage() {
   const [view, setView] = useState<ViewMode>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [tasks, setTasks] = useState<CalendarTask[]>(() =>
-    loadStorage(STORAGE_KEY_TASKS, [])
-  );
-  const [drafts, setDrafts] = useState<DraftTask[]>(() =>
-    loadStorage(STORAGE_KEY_DRAFTS, [])
-  );
+  const [tasks, setTasks] = useState<CalendarTask[]>([]);
+  const [drafts, setDrafts] = useState<DraftTask[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogDate, setDialogDate] = useState<string | undefined>();
   const [dialogAsDraft, setDialogAsDraft] = useState(false);
@@ -808,9 +794,18 @@ export default function CalendarPage() {
   const draggedTaskRef = useRef<CalendarTask | null>(null);
   const draggedDraftRef = useRef<DraftTask | null>(null);
 
-  // Persist to localStorage
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_TASKS, JSON.stringify(tasks)); }, [tasks]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_DRAFTS, JSON.stringify(drafts)); }, [drafts]);
+  // Load from API on mount
+  useEffect(() => {
+    api.get<Array<CalendarTask & { isDraft?: boolean }>>("/calendar")
+      .then(data => {
+        setTasks(data.filter(e => !e.isDraft));
+        setDrafts(data.filter(e => e.isDraft).map(e => ({
+          id: e.id, title: e.title, category: e.category, type: e.type, notes: e.notes,
+        })));
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   // ── Navigation ──────────────────────────────────────────────
 
@@ -852,23 +847,27 @@ export default function CalendarPage() {
     setDialogOpen(true);
   }, []);
 
-  const handleUpdateTask = useCallback((updated: CalendarTask) => {
+  const handleUpdateTask = useCallback(async (updated: CalendarTask) => {
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     setEditingTask(null);
+    try { await api.put(`/calendar/${updated.id}`, { ...updated, isDraft: false }); } catch (e) { console.error(e); }
   }, []);
 
-  const handleDeleteTask = useCallback((id: string) => {
+  const handleDeleteTask = useCallback(async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     setEditingTask(null);
+    try { await api.delete(`/calendar/${id}`); } catch (e) { console.error(e); }
   }, []);
 
   const handleSave = useCallback(
-    (task: CalendarTask | DraftTask, saveToDraft: boolean) => {
+    async (task: CalendarTask | DraftTask, saveToDraft: boolean) => {
       if (saveToDraft) {
         const { id, title, category, type, notes } = task as DraftTask;
         setDrafts((prev) => [...prev, { id, title, category, type, notes }]);
+        try { await api.post("/calendar", { id, title, category, type, notes, date: "", isDraft: true }); } catch (e) { console.error(e); }
       } else {
         setTasks((prev) => [...prev, task as CalendarTask]);
+        try { await api.post("/calendar", { ...(task as CalendarTask), isDraft: false }); } catch (e) { console.error(e); }
       }
     },
     []
@@ -886,34 +885,34 @@ export default function CalendarPage() {
     draggedTaskRef.current = null;
   };
 
-  const handleDropOnDate = (date: string) => {
+  const handleDropOnDate = async (date: string) => {
     // Drop a calendar task (reschedule)
     if (draggedTaskRef.current) {
       const moved = draggedTaskRef.current;
       if (moved.date === date) { draggedTaskRef.current = null; return; }
-      setTasks((prev) =>
-        prev.map((t) => (t.id === moved.id ? { ...t, date } : t))
-      );
+      setTasks((prev) => prev.map((t) => (t.id === moved.id ? { ...t, date } : t)));
       draggedTaskRef.current = null;
+      try { await api.put(`/calendar/${moved.id}`, { ...moved, date, isDraft: false }); } catch (e) { console.error(e); }
     }
     // Drop a draft (schedule)
     if (draggedDraftRef.current) {
       const draft = draggedDraftRef.current;
+      const scheduled: CalendarTask = { id: draft.id, title: draft.title, date, category: draft.category, type: draft.type, notes: draft.notes };
       setDrafts((prev) => prev.filter((d) => d.id !== draft.id));
-      setTasks((prev) => [
-        ...prev,
-        { id: draft.id, title: draft.title, date, category: draft.category, type: draft.type, notes: draft.notes },
-      ]);
+      setTasks((prev) => [...prev, scheduled]);
       draggedDraftRef.current = null;
+      try { await api.put(`/calendar/${draft.id}`, { ...scheduled, isDraft: false }); } catch (e) { console.error(e); }
     }
   };
 
-  const handleRemoveTask = (id: string) => {
+  const handleRemoveTask = async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    try { await api.delete(`/calendar/${id}`); } catch (e) { console.error(e); }
   };
 
-  const handleRemoveDraft = (id: string) => {
+  const handleRemoveDraft = async (id: string) => {
     setDrafts((prev) => prev.filter((d) => d.id !== id));
+    try { await api.delete(`/calendar/${id}`); } catch (e) { console.error(e); }
   };
 
   return (

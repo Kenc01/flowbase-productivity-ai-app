@@ -1,2 +1,3 @@
 - [Clerk auth setup](clerk-setup.md) — Clerk provisioned via setupClerkWhitelabelAuth(); proxy middleware wired in api-server/app.ts
 - [FlowBase migration](flowbase-migration.md) — Vite+React app restored from .migration-backup; Clerk + wouter routing pattern confirmed working
+- [FlowBase DB integration](flowbase-db-integration.md) — all 4 features connected to Neon DB via API; key patterns for future work
