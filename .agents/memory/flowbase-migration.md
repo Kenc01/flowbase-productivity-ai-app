@@ -1,16 +1,31 @@
 ---
-name: FlowBase Migration
-description: How FlowBase was migrated from .migration-backup into the live workspace
+name: FlowBase migration notes
+description: Key decisions and quirks from migrating FlowBase from Vercel/v0 to Replit pnpm monorepo
 ---
 
-FlowBase is a Vite+React app (not Next.js). Source restored from `.migration-backup/artifacts/flowbase/src/` into `artifacts/flowbase/src/`.
+# FlowBase migration decisions
 
-Key files:
-- App.tsx uses `@clerk/react` ClerkProvider + wouter Router with base path
-- index.css uses custom `--fb-*` CSS vars + Tailwind v4 with `@layer theme, base, clerk, components, utilities`
-- vite.config.ts uses `tailwindcss({ optimize: false })` for Clerk theme compat
+## DB setup
+- Replit provisions its own DATABASE_URL (locked, can't override)
+- User's Neon DB is stored as NEON_DATABASE_URL secret
+- lib/db/src/index.ts and drizzle.config.ts both use: `NEON_DATABASE_URL ?? DATABASE_URL`
+- SSL for Neon: `ssl: { rejectUnauthorized: false }` when NEON_DATABASE_URL is set
+- drizzle-kit push fails without TTY in this env — use `node lib/db/migrate.mjs` instead (runs raw CREATE TABLE IF NOT EXISTS)
 
-Dependencies added to package.json:
-- `@clerk/react: ^6.7.1` and `@clerk/themes: ^2.4.57` (moved to `dependencies` not `devDependencies`)
+## Auth
+- Clerk provisioned via setupClerkWhitelabelAuth(); proxy middleware wired in api-server/app.ts
+- Clerk proxy path: /api/__clerk
+- Tailwind v4 requires `optimize: false` for Clerk themes
 
-**Why:** Clerk theme CSS layers require `optimize: false` in Tailwind v4 or prod builds break.
+## Routing
+- Frontend: wouter, base path from import.meta.env.BASE_URL
+- API calls from frontend use `/api/...` — Vite dev server proxies to localhost:8080
+- Production: Replit proxy routes /api → api-server, / → flowbase
+
+## Tables
+- kanban_boards, kanban_columns, kanban_tasks, calendar_events, notes, pages
+- All use text PKs (matching frontend uid() pattern)
+- user_id from Clerk's getAuth(req).userId
+
+## API helper
+- artifacts/flowbase/src/lib/api.ts — thin fetch wrapper, uses BASE_URL prefix
