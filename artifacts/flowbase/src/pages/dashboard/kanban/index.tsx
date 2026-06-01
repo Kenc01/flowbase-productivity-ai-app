@@ -2,9 +2,13 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   KanbanSquare, Plus, X, Trash2, Edit2,
   CalendarDays, FileText, Flag,
-  MoreHorizontal,
+  MoreHorizontal, MessageCircle, Users,
 } from "lucide-react";
 import { api } from "../../../lib/api";
+import { RoomProvider, useThreads } from "../../../lib/liveblocks";
+import CollaboratorAvatars from "../../../components/kanban/CollaboratorAvatars";
+import CollaborationPanel from "../../../components/kanban/CollaborationPanel";
+import TaskComments from "../../../components/kanban/TaskComments";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -305,8 +309,20 @@ function TaskDialog({ open, onClose, columnId, boardId, editTask, onSave, onDele
 
 // ─── Task Card ────────────────────────────────────────────────────────────────
 
-function TaskCard({ task, onEdit, onDelete, onDragStart }: {
-  task: KanbanTask; onEdit: () => void; onDelete: () => void; onDragStart: () => void;
+function CommentBadge({ taskId }: { taskId: string }) {
+  const { threads } = useThreads({ query: { metadata: { taskId, resolved: false } } });
+  const count = threads?.reduce((sum, t) => sum + t.comments.length, 0) ?? 0;
+  if (count === 0) return null;
+  return (
+    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+      style={{ background: "#7467F0" }}>
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
+function TaskCard({ task, onEdit, onDelete, onDragStart, onComment }: {
+  task: KanbanTask; onEdit: () => void; onDelete: () => void; onDragStart: () => void; onComment: () => void;
 }) {
   const [menu, setMenu] = useState(false);
   const pCfg = PRIORITY_CFG[task.priority];
@@ -392,6 +408,15 @@ function TaskCard({ task, onEdit, onDelete, onDragStart }: {
               <FileText size={10} color="#06B6D4" />
             </span>
           )}
+          <button
+            onClick={e => { e.stopPropagation(); onComment(); }}
+            className="relative w-5 h-5 rounded-full flex items-center justify-center hover:bg-purple-50 transition-colors"
+            style={{ background: "#EEF0FF" }}
+            title="Comments"
+          >
+            <MessageCircle size={10} color="#7467F0" />
+            <CommentBadge taskId={task.id} />
+          </button>
         </div>
       </div>
     </div>
@@ -401,11 +426,11 @@ function TaskCard({ task, onEdit, onDelete, onDragStart }: {
 // ─── Column View ──────────────────────────────────────────────────────────────
 
 function ColumnView({ col, tasks, board, onAddTask, onEditTask, onDeleteTask,
-  onDragTaskStart, onDropOnColumn, onDeleteColumn, onRenameColumn, isDragOver, setDragOver }: {
+  onDragTaskStart, onDropOnColumn, onDeleteColumn, onRenameColumn, onCommentTask, isDragOver, setDragOver }: {
   col: KanbanColumn; tasks: KanbanTask[]; board: KanbanBoard;
   onAddTask: () => void; onEditTask: (t: KanbanTask) => void; onDeleteTask: (id: string) => void;
   onDragTaskStart: (id: string) => void; onDropOnColumn: (colId: string) => void;
-  onDeleteColumn: () => void; onRenameColumn: (name: string) => void;
+  onDeleteColumn: () => void; onRenameColumn: (name: string) => void; onCommentTask: (t: KanbanTask) => void;
   isDragOver: boolean; setDragOver: (v: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -480,7 +505,8 @@ function ColumnView({ col, tasks, board, onAddTask, onEditTask, onDeleteTask,
           <TaskCard key={t.id} task={t}
             onEdit={() => onEditTask(t)}
             onDelete={() => onDeleteTask(t.id)}
-            onDragStart={() => onDragTaskStart(t.id)} />
+            onDragStart={() => onDragTaskStart(t.id)}
+            onComment={() => onCommentTask(t)} />
         ))}
         {tasks.length === 0 && !isDragOver && (
           <div className="flex-1 flex items-center justify-center py-8">
@@ -572,7 +598,7 @@ function BoardPanel({ boards, activeBoardId, onSelectBoard, onCreateBoard, onDel
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function KanbanPage() {
+function KanbanInner() {
   const [boards, setBoards] = useState<KanbanBoard[]>([]);
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
@@ -583,6 +609,8 @@ export default function KanbanPage() {
   const [taskDlg, setTaskDlg] = useState<{ open: boolean; columnId: string; edit?: KanbanTask | null }>({ open: false, columnId: "" });
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [collab, setCollab] = useState(false);
+  const [commentTask, setCommentTask] = useState<KanbanTask | null>(null);
 
   useEffect(() => {
     api.get<{ boards: KanbanBoard[]; columns: KanbanColumn[]; tasks: KanbanTask[] }>("/kanban/boards")
@@ -729,7 +757,18 @@ export default function KanbanPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Live collaborator avatars */}
+          <CollaboratorAvatars />
+
+          {activeBoard && (
+            <button onClick={() => setCollab(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
+              style={{ background: "var(--fb-muted)", color: "var(--fb-text-muted)", border: "1px solid var(--fb-border)" }}
+              title="Collaboration & sharing">
+              <Users size={13} /> Share
+            </button>
+          )}
           {activeBoard && activeCols.length < MAX_COLS && (
             <button onClick={addColumn}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
@@ -794,6 +833,7 @@ export default function KanbanPage() {
                     onDropOnColumn={handleDrop}
                     onDeleteColumn={() => deleteColumn(col.id)}
                     onRenameColumn={name => renameColumn(col.id, name)}
+                    onCommentTask={t => setCommentTask(t)}
                     isDragOver={dragOverCol === col.id}
                     setDragOver={v => setDragOverCol(v ? col.id : null)}
                   />
@@ -822,6 +862,41 @@ export default function KanbanPage() {
       <TaskDialog open={taskDlg.open} onClose={() => setTaskDlg({ open: false, columnId: "" })}
         columnId={taskDlg.columnId} boardId={activeBoardId ?? ""}
         editTask={taskDlg.edit} onSave={saveTask} onDelete={deleteTask} />
+
+      {/* Collaboration panel */}
+      {collab && activeBoard && (
+        <CollaborationPanel
+          boardId={activeBoard.id}
+          boardName={activeBoard.name}
+          onClose={() => setCollab(false)}
+        />
+      )}
+
+      {/* Task comments panel */}
+      {commentTask && (
+        <TaskComments
+          taskId={commentTask.id}
+          taskTitle={commentTask.title}
+          onClose={() => setCommentTask(null)}
+        />
+      )}
     </div>
+  );
+}
+
+export default function KanbanPage() {
+  const [activeBoardId, setActiveBoardId] = useState<string | null>(() => {
+    try { const s = localStorage.getItem("fb_kb_active"); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
+
+  const roomId = activeBoardId ? `flowbase-board-${activeBoardId}` : "flowbase-board-default";
+
+  return (
+    <RoomProvider
+      id={roomId}
+      initialPresence={{ cursor: null, name: "", color: "#7467F0", avatar: "" }}
+    >
+      <KanbanInner />
+    </RoomProvider>
   );
 }
