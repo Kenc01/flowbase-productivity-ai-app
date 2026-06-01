@@ -4,9 +4,10 @@ import { Liveblocks } from "@liveblocks/node";
 
 const router = Router();
 
-const liveblocks = new Liveblocks({
-  secret: process.env.LIVEBLOCKS_SECRET_KEY!,
-});
+const liveblocksSecret = process.env.LIVEBLOCKS_SECRET_KEY;
+const liveblocks = liveblocksSecret
+  ? new Liveblocks({ secret: liveblocksSecret })
+  : null;
 
 const AVATAR_COLORS = [
   "#7467F0", "#06B6D4", "#10B981", "#F59E0B",
@@ -30,6 +31,10 @@ function initialsAvatar(name: string): string {
 }
 
 router.post("/auth", async (req, res) => {
+  if (!liveblocks) {
+    return res.status(503).json({ error: "Liveblocks not configured" });
+  }
+
   const auth = getAuth(req);
   const userId = auth?.userId;
 
