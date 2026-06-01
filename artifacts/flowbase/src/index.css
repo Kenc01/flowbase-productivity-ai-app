@@ -198,6 +198,174 @@
   background: var(--fb-text-muted);
 }
 
+/* ── Tiptap Editor Styles ───────────────────────────────────────────────── */
+
+.tiptap-editor {
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px 40px 48px;
+}
+
+.tiptap-editor .tiptap {
+  min-height: 100%;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--fb-text);
+  font-family: 'Inter', sans-serif;
+}
+
+.tiptap-editor .tiptap > * + * {
+  margin-top: 0.6em;
+}
+
+.tiptap-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--fb-text-muted);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+.tiptap-editor .tiptap h1 {
+  font-size: 2em;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-top: 1.2em;
+  margin-bottom: 0.3em;
+  color: var(--fb-text);
+  font-family: 'Outfit', sans-serif;
+}
+
+.tiptap-editor .tiptap h2 {
+  font-size: 1.45em;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 1em;
+  margin-bottom: 0.2em;
+  color: var(--fb-text);
+  font-family: 'Outfit', sans-serif;
+}
+
+.tiptap-editor .tiptap h3 {
+  font-size: 1.15em;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 0.8em;
+  margin-bottom: 0.2em;
+  color: var(--fb-text);
+}
+
+.tiptap-editor .tiptap strong { font-weight: 700; }
+.tiptap-editor .tiptap em { font-style: italic; }
+.tiptap-editor .tiptap u { text-decoration: underline; }
+.tiptap-editor .tiptap s { text-decoration: line-through; color: var(--fb-text-muted); }
+
+.tiptap-editor .tiptap mark {
+  background: #FEF08A;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.tiptap-editor .tiptap code {
+  background: #EEF0FF;
+  color: #7467F0;
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 0.88em;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.tiptap-editor .tiptap pre {
+  background: #1E1B4B;
+  color: #E0E7FF;
+  border-radius: 10px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 0.88em;
+  line-height: 1.6;
+}
+
+.tiptap-editor .tiptap pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+.tiptap-editor .tiptap blockquote {
+  border-left: 3px solid #7467F0;
+  padding-left: 16px;
+  margin-left: 0;
+  color: var(--fb-text-muted);
+  font-style: italic;
+}
+
+.tiptap-editor .tiptap hr {
+  border: none;
+  border-top: 1px solid var(--fb-border);
+  margin: 1.5em 0;
+}
+
+.tiptap-editor .tiptap ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+
+.tiptap-editor .tiptap ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+
+.tiptap-editor .tiptap li {
+  margin: 0.2em 0;
+}
+
+.tiptap-editor .tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap-editor .tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tiptap-editor .tiptap ul[data-type="taskList"] li > label {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.tiptap-editor .tiptap ul[data-type="taskList"] input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #7467F0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.tiptap-editor .tiptap ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.tiptap-editor .tiptap a {
+  color: #7467F0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tiptap-editor .tiptap .is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--fb-text-muted);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ── Animations ─────────────────────────────────────────────────────────── */
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }

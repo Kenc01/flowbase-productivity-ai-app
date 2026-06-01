@@ -5,6 +5,7 @@ import calendarRouter from "./calendar";
 import notesRouter from "./notes";
 import pagesRouter from "./pages";
 import liveblocksRouter from "./liveblocks";
+import aiRefineRouter from "./ai-refine";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use("/calendar", calendarRouter);
 router.use("/notes", notesRouter);
 router.use("/pages", pagesRouter);
 router.use("/liveblocks", liveblocksRouter);
+router.use("/ai-refine", aiRefineRouter);
 
 export default router;
