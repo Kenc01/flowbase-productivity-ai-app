@@ -90,6 +90,7 @@ export default function TiptapEditor({ content, onChange, noteId }: EditorProps)
   const [wordCount, setWordCount] = useState(0);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMenu, setAiMenu] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [slashMenu, setSlashMenu] = useState<{ top: number; left: number } | null>(null);
   const [slashQuery, setSlashQuery] = useState("");
   const slashRef = useRef<HTMLDivElement>(null);
@@ -181,13 +182,20 @@ export default function TiptapEditor({ content, onChange, noteId }: EditorProps)
 
     setAiLoading(true);
     setAiMenu(false);
+    setAiError(null);
     try {
       const { result } = await api.post<{ result: string }>("/ai-refine", { text: selectedText, action });
       if (result) {
         editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, result).run();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("AI refine failed:", err);
+      // Extract the error message from the API response if available
+      const msg = err?.message?.includes("→")
+        ? err.message.split("→")[1]?.trim()
+        : (err?.message ?? "AI refine failed. Check your GEMINI_API_KEY.");
+      setAiError(msg);
+      setTimeout(() => setAiError(null), 5000);
     } finally {
       setAiLoading(false);
     }
@@ -394,6 +402,14 @@ export default function TiptapEditor({ content, onChange, noteId }: EditorProps)
         {aiLoading && (
           <span className="flex items-center gap-1.5" style={{ color: "#7467F0" }}>
             <Loader2 size={11} className="animate-spin" /> AI refining…
+          </span>
+        )}
+        {aiError && !aiLoading && (
+          <span
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg"
+            style={{ color: "#F43F5E", background: "#FEE2E2" }}
+          >
+            ⚠ {aiError}
           </span>
         )}
       </div>

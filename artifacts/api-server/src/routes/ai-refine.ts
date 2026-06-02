@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
-import { GoogleGenAI } from "@google/genai";
+import Groq from "groq-sdk";
 
 const router = Router();
 
@@ -15,6 +15,13 @@ const ACTIONS: Record<string, string> = {
   confident:  "Rewrite this text in a confident, assertive tone. Return only the rewritten text.",
 };
 
+// Groq free-tier models in order of preference
+const GROQ_MODELS = [
+  "llama-3.3-70b-versatile",   // best quality, 30 RPM free
+  "llama-3.1-8b-instant",      // fastest, very high free limits
+  "mixtral-8x7b-32768",        // good quality, high context
+];
+
 router.post("/", async (req, res) => {
   const auth = getAuth(req);
   if (!auth?.userId) return res.status(401).json({ error: "Unauthorized" });
@@ -25,20 +32,66 @@ router.post("/", async (req, res) => {
   const prompt = ACTIONS[action];
   if (!prompt) return res.status(400).json({ error: "Unknown action" });
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "Gemini API key not configured" });
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
+    return res.status(500).json({
+      error: "GROQ_API_KEY not set. Get a free key at console.groq.com and add it to .env",
+    });
+  }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `${prompt}\n\nText:\n${text}`,
-    });
-    const result = response.text?.trim() ?? "";
+    const groq = new Groq({ apiKey: groqKey });
+
+    let result = "";
+    let lastErr: any = null;
+
+    for (const model of GROQ_MODELS) {
+      try {
+        const completion = await groq.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: "You are a writing assistant. Follow instructions precisely and return only the requested text — no preamble, no explanation, no quotes.",
+            },
+            {
+              role: "user",
+              content: `${prompt}\n\nText:\n${text}`,
+            },
+          ],
+          temperature: 0.5,
+          max_tokens: 2048,
+        });
+        result = completion.choices[0]?.message?.content?.trim() ?? "";
+        if (result) break;
+      } catch (modelErr: any) {
+        const errMsg = modelErr?.message ?? "";
+        console.warn(`Groq model ${model} failed:`, errMsg);
+        lastErr = modelErr;
+        const isRetryable =
+          errMsg.includes("rate_limit") ||
+          errMsg.includes("model_not_available") ||
+          errMsg.includes("decommissioned");
+        if (!isRetryable) throw modelErr;
+      }
+    }
+
+    if (!result && lastErr) throw lastErr;
     res.json({ result });
+
   } catch (err: any) {
-    console.error("AI refine error:", err);
-    res.status(500).json({ error: "AI request failed" });
+    console.error("AI refine error:", err?.message ?? err);
+    const message = err?.message ?? "AI request failed";
+
+    if (message.includes("invalid_api_key") || message.includes("Authentication")) {
+      return res.status(500).json({ error: "Invalid GROQ_API_KEY. Get a free key at console.groq.com" });
+    }
+    if (message.includes("rate_limit") || message.includes("429")) {
+      const retryMatch = message.match(/try again in (\d+\.?\d*)/i);
+      const retryMsg = retryMatch ? ` Retry in ${Math.ceil(Number(retryMatch[1]))}s.` : " Try again shortly.";
+      return res.status(429).json({ error: `Rate limit hit.${retryMsg}` });
+    }
+    res.status(500).json({ error: message });
   }
 });
 

@@ -1,14 +1,32 @@
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+// Clerk token getter — injected by ApiTokenProvider in App.tsx
+let _getToken: (() => Promise<string | null>) | null = null;
+
+export function setTokenGetter(fn: () => Promise<string | null>) {
+  _getToken = fn;
+}
+
 export async function apiFetch<T = unknown>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
   const url = `${BASE}/api${path}`;
+
+  const token = _getToken ? await _getToken() : null;
+  const authHeader: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader,
+      ...(init?.headers ?? {}),
+    },
     ...init,
   });
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`API ${init?.method ?? "GET"} ${path} → ${res.status}: ${text}`);

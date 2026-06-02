@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   NotebookPen, Plus, Search, X, Pin, PinOff,
   Trash2, Copy, MoreHorizontal, Clock, Star,
-  FileText, Inbox,
+  FileText, Inbox, Smile,
 } from "lucide-react";
 import { api } from "../../../lib/api";
 import TiptapEditor from "../../../components/notes/TiptapEditor";
@@ -14,6 +14,7 @@ interface Note {
   title: string;
   content: string;
   color: string;
+  symbol: string;
   pinned: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -31,6 +32,15 @@ const NOTE_COLORS = [
   { hex: "#EC4899", label: "Pink" },
   { hex: "#14B8A6", label: "Teal" },
   { hex: "#64748B", label: "Slate" },
+];
+
+const NOTE_SYMBOLS = [
+  "📝", "📓", "📔", "📒", "📕", "📗", "📘", "📙",
+  "💡", "⭐", "🔥", "💎", "🎯", "🚀", "🌟", "✨",
+  "💼", "🗂️", "📌", "🔖", "🏷️", "📎", "✏️", "🖊️",
+  "💭", "💬", "🧠", "🎨", "🎵", "📊", "📈", "🔑",
+  "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
+  "🌈", "☁️", "⚡", "🌙", "☀️", "🌺", "🍀", "🦋",
 ];
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -53,10 +63,57 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// ─── Symbol Picker ────────────────────────────────────────────────────────────
+
+function SymbolPicker({ current, onSelect, onClose }: {
+  current: string;
+  onSelect: (symbol: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute left-0 top-full mt-1 rounded-2xl shadow-2xl p-3 z-50"
+      style={{ background: "var(--fb-surface)", border: "1px solid var(--fb-border)", width: "220px" }}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 px-1" style={{ color: "var(--fb-text-muted)" }}>
+        Choose a symbol
+      </p>
+      <div className="grid grid-cols-8 gap-0.5">
+        {NOTE_SYMBOLS.map(sym => (
+          <button
+            key={sym}
+            onClick={() => { onSelect(sym); onClose(); }}
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-base transition-all hover:scale-125 hover:bg-gray-100"
+            style={{
+              background: sym === current ? "var(--fb-muted)" : "transparent",
+              outline: sym === current ? "2px solid #7467F0" : "none",
+              outlineOffset: "1px",
+            }}
+            title={sym}
+          >
+            {sym}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Note Card ────────────────────────────────────────────────────────────────
 
 function NoteCard({
-  note, isActive, onClick, onPin, onDuplicate, onDelete, onColorChange, onRename,
+  note, isActive, onClick, onPin, onDuplicate, onDelete, onColorChange, onRename, onSymbolChange,
 }: {
   note: Note;
   isActive: boolean;
@@ -66,6 +123,7 @@ function NoteCard({
   onDelete: () => void;
   onColorChange: (color: string) => void;
   onRename: (title: string) => void;
+  onSymbolChange: (symbol: string) => void;
 }) {
   const [menu, setMenu] = useState(false);
   const [colorPicker, setColorPicker] = useState(false);
@@ -111,6 +169,14 @@ function NoteCard({
       <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full" style={{ background: note.color }} />
 
       <div className="flex items-start gap-2 pl-2">
+        {/* Symbol badge */}
+        <div
+          className="shrink-0 w-7 h-7 rounded-xl flex items-center justify-center text-base mt-0.5"
+          style={{ background: `${note.color}18` }}
+        >
+          {note.symbol || "📝"}
+        </div>
+
         <div className="flex-1 min-w-0">
           {renaming ? (
             <input
@@ -240,6 +306,7 @@ export default function NotesPage() {
   const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const [trashOpen, setTrashOpen] = useState(false);
   const [trash, setTrash] = useState<Note[]>([]);
+  const [symbolPickerOpen, setSymbolPickerOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesRef = useRef<Note[]>([]);
 
@@ -262,7 +329,8 @@ export default function NotesPage() {
 
   const createNote = useCallback(async () => {
     const color = NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)].hex;
-    const note: Note = { id: uid(), title: "Untitled Note", content: "", color, pinned: false };
+    const symbol = NOTE_SYMBOLS[Math.floor(Math.random() * 16)]; // pick from first row
+    const note: Note = { id: uid(), title: "Untitled Note", content: "", color, symbol, pinned: false };
     setNotes(p => [note, ...p]);
     setActiveId(note.id);
     try { await api.post("/notes", note); } catch (e) { console.error(e); }
@@ -438,6 +506,7 @@ export default function NotesPage() {
                   onDelete={() => deleteNote(note.id)}
                   onColorChange={color => updateNote(note.id, { color })}
                   onRename={title => updateNote(note.id, { title })}
+                  onSymbolChange={symbol => updateNote(note.id, { symbol })}
                 />
               ))}
             </>
@@ -457,6 +526,7 @@ export default function NotesPage() {
                   onDelete={() => deleteNote(note.id)}
                   onColorChange={color => updateNote(note.id, { color })}
                   onRename={title => updateNote(note.id, { title })}
+                  onSymbolChange={symbol => updateNote(note.id, { symbol })}
                 />
               ))}
             </>
@@ -485,7 +555,7 @@ export default function NotesPage() {
                 ? <p className="text-[10px] text-center py-2" style={{ color: "var(--fb-text-muted)" }}>Trash is empty</p>
                 : trash.map(note => (
                   <div key={note.id} className="flex items-center gap-2 px-2 py-1.5 rounded-xl" style={{ background: "var(--fb-muted)" }}>
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: note.color }} />
+                    <span className="text-sm shrink-0">{note.symbol || "📝"}</span>
                     <span className="flex-1 text-xs truncate" style={{ color: "var(--fb-text-muted)" }}>{note.title}</span>
                     <button onClick={() => restoreNote(note)}
                       className="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0"
@@ -510,7 +580,25 @@ export default function NotesPage() {
               style={{ borderBottom: "1px solid var(--fb-border)", background: "var(--fb-surface)" }}
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ background: activeNote.color }} />
+                {/* Symbol button — click to open picker */}
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => setSymbolPickerOpen(o => !o)}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-xl transition-all hover:scale-110 hover:shadow-md"
+                    style={{ background: `${activeNote.color}20` }}
+                    title="Change symbol"
+                  >
+                    {activeNote.symbol || "📝"}
+                  </button>
+                  {symbolPickerOpen && (
+                    <SymbolPicker
+                      current={activeNote.symbol || "📝"}
+                      onSelect={symbol => updateNote(activeNote.id, { symbol })}
+                      onClose={() => setSymbolPickerOpen(false)}
+                    />
+                  )}
+                </div>
+
                 <input
                   value={activeNote.title}
                   onChange={e => updateNote(activeNote.id, { title: e.target.value })}
@@ -553,6 +641,16 @@ export default function NotesPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Symbol picker shortcut */}
+                <button
+                  onClick={() => setSymbolPickerOpen(o => !o)}
+                  className="w-7 h-7 rounded-xl flex items-center justify-center transition-all hover:scale-110"
+                  style={{ background: "var(--fb-muted)" }}
+                  title="Change symbol"
+                >
+                  <Smile size={13} style={{ color: "var(--fb-text-muted)" }} />
+                </button>
               </div>
             </div>
 

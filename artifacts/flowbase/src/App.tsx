@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
+import { setTokenGetter } from "@/lib/api";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -171,6 +172,15 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+// Injects Clerk session token into every api.ts request
+function ApiTokenProvider() {
+  const { getToken } = useAuth();
+  useEffect(() => {
+    setTokenGetter(() => getToken());
+  }, [getToken]);
+  return null;
+}
+
 function Router() {
   const [, setLocation] = useLocation();
 
@@ -199,6 +209,7 @@ function Router() {
     >
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
+          <ApiTokenProvider />
           <ClerkQueryClientCacheInvalidator />
           <Switch>
             <Route path="/" component={HomeRedirect} />

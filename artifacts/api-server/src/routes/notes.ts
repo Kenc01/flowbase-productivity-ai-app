@@ -22,17 +22,17 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const { id, title, content, color, pinned } = req.body;
-  const [note] = await db.insert(notesTable).values({ id, userId, title: title ?? "Untitled", content: content ?? "", color: color ?? "#F43F5E", pinned: !!pinned }).returning();
+  const { id, title, content, color, symbol, pinned } = req.body;
+  const [note] = await db.insert(notesTable).values({ id, userId, title: title ?? "Untitled", content: content ?? "", color: color ?? "#F43F5E", symbol: symbol ?? "📝", pinned: !!pinned }).returning();
   res.status(201).json(note);
 });
 
 router.put("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const { title, content, color, pinned } = req.body;
+  const { title, content, color, symbol, pinned } = req.body;
   const [note] = await db.update(notesTable)
-    .set({ title, content, color, pinned })
+    .set({ title, content, color, symbol, pinned })
     .where(and(eq(notesTable.id, req.params.id), eq(notesTable.userId, userId)))
     .returning();
   if (!note) return res.status(404).json({ error: "Not found" });
