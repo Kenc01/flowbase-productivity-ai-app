@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef, useState } from "react";
+import React, { useEffect, useCallback, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
@@ -20,17 +20,20 @@ import {
 } from "lucide-react";
 import { api } from "../../lib/api";
 
-// ─── Slash command extension (minimal inline) ──────────────────────────────
 
-import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+export interface TiptapEditorHandle {
+  /** Insert transcribed text at cursor position (or append if no selection) */
+  insertTranscript: (text: string) => void;
+}
 
 interface EditorProps {
   content: string;
   onChange: (html: string) => void;
   noteId: string;
+  /** Called after insertTranscript so the parent can trigger auto-save */
+  onRequestSave?: () => void;
 }
 
 // ─── AI Actions ────────────────────────────────────────────────────────────
@@ -86,7 +89,10 @@ const SLASH_COMMANDS = [
 
 // ─── Main Editor ────────────────────────────────────────────────────────────
 
-export default function TiptapEditor({ content, onChange, noteId }: EditorProps) {
+const TiptapEditor = forwardRef<TiptapEditorHandle, EditorProps>(function TiptapEditor(
+  { content, onChange, noteId, onRequestSave },
+  ref
+) {
   const [wordCount, setWordCount] = useState(0);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMenu, setAiMenu] = useState(false);
@@ -122,10 +128,45 @@ export default function TiptapEditor({ content, onChange, noteId }: EditorProps)
     },
   });
 
+  // ── Imperative handle for STT text insertion ───────────────────────────────
+  useImperativeHandle(ref, () => ({
+    insertTranscript(text: string) {
+      if (!editor || !text.trim()) return;
+
+      // Ensure there's a space before the inserted text if the cursor is
+      // not at the beginning of a block
+      const { state } = editor;
+      const { from, to } = state.selection;
+      const docSize = state.doc.content.size;
+      const insertPos = from === to ? from : to; // prefer end of selection
+
+      // Check if we need a leading space
+      let prefix = "";
+      if (insertPos > 0) {
+        const charBefore = state.doc.textBetween(Math.max(0, insertPos - 1), insertPos);
+        if (charBefore && charBefore !== " " && charBefore !== "\n") {
+          prefix = " ";
+        }
+      }
+
+      // Add trailing space for natural flow between turns
+      const insertText = prefix + text.trim() + " ";
+
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(insertPos, insertText)
+        .run();
+
+      // Trigger auto-save
+      onRequestSave?.();
+    },
+  }), [editor, onRequestSave]);
+
   // Update content when note switches
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content || "", false);
+      editor.commands.setContent(content || "");
       setWordCount(editor.storage.characterCount?.words() ?? 0);
     }
   }, [noteId, content]);
@@ -291,7 +332,6 @@ export default function TiptapEditor({ content, onChange, noteId }: EditorProps)
         {editor && (
           <BubbleMenu
             editor={editor}
-            tippyOptions={{ duration: 100, placement: "top" }}
             shouldShow={({ editor, state }) => {
               const { from, to } = state.selection;
               return from !== to && !editor.isActive("image");
@@ -415,4 +455,6 @@ export default function TiptapEditor({ content, onChange, noteId }: EditorProps)
       </div>
     </div>
   );
-}
+});
+
+export default TiptapEditor;
