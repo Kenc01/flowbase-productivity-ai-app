@@ -15,42 +15,62 @@ function requireUser(req: any, res: any): string | null {
 router.get("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const spaces = await db.select().from(spacesTable).where(eq(spacesTable.userId, userId));
-  res.json(spaces);
+  try {
+    const spaces = await db.select().from(spacesTable).where(eq(spacesTable.userId, userId));
+    res.json(spaces);
+  } catch (err: any) {
+    console.error("[spaces GET]", err?.message ?? err);
+    res.status(500).json({ error: err?.message ?? "DB error" });
+  }
 });
 
 router.post("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const { id, name, description, color, isFavorite, isArchived } = req.body;
-  const [space] = await db.insert(spacesTable).values({
-    id, userId,
-    name: name ?? "Untitled Space",
-    description: description ?? "",
-    color: color ?? "#7467F0",
-    isFavorite: isFavorite ?? false,
-    isArchived: isArchived ?? false,
-  }).returning();
-  res.status(201).json(space);
+  try {
+    const { id, name, description, color, isFavorite, isArchived } = req.body;
+    const [space] = await db.insert(spacesTable).values({
+      id, userId,
+      name: name ?? "Untitled Space",
+      description: description ?? "",
+      color: color ?? "#7467F0",
+      isFavorite: isFavorite ?? false,
+      isArchived: isArchived ?? false,
+    }).returning();
+    res.status(201).json(space);
+  } catch (err: any) {
+    console.error("[spaces POST]", err?.message ?? err);
+    res.status(500).json({ error: err?.message ?? "DB error" });
+  }
 });
 
 router.put("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const { name, description, color, isFavorite, isArchived } = req.body;
-  const [space] = await db.update(spacesTable)
-    .set({ name, description, color, isFavorite, isArchived })
-    .where(and(eq(spacesTable.id, req.params.id), eq(spacesTable.userId, userId)))
-    .returning();
-  if (!space) return res.status(404).json({ error: "Not found" });
-  res.json(space);
+  try {
+    const { name, description, color, isFavorite, isArchived } = req.body;
+    const [space] = await db.update(spacesTable)
+      .set({ name, description, color, isFavorite, isArchived })
+      .where(and(eq(spacesTable.id, req.params.id), eq(spacesTable.userId, userId)))
+      .returning();
+    if (!space) return res.status(404).json({ error: "Not found" });
+    res.json(space);
+  } catch (err: any) {
+    console.error("[spaces PUT]", err?.message ?? err);
+    res.status(500).json({ error: err?.message ?? "DB error" });
+  }
 });
 
 router.delete("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  await db.delete(spacesTable).where(and(eq(spacesTable.id, req.params.id), eq(spacesTable.userId, userId)));
-  res.status(204).end();
+  try {
+    await db.delete(spacesTable).where(and(eq(spacesTable.id, req.params.id), eq(spacesTable.userId, userId)));
+    res.status(204).end();
+  } catch (err: any) {
+    console.error("[spaces DELETE]", err?.message ?? err);
+    res.status(500).json({ error: err?.message ?? "DB error" });
+  }
 });
 
 export default router;

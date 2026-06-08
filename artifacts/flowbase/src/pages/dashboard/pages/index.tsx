@@ -1,11 +1,23 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   FolderOpen, Plus, Star, MoreHorizontal, Search, Grid3X3, List,
   ChevronRight, FileText, ArrowLeft, X, Check, Folder, Archive,
   Clock, Heart, Trash2, Edit3, Copy, Share2, Move, Download,
   ChevronDown, Eye, MessageSquare, Link2, Users, UserPlus, Mail,
-  Shield, Crown, Send, CheckCircle2
+  Shield, Crown, Send, CheckCircle2, Mic, Bold, Italic, Underline as UnderlineIcon,
+  List as ListIcon, ListOrdered, Code, Highlighter, Minus, Type,
 } from "lucide-react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
+import CharacterCount from "@tiptap/extension-character-count";
+import Underline from "@tiptap/extension-underline";
+import Highlight from "@tiptap/extension-highlight";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import Link from "@tiptap/extension-link";
+import Typography from "@tiptap/extension-typography";
 import { api } from "../../../lib/api";
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -1312,15 +1324,340 @@ function AllSpacesView({
   );
 }
 
+// ─── Page Editor View ─────────────────────────────────────────────────────────
+
+function EditorToolBtn({ onClick, active, title, children }: {
+  onClick: () => void; active?: boolean; title: string; children: React.ReactNode;
+}) {
+  return (
+    <button
+      onMouseDown={e => { e.preventDefault(); onClick(); }}
+      title={title}
+      style={{
+        width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center",
+        justifyContent: "center", border: "none", cursor: "pointer",
+        background: active ? "#EEF0FF" : "transparent",
+        color: active ? "#7467F0" : "#6B7280",
+        transition: "background 0.15s",
+      }}
+    >{children}</button>
+  );
+}
+
+function ToolDivider() {
+  return <div style={{ width: 1, height: 18, background: "#E5E7EB", margin: "0 4px", flexShrink: 0 }} />;
+}
+
+function PageEditorView({
+  page, space, spacePageCount,
+  onBack, onNewPage, onPageSave,
+}: {
+  page: Page;
+  space: Space;
+  spacePageCount: number;
+  onBack: () => void;
+  onNewPage: () => void;
+  onPageSave: (id: string, data: { title?: string; content?: string }) => void;
+}) {
+  const [title, setTitle] = useState(page.title);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
+  const [wordCount, setWordCount] = useState(0);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentContent = useRef(page.content || "");
+
+  const persistSave = useCallback(async (t: string, c: string) => {
+    try {
+      await api.put(`/pages/${page.id}`, { title: t, content: c });
+      onPageSave(page.id, { title: t, content: c });
+      setSaveStatus("saved");
+    } catch { setSaveStatus("unsaved"); }
+  }, [page.id, onPageSave]);
+
+  const scheduleSave = useCallback((t: string, c: string) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setSaveStatus("saving");
+    saveTimer.current = setTimeout(() => persistSave(t, c), 1500);
+  }, [persistSave]);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ codeBlock: false }),
+      Placeholder.configure({
+        placeholder: "Write the page. Use / for blocks, the mic for voice, or AI Refine on selected text.",
+      }),
+      CharacterCount,
+      Underline,
+      Highlight.configure({ multicolor: false }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Link.configure({ openOnClick: false }),
+      Typography,
+    ],
+    content: page.content || "",
+    onUpdate({ editor }) {
+      const html = editor.getHTML();
+      currentContent.current = html;
+      setWordCount(editor.storage.characterCount?.words() ?? 0);
+      scheduleSave(title, html);
+    },
+  });
+
+  // Re-load editor when page changes
+  useEffect(() => {
+    setTitle(page.title);
+    setSaveStatus("saved");
+    currentContent.current = page.content || "";
+    if (editor) editor.commands.setContent(page.content || "");
+  }, [page.id]);
+
+  const handleTitleChange = (val: string) => {
+    setTitle(val);
+    scheduleSave(val, currentContent.current);
+  };
+
+  const timeSince = (d?: string) => {
+    if (!d) return "just now";
+    const ms = Date.now() - new Date(d).getTime();
+    if (ms < 60000) return "just now";
+    if (ms < 3600000) return `${Math.floor(ms / 60000)}m ago`;
+    if (ms < 86400000) return `${Math.floor(ms / 3600000)}h ago`;
+    return `${Math.floor(ms / 86400000)}d ago`;
+  };
+
+  const spaceEmoji = space.color ? "🗂" : "📁";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#F8FAFC", overflow: "hidden" }}>
+      {/* ── Top nav bar ── */}
+      <div style={{
+        display: "flex", alignItems: "center", padding: "10px 20px",
+        background: "white", borderBottom: "1px solid #E5E7EB", flexShrink: 0, gap: 6,
+      }}>
+        <button
+          onClick={onBack}
+          style={{
+            display: "flex", alignItems: "center", gap: 5, background: "none", border: "none",
+            cursor: "pointer", color: "#7467F0", fontSize: 13, fontWeight: 500, padding: "4px 8px",
+            borderRadius: 6,
+          }}
+        >
+          <ArrowLeft size={14} />
+          {space.name}
+        </button>
+        <ChevronRight size={12} style={{ color: "#D1D5DB" }} />
+        <span style={{ fontSize: 13, color: "#9CA3AF" }}>Pages</span>
+
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Saved status */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+            <span style={{
+              color: saveStatus === "saving" ? "#9CA3AF" : saveStatus === "saved" ? "#22C55E" : "#EF4444",
+              fontWeight: 500,
+            }}>
+              {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : "Unsaved"}
+            </span>
+            <span style={{
+              background: "#F3F4F6", color: "#6B7280", borderRadius: 6,
+              padding: "2px 8px", fontWeight: 500,
+            }}>
+              {wordCount} {wordCount === 1 ? "word" : "words"}
+            </span>
+          </div>
+          <button
+            onClick={onNewPage}
+            style={{
+              display: "flex", alignItems: "center", gap: 6, background: "#7467F0", color: "white",
+              border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={14} /> New Page
+          </button>
+          <button style={{
+            width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center",
+            justifyContent: "center", background: "white", border: "1px solid #E5E7EB", cursor: "pointer",
+            color: "#6B7280",
+          }}>
+            <MoreHorizontal size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Space header ── */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10, padding: "12px 24px",
+        background: "white", borderBottom: "1px solid #E5E7EB", flexShrink: 0,
+      }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center",
+          justifyContent: "center", fontSize: 20, background: (space.color || "#7467F0") + "18",
+          border: `1px solid ${space.color || "#7467F0"}30`,
+        }}>
+          {spaceEmoji}
+        </div>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 15, color: "#111827" }}>{space.name}</div>
+          <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 1 }}>{spacePageCount} pages</div>
+        </div>
+      </div>
+
+      {/* ── Scrollable content ── */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "32px 24px 48px" }}>
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+
+          {/* Page title */}
+          <input
+            value={title}
+            onChange={e => handleTitleChange(e.target.value)}
+            placeholder="Untitled"
+            style={{
+              width: "100%", fontSize: 30, fontWeight: 700, border: "none", outline: "none",
+              background: "transparent", color: "#111827", fontFamily: "inherit",
+              padding: 0, marginBottom: 8,
+            }}
+          />
+
+          {/* Page meta */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#9CA3AF", marginBottom: 24 }}>
+            <span>{page.template || "Blank Page"}</span>
+            <span>·</span>
+            <span>Updated {timeSince((page as any).updatedAt)}</span>
+            <span>·</span>
+            <span style={{
+              background: "#EEF0FF", color: "#7467F0", borderRadius: 4,
+              padding: "1px 6px", fontSize: 11, fontWeight: 700, letterSpacing: "0.03em",
+            }}>SA</span>
+          </div>
+
+          {/* ── Toolbar ── */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 2,
+            padding: "6px 12px", background: "white",
+            border: "1px solid #E5E7EB", borderBottom: "none",
+            borderRadius: "10px 10px 0 0", flexWrap: "wrap",
+          }}>
+            {editor && <>
+              <EditorToolBtn
+                onClick={() => editor.chain().focus().setParagraph().run()}
+                active={editor.isActive("paragraph")} title="Paragraph"
+              >
+                <Type size={13} />
+              </EditorToolBtn>
+              <EditorToolBtn
+                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                active={editor.isActive("heading", { level: 1 })} title="Heading 1"
+              >
+                <span style={{ fontSize: 11, fontWeight: 700 }}>H1</span>
+              </EditorToolBtn>
+              <EditorToolBtn
+                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                active={editor.isActive("heading", { level: 2 })} title="Heading 2"
+              >
+                <span style={{ fontSize: 11, fontWeight: 700 }}>H2</span>
+              </EditorToolBtn>
+              <EditorToolBtn
+                onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+                active={editor.isActive("heading", { level: 3 })} title="Heading 3"
+              >
+                <span style={{ fontSize: 11, fontWeight: 700 }}>H3</span>
+              </EditorToolBtn>
+
+              <ToolDivider />
+
+              <EditorToolBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold">
+                <Bold size={13} />
+              </EditorToolBtn>
+              <EditorToolBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Italic">
+                <Italic size={13} />
+              </EditorToolBtn>
+              <EditorToolBtn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Underline">
+                <UnderlineIcon size={13} />
+              </EditorToolBtn>
+
+              <ToolDivider />
+
+              <EditorToolBtn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="Bullet List">
+                <ListIcon size={13} />
+              </EditorToolBtn>
+              <EditorToolBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")} title="Numbered List">
+                <ListOrdered size={13} />
+              </EditorToolBtn>
+              <EditorToolBtn onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive("code")} title="Inline Code">
+                <Code size={13} />
+              </EditorToolBtn>
+              <EditorToolBtn onClick={() => editor.chain().focus().toggleHighlight().run()} active={editor.isActive("highlight")} title="Highlight">
+                <Highlighter size={13} />
+              </EditorToolBtn>
+              <EditorToolBtn onClick={() => editor.chain().focus().setHorizontalRule().run()} active={false} title="Divider">
+                <Minus size={13} />
+              </EditorToolBtn>
+
+              <ToolDivider />
+
+              {/* Voice button */}
+              <button
+                style={{
+                  display: "flex", alignItems: "center", gap: 5, padding: "4px 10px",
+                  borderRadius: 6, border: "none", cursor: "pointer",
+                  background: "transparent", color: "#6B7280", fontSize: 12, fontWeight: 500,
+                }}
+                title="Voice input"
+              >
+                <Mic size={13} /> Voice
+              </button>
+            </>}
+          </div>
+
+          {/* ── Editor card ── */}
+          <div style={{
+            background: "white", border: "1px solid #E5E7EB",
+            borderRadius: "0 0 10px 10px", minHeight: 360,
+            padding: "20px 28px",
+          }}>
+            {editor && (
+              <BubbleMenu editor={editor} shouldShow={({ state }) => {
+                const { from, to } = state.selection;
+                return from !== to;
+              }}>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 2, padding: "6px 8px",
+                  background: "white", border: "1px solid #E5E7EB", borderRadius: 10,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                }}>
+                  <EditorToolBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold">
+                    <Bold size={12} />
+                  </EditorToolBtn>
+                  <EditorToolBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Italic">
+                    <Italic size={12} />
+                  </EditorToolBtn>
+                  <EditorToolBtn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Underline">
+                    <UnderlineIcon size={12} />
+                  </EditorToolBtn>
+                  <EditorToolBtn onClick={() => editor.chain().focus().toggleHighlight().run()} active={editor.isActive("highlight")} title="Highlight">
+                    <Highlighter size={12} />
+                  </EditorToolBtn>
+                </div>
+              </BubbleMenu>
+            )}
+            <EditorContent editor={editor} className="tiptap-editor" />
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
 export default function PagesSpacesPage() {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"spaces" | "space-detail">("spaces");
+  const [view, setView] = useState<"spaces" | "space-detail" | "page-editor">("spaces");
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [spacePages, setSpacePages] = useState<Page[]>([]);
   const [spacePagesLoading, setSpacePagesLoading] = useState(false);
 
@@ -1360,14 +1697,27 @@ export default function PagesSpacesPage() {
   const openSpace = (id: string) => {
     setSelectedSpaceId(id);
     setSelectedPageId(null);
+    setEditingPageId(null);
     setView("space-detail");
   };
 
+  const openPageEditor = (pageId: string, spaceId: string) => {
+    setSelectedSpaceId(spaceId);
+    setEditingPageId(pageId);
+    setSelectedPageId(null);
+    setView("page-editor");
+  };
+
   const goBack = () => {
+    if (view === "page-editor") {
+      setEditingPageId(null);
+      setView("space-detail");
+      return;
+    }
     setView("spaces");
     setSelectedSpaceId(null);
     setSelectedPageId(null);
-    // Refresh pages count
+    setEditingPageId(null);
     api.get<Page[]>("/pages").then(setPages).catch(console.error);
   };
 
@@ -1404,17 +1754,29 @@ export default function PagesSpacesPage() {
 
   const handleCreatePage = async (data: { title: string; spaceId: string; template: string }) => {
     const page = { id: uid(), title: data.title, spaceId: data.spaceId, template: data.template, content: "", emoji: "📄", parentId: null, isFavorite: false };
+    let created: Page = page as Page;
     try {
-      const created = await api.post<Page>("/pages", page);
-      if (data.spaceId === selectedSpaceId) setSpacePages(prev => [created, ...prev]);
-      setPages(prev => [created, ...prev]);
-    } catch {
-      if (data.spaceId === selectedSpaceId) setSpacePages(prev => [page as Page, ...prev]);
-      setPages(prev => [page as Page, ...prev]);
-    }
+      created = await api.post<Page>("/pages", page);
+    } catch { /* use optimistic */ }
+    setSpacePages(prev => (data.spaceId === selectedSpaceId ? [created, ...prev] : prev));
+    setPages(prev => [created, ...prev]);
     setShowCreatePage(false);
-    if (data.spaceId !== selectedSpaceId) openSpace(data.spaceId);
+    // Ensure spacePages are loaded for the target space before opening editor
+    if (data.spaceId !== selectedSpaceId) {
+      setSelectedSpaceId(data.spaceId);
+      try {
+        const sp = await api.get<Page[]>(`/pages?spaceId=${data.spaceId}`);
+        setSpacePages(sp.some(p => p.id === created.id) ? sp : [created, ...sp]);
+      } catch { setSpacePages([created]); }
+    }
+    openPageEditor(created.id, data.spaceId);
   };
+
+  const handlePageSave = useCallback((id: string, data: { title?: string; content?: string }) => {
+    const update = (prev: Page[]) => prev.map(p => p.id === id ? { ...p, ...data } : p);
+    setPages(update);
+    setSpacePages(update);
+  }, []);
 
   const handleFavoritePage = async (id: string) => {
     const update = (prev: Page[]) => prev.map(p => p.id === id ? { ...p, isFavorite: !p.isFavorite } : p);
@@ -1463,6 +1825,7 @@ export default function PagesSpacesPage() {
 
   const selectedSpace = spaces.find(s => s.id === selectedSpaceId);
   const selectedPage = spacePages.find(p => p.id === selectedPageId) ?? pages.find(p => p.id === selectedPageId);
+  const editingPage = spacePages.find(p => p.id === editingPageId) ?? pages.find(p => p.id === editingPageId);
 
   return (
     <>
@@ -1483,6 +1846,15 @@ export default function PagesSpacesPage() {
             onNewPage={() => { if (spaces.length > 0) setShowCreatePage(true); else setShowCreateSpace(true); }}
             onInviteCollaborators={setInvitingSpace}
           />
+        ) : view === "page-editor" && selectedSpace && editingPage ? (
+          <PageEditorView
+            page={editingPage}
+            space={selectedSpace}
+            spacePageCount={spacePages.length}
+            onBack={goBack}
+            onNewPage={() => setShowCreatePage(true)}
+            onPageSave={handlePageSave}
+          />
         ) : selectedSpace ? (
           <>
             <SpaceDetailView
@@ -1490,20 +1862,11 @@ export default function PagesSpacesPage() {
               pages={spacePages}
               onBack={goBack}
               onNewPage={() => setShowCreatePage(true)}
-              onPageClick={id => setSelectedPageId(prev => prev === id ? null : id)}
+              onPageClick={id => openPageEditor(id, selectedSpace.id)}
               onPageFavorite={handleFavoritePage}
               onPageDelete={handleDeletePage}
               selectedPageId={selectedPageId}
             />
-            {selectedPage && (
-              <PagePreviewPanel
-                page={selectedPage}
-                space={selectedSpace}
-                onClose={() => setSelectedPageId(null)}
-                onDelete={handleDeletePage}
-                onFavorite={handleFavoritePage}
-              />
-            )}
           </>
         ) : null}
 
