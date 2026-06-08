@@ -429,6 +429,8 @@ function WhiteboardCanvas({ board, saveStatus, onSaveStatusChange, onBoardUpdate
           <div style={{ width: "100%", height: "100%" }}>
             <ExcalidrawLazy
               key={board.id}
+              viewModeEnabled={false}
+              zenModeEnabled={false}
               excalidrawAPI={(apiFn: any) => { excalidrawRef.current = apiFn; }}
               initialData={{
                 elements: initialElements,
@@ -437,8 +439,6 @@ function WhiteboardCanvas({ board, saveStatus, onSaveStatusChange, onBoardUpdate
                   currentItemStrokeColor: strokeColor,
                   currentItemBackgroundColor: fillColor === "transparent" ? "transparent" : fillColor,
                   ...initialAppState,
-                  viewModeEnabled: false,
-                  zenModeEnabled: false,
                 },
                 scrollToContent: initialElements.length > 0,
               }}
