@@ -85,7 +85,27 @@ async function main() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS spaces (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        color TEXT NOT NULL DEFAULT '#7467F0',
+        is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
+        is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
     `);
+
+    console.log("Adding new columns if missing...");
+    await client.query(`
+      ALTER TABLE pages ADD COLUMN IF NOT EXISTS space_id TEXT;
+      ALTER TABLE pages ADD COLUMN IF NOT EXISTS template TEXT NOT NULL DEFAULT 'blank';
+      ALTER TABLE pages ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE;
+    `);
+
     console.log("✓ All tables created/verified successfully");
   } finally {
     client.release();

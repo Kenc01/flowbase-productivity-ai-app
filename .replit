@@ -64,3 +64,4 @@ build = ["bash", "-c", "pnpm install --no-frozen-lockfile && pnpm --filter @work
 [userenv.shared]
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_bmF0dXJhbC1zdGlua2J1Zy02MC5jbGVyay5hY2NvdW50cy5kZXYk"
 LIVEBLOCKS_PUBLIC_KEY = "pk_dev_bsEsC78f3VTqT71Rviot53qr0S6XspZIK2IMHeSKT9Ifj-TLBRa-VQCAJxv1RUdj"
+VITE_CLERK_PUBLISHABLE_KEY = "pk_test_bmF0dXJhbC1zdGlua2J1Zy02MC5jbGVyay5hY2NvdW50cy5kZXYk"

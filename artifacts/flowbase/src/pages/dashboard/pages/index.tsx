@@ -1,288 +1,1223 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { BookOpen, Plus, Trash2, ChevronRight, ChevronDown, FileText, Check, X } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  FolderOpen, Plus, Star, MoreHorizontal, Search, Grid3X3, List,
+  ChevronRight, FileText, ArrowLeft, X, Check, Folder, Archive,
+  Clock, Heart, Trash2, Edit3, Copy, Share2, Move, Download,
+  ChevronDown, Eye, MessageSquare, Link2
+} from "lucide-react";
 import { api } from "../../../lib/api";
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface Space {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  isFavorite: boolean;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Page {
   id: string;
+  spaceId: string | null;
   title: string;
   content: string;
   emoji: string;
+  template: string;
+  isFavorite: boolean;
   parentId: string | null;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-const PAGE_EMOJIS = ["📄","📝","📌","🗒️","📋","🗃️","📚","🔖","💡","🎯","🚀","⚡","🌟","🔧","🎨"];
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-function EmojiPicker({ value, onChange }: { value: string; onChange: (e: string) => void }) {
-  const [open, setOpen] = useState(false);
+const SPACE_COLORS = [
+  "#7467F0", "#0EA5E9", "#10B981", "#F59E0B",
+  "#F43F5E", "#8B5CF6", "#06B6D4", "#EC4899",
+];
+
+const TEMPLATE_LABELS: Record<string, string> = {
+  blank: "Blank Page",
+  project: "Project Plan",
+  meeting: "Meeting Notes",
+  prd: "PRD",
+  research: "Research Notes",
+  task: "Task Plan",
+};
+
+const SORT_OPTIONS = [
+  { value: "updated", label: "Recently Updated" },
+  { value: "name", label: "Name" },
+  { value: "pages", label: "Most Pages" },
+  { value: "favorites", label: "Favorites" },
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatRelativeTime(iso: string): string {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "yesterday";
+  if (d < 7) return `${d} days ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function colorLight(hex: string) {
+  return hex + "18";
+}
+
+// ─── Color Dot ────────────────────────────────────────────────────────────────
+
+function SpaceFolderIcon({ color, size = 28 }: { color: string; size?: number }) {
   return (
-    <div className="relative">
-      <button onClick={() => setOpen(o => !o)} className="text-2xl hover:scale-110 transition-transform">
-        {value}
-      </button>
-      {open && (
-        <div className="absolute top-9 left-0 z-50 p-2 rounded-xl shadow-xl grid grid-cols-5 gap-1"
-          style={{ background: "var(--fb-surface)", border: "1px solid var(--fb-border)" }}>
-          {PAGE_EMOJIS.map(e => (
-            <button key={e} onClick={() => { onChange(e); setOpen(false); }}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-base hover:bg-gray-100 transition-colors">
-              {e}
-            </button>
-          ))}
-        </div>
-      )}
+    <div style={{
+      width: size, height: size,
+      borderRadius: 8,
+      background: colorLight(color),
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0,
+    }}>
+      <FolderOpen size={size * 0.55} color={color} strokeWidth={2} />
     </div>
   );
 }
 
-function PageTreeItem({ page, pages, activeId, depth, expanded, onToggle, onSelect, onDelete, onAdd }: {
-  page: Page; pages: Page[]; activeId: string | null; depth: number;
-  expanded: Set<string>; onToggle: (id: string) => void;
-  onSelect: (id: string) => void; onDelete: (id: string) => void;
-  onAdd: (parentId: string) => void;
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+
+function Avatar({ initials, color = "#7467F0", size = 22 }: { initials: string; color?: string; size?: number }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      background: colorLight(color),
+      border: `2px solid white`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: size * 0.38, fontWeight: 600, color, flexShrink: 0,
+    }}>
+      {initials}
+    </div>
+  );
+}
+
+// ─── Badge ────────────────────────────────────────────────────────────────────
+
+function Badge({ label, color = "#7467F0" }: { label: string; color?: string }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center",
+      padding: "2px 8px", borderRadius: 99,
+      background: colorLight(color), color,
+      fontSize: 11, fontWeight: 500, whiteSpace: "nowrap",
+    }}>
+      {label}
+    </span>
+  );
+}
+
+// ─── Create Space Modal ───────────────────────────────────────────────────────
+
+function CreateSpaceModal({
+  onClose, onSave, initial,
+}: {
+  onClose: () => void;
+  onSave: (data: { name: string; description: string; color: string }) => void;
+  initial?: { name?: string; description?: string; color?: string };
 }) {
-  const children = pages.filter(p => p.parentId === page.id);
-  const isExpanded = expanded.has(page.id);
-  const isActive = page.id === activeId;
+  const [name, setName] = useState(initial?.name ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [color, setColor] = useState(initial?.color ?? SPACE_COLORS[0]);
 
-  return (
-    <div>
-      <div className="group flex items-center gap-1 px-2 py-1.5 rounded-lg cursor-pointer transition-all"
-        style={{
-          paddingLeft: `${8 + depth * 16}px`,
-          background: isActive ? "#EEF0FF" : "transparent",
-          color: isActive ? "#7467F0" : "var(--fb-text)",
-        }}
-        onClick={() => onSelect(page.id)}>
-        <button onClick={e => { e.stopPropagation(); onToggle(page.id); }}
-          className="w-4 h-4 flex items-center justify-center shrink-0 opacity-50 hover:opacity-100"
-          style={{ visibility: children.length > 0 ? "visible" : "hidden" }}>
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        </button>
-        <span className="text-sm mr-1">{page.emoji}</span>
-        <span className="flex-1 text-xs font-medium truncate">{page.title || "Untitled"}</span>
-        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity shrink-0">
-          <button onClick={e => { e.stopPropagation(); onAdd(page.id); }}
-            className="w-5 h-5 rounded flex items-center justify-center hover:bg-white"
-            title="Add sub-page">
-            <Plus size={9} />
-          </button>
-          <button onClick={e => { e.stopPropagation(); onDelete(page.id); }}
-            className="w-5 h-5 rounded flex items-center justify-center hover:bg-red-50"
-            style={{ color: "#F43F5E" }} title="Delete page">
-            <Trash2 size={9} />
-          </button>
-        </div>
-      </div>
-      {isExpanded && children.map(child => (
-        <PageTreeItem key={child.id} page={child} pages={pages} activeId={activeId} depth={depth + 1}
-          expanded={expanded} onToggle={onToggle} onSelect={onSelect} onDelete={onDelete} onAdd={onAdd} />
-      ))}
-    </div>
-  );
-}
-
-export default function PagesSpacesPage() {
-  const [pages, setPages] = useState<Page[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [saving, setSaving] = useState(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    api.get<Page[]>("/pages")
-      .then(data => {
-        setPages(data);
-        if (data.length > 0) setActiveId(data[0].id);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const activePage = pages.find(p => p.id === activeId) ?? null;
-  const rootPages = pages.filter(p => !p.parentId);
-
-  const createPage = useCallback(async (parentId: string | null = null) => {
-    const page: Page = { id: uid(), title: "Untitled Page", content: "", emoji: "📄", parentId };
-    setPages(prev => [...prev, page]);
-    setActiveId(page.id);
-    if (parentId) setExpanded(prev => new Set([...prev, parentId]));
-    try { await api.post("/pages", page); } catch (e) { console.error(e); }
-  }, []);
-
-  const deletePage = useCallback(async (id: string) => {
-    const deleteIds = new Set<string>();
-    const collect = (pid: string) => {
-      deleteIds.add(pid);
-      pages.filter(p => p.parentId === pid).forEach(p => collect(p.id));
-    };
-    collect(id);
-    setPages(prev => {
-      const remaining = prev.filter(p => !deleteIds.has(p.id));
-      setActiveId(prev => deleteIds.has(prev ?? "") ? (remaining[0]?.id ?? null) : prev);
-      return remaining;
-    });
-    try { await Promise.all([...deleteIds].map(did => api.delete(`/pages/${did}`))); } catch (e) { console.error(e); }
-  }, [pages]);
-
-  const updatePage = useCallback((id: string, patch: Partial<Page>) => {
-    setPages(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    setSaving(true);
-    saveTimer.current = setTimeout(async () => {
-      try {
-        const page = pages.find(p => p.id === id);
-        if (page) await api.put(`/pages/${id}`, { ...page, ...patch });
-      } catch (e) { console.error(e); }
-      setSaving(false);
-    }, 600);
-  }, [pages]);
-
-  const toggleExpand = (id: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSave({ name: name.trim(), description: description.trim(), color });
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full" style={{ background: "var(--fb-bg)" }}>
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: "#0EA5E922", borderTopColor: "#0EA5E9" }} />
-        <p className="text-sm" style={{ color: "var(--fb-text-muted)" }}>Loading pages…</p>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: "var(--fb-bg)" }}>
-
-      {/* ── Sidebar ─────────────────────────────────────────────── */}
-      <div className="w-60 shrink-0 flex flex-col border-r" style={{ borderColor: "var(--fb-border)", background: "var(--fb-surface)" }}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid var(--fb-border)" }}>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#E0F2FE" }}>
-              <BookOpen size={14} color="#0EA5E9" strokeWidth={2} />
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.35)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 24,
+    }} onClick={onClose}>
+      <div style={{
+        background: "white", borderRadius: 20, padding: 32, width: "100%", maxWidth: 460,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <SpaceFolderIcon color={color} size={36} />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36" }}>
+              {initial?.name ? "Edit Space" : "Create New Space"}
             </div>
-            <span className="text-sm font-semibold" style={{ color: "var(--fb-text)" }}>Pages</span>
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+              Organize your pages and documents
+            </div>
           </div>
-          <button onClick={() => createPage(null)}
-            className="w-6 h-6 rounded-full flex items-center justify-center transition-all hover:scale-110"
-            style={{ background: "#E0F2FE", color: "#0EA5E9" }}>
-            <Plus size={12} />
+          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, borderRadius: 6 }}>
+            <X size={18} />
           </button>
         </div>
 
-        {/* Tree */}
-        <div className="flex-1 overflow-y-auto py-2 px-1">
-          {rootPages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-12 px-3">
-              <FileText size={28} style={{ color: "var(--fb-border)" }} />
-              <p className="text-xs text-center" style={{ color: "var(--fb-text-muted)" }}>
-                No pages yet.{"\n"}Click + to create one.
-              </p>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+              Space Name *
+            </label>
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Work Projects"
+              style={{
+                width: "100%", padding: "10px 14px", borderRadius: 10,
+                border: "1.5px solid #e5e7eb", fontSize: 14, color: "#1a1f36",
+                outline: "none", boxSizing: "border-box",
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="What's this space for?"
+              rows={3}
+              style={{
+                width: "100%", padding: "10px 14px", borderRadius: 10,
+                border: "1.5px solid #e5e7eb", fontSize: 14, color: "#1a1f36",
+                outline: "none", resize: "none", boxSizing: "border-box",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>
+              Color
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {SPACE_COLORS.map(c => (
+                <button
+                  key={c} type="button"
+                  onClick={() => setColor(c)}
+                  style={{
+                    width: 28, height: 28, borderRadius: "50%",
+                    background: c, border: "none", cursor: "pointer",
+                    outline: color === c ? `3px solid ${c}` : "3px solid transparent",
+                    outlineOffset: 2, transition: "outline 0.15s",
+                  }}
+                />
+              ))}
             </div>
-          ) : rootPages.map(page => (
-            <PageTreeItem key={page.id} page={page} pages={pages} activeId={activeId} depth={0}
-              expanded={expanded} onToggle={toggleExpand} onSelect={setActiveId}
-              onDelete={deletePage} onAdd={parentId => createPage(parentId)} />
-          ))}
+          </div>
+          <button
+            type="submit"
+            disabled={!name.trim()}
+            style={{
+              marginTop: 8, padding: "11px 0", borderRadius: 12,
+              background: name.trim() ? "#7467F0" : "#e5e7eb",
+              color: name.trim() ? "white" : "#9ca3af",
+              border: "none", cursor: name.trim() ? "pointer" : "not-allowed",
+              fontSize: 14, fontWeight: 600, transition: "all 0.15s",
+            }}
+          >
+            {initial?.name ? "Save Changes" : "Create Space"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Create Page Modal ────────────────────────────────────────────────────────
+
+function CreatePageModal({
+  spaces, defaultSpaceId, onClose, onSave,
+}: {
+  spaces: Space[];
+  defaultSpaceId?: string;
+  onClose: () => void;
+  onSave: (data: { title: string; spaceId: string; template: string }) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [spaceId, setSpaceId] = useState(defaultSpaceId ?? spaces[0]?.id ?? "");
+  const [template, setTemplate] = useState("blank");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !spaceId) return;
+    onSave({ title: title.trim(), spaceId, template });
+  };
+
+  const selectStyle: React.CSSProperties = {
+    width: "100%", padding: "10px 14px", borderRadius: 10,
+    border: "1.5px solid #e5e7eb", fontSize: 14, color: "#1a1f36",
+    outline: "none", background: "white", boxSizing: "border-box",
+    appearance: "none", cursor: "pointer",
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.35)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 24,
+    }} onClick={onClose}>
+      <div style={{
+        background: "white", borderRadius: 20, padding: 32, width: "100%", maxWidth: 440,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <FileText size={18} color="#7467F0" />
+          </div>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36" }}>Create New Page</div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>Add a page to a space</div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, borderRadius: 6 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+              Page Name *
+            </label>
+            <input
+              autoFocus
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. Q4 Roadmap"
+              style={{
+                width: "100%", padding: "10px 14px", borderRadius: 10,
+                border: "1.5px solid #e5e7eb", fontSize: 14, color: "#1a1f36",
+                outline: "none", boxSizing: "border-box",
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+              Add to Space *
+            </label>
+            <select value={spaceId} onChange={e => setSpaceId(e.target.value)} style={selectStyle}>
+              {spaces.filter(s => !s.isArchived).map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+              Template
+            </label>
+            <select value={template} onChange={e => setTemplate(e.target.value)} style={selectStyle}>
+              {Object.entries(TEMPLATE_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit"
+            disabled={!title.trim() || !spaceId}
+            style={{
+              marginTop: 8, padding: "11px 0", borderRadius: 12,
+              background: title.trim() && spaceId ? "#7467F0" : "#e5e7eb",
+              color: title.trim() && spaceId ? "white" : "#9ca3af",
+              border: "none", cursor: title.trim() && spaceId ? "pointer" : "not-allowed",
+              fontSize: 14, fontWeight: 600, transition: "all 0.15s",
+            }}
+          >
+            Create Page
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page Preview Panel ───────────────────────────────────────────────────────
+
+function PagePreviewPanel({
+  page, space, onClose, onDelete, onFavorite,
+}: {
+  page: Page; space: Space | undefined;
+  onClose: () => void;
+  onDelete: (id: string) => void;
+  onFavorite: (id: string) => void;
+}) {
+  const templateColor: Record<string, string> = {
+    project: "#0EA5E9", meeting: "#10B981", prd: "#7467F0",
+    research: "#F59E0B", task: "#F43F5E", blank: "#6b7280",
+  };
+  const tc = templateColor[page.template] ?? "#6b7280";
+
+  const actions = [
+    { icon: Edit3, label: "Rename", color: "#374151" },
+    { icon: Move, label: "Move", color: "#374151" },
+    { icon: Copy, label: "Duplicate", color: "#374151" },
+    { icon: Share2, label: "Share", color: "#374151" },
+    { icon: Download, label: "Export", color: "#374151" },
+    { icon: Archive, label: "Archive", color: "#F59E0B" },
+    { icon: Trash2, label: "Delete", color: "#F43F5E", action: () => onDelete(page.id) },
+  ];
+
+  return (
+    <div style={{
+      width: 300, flexShrink: 0, borderLeft: "1px solid #e5e7eb",
+      background: "white", display: "flex", flexDirection: "column",
+      overflow: "hidden",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <span style={{ fontSize: 24 }}>{page.emoji}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1f36", lineHeight: 1.3, wordBreak: "break-word" }}>
+            {page.title || "Untitled"}
+          </div>
+          <Badge label={TEMPLATE_LABELS[page.template] ?? page.template} color={tc} />
+        </div>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 2, borderRadius: 6, flexShrink: 0 }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Meta */}
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid #f3f4f6", display: "flex", flexDirection: "column", gap: 10 }}>
+        {space && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <SpaceFolderIcon color={space.color} size={18} />
+            <span style={{ fontSize: 12, color: "#6b7280" }}>{space.name}</span>
+          </div>
+        )}
+        {page.content && (
+          <p style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5, margin: 0 }}>
+            {page.content.slice(0, 120)}{page.content.length > 120 ? "…" : ""}
+          </p>
+        )}
+        <div style={{ display: "flex", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#9ca3af", fontSize: 12 }}>
+            <MessageSquare size={13} />
+            <span>0 comments</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#9ca3af", fontSize: 12 }}>
+            <Link2 size={13} />
+            <span>0 tasks</span>
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: "#9ca3af" }}>
+          Edited {formatRelativeTime(page.updatedAt)}
+        </div>
+      </div>
+
+      {/* Favorite */}
+      <div style={{ padding: "10px 16px", borderBottom: "1px solid #f3f4f6" }}>
+        <button
+          onClick={() => onFavorite(page.id)}
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: "none", border: "none", cursor: "pointer",
+            color: page.isFavorite ? "#F59E0B" : "#6b7280", fontSize: 13, fontWeight: 500,
+            padding: "6px 10px", borderRadius: 8,
+            width: "100%",
+          }}
+        >
+          <Star size={14} fill={page.isFavorite ? "#F59E0B" : "none"} />
+          {page.isFavorite ? "Remove from favorites" : "Add to favorites"}
+        </button>
+      </div>
+
+      {/* Actions */}
+      <div style={{ padding: "10px 16px", flex: 1, overflowY: "auto" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+          Page Actions
+        </div>
+        {actions.map(({ icon: Icon, label, color, action }) => (
+          <button
+            key={label}
+            onClick={action}
+            style={{
+              display: "flex", alignItems: "center", gap: 9,
+              width: "100%", padding: "7px 10px", borderRadius: 8,
+              background: "none", border: "none", cursor: action ? "pointer" : "default",
+              color, fontSize: 13, fontWeight: 500, textAlign: "left",
+              transition: "background 0.1s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+            onMouseLeave={e => (e.currentTarget.style.background = "none")}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Space Card ───────────────────────────────────────────────────────────────
+
+function SpaceCard({
+  space, pageCount, onOpen, onFavorite, onEdit, onDelete, viewMode,
+}: {
+  space: Space; pageCount: number;
+  onOpen: () => void; onFavorite: () => void;
+  onEdit: () => void; onDelete: () => void;
+  viewMode: "grid" | "list";
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const menuItems = [
+    { icon: Edit3, label: "Rename Space", action: onEdit },
+    { icon: Plus, label: "Add Page", action: onOpen },
+    { icon: Trash2, label: "Delete Space", action: onDelete, danger: true },
+  ];
+
+  if (viewMode === "list") {
+    return (
+      <div
+        style={{
+          display: "flex", alignItems: "center", gap: 14,
+          padding: "12px 16px", borderRadius: 12,
+          border: "1px solid #e5e7eb", background: "white",
+          cursor: "pointer", transition: "box-shadow 0.15s",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)")}
+        onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
+        onClick={onOpen}
+      >
+        <SpaceFolderIcon color={space.color} size={36} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1f36", marginBottom: 2 }}>{space.name}</div>
+          <div style={{ fontSize: 12, color: "#9ca3af", truncate: true }}>{space.description || "No description"}</div>
+        </div>
+        <div style={{ fontSize: 12, color: "#6b7280", whiteSpace: "nowrap" }}>{pageCount} {pageCount === 1 ? "page" : "pages"}</div>
+        <div style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}>{formatRelativeTime(space.updatedAt)}</div>
+        <button onClick={e => { e.stopPropagation(); onFavorite(); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: space.isFavorite ? "#F59E0B" : "#d1d5db" }}>
+          <Star size={16} fill={space.isFavorite ? "#F59E0B" : "none"} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div
+        onClick={onOpen}
+        style={{
+          borderRadius: 16, border: "1px solid #e5e7eb", background: "white",
+          padding: 20, cursor: "pointer", transition: "all 0.15s",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.1)"; e.currentTarget.style.borderColor = "#d1d5db"; }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)"; e.currentTarget.style.borderColor = "#e5e7eb"; }}
+      >
+        {/* Top row */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+          <SpaceFolderIcon color={space.color} size={40} />
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <button
+              onClick={e => { e.stopPropagation(); onFavorite(); }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: space.isFavorite ? "#F59E0B" : "#d1d5db", borderRadius: 6, transition: "color 0.1s" }}
+            >
+              <Star size={16} fill={space.isFavorite ? "#F59E0B" : "none"} />
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#9ca3af", borderRadius: 6 }}
+            >
+              <MoreHorizontal size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Name & description */}
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1f36", marginBottom: 5, lineHeight: 1.3 }}>{space.name}</div>
+        <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5, marginBottom: 14, minHeight: 36 }}>
+          {space.description || "No description"}
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 shrink-0 text-xs" style={{ borderTop: "1px solid var(--fb-border)", color: "var(--fb-text-muted)" }}>
-          {pages.length} {pages.length === 1 ? "page" : "pages"}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid #f3f4f6" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Avatar initials="Me" color={space.color} size={22} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#6b7280", fontSize: 12 }}>
+              <FileText size={12} />
+              <span>{pageCount} {pageCount === 1 ? "page" : "pages"}</span>
+            </div>
+            <div style={{ fontSize: 11, color: "#9ca3af" }}>
+              {formatRelativeTime(space.updatedAt)}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Editor ──────────────────────────────────────────────── */}
-      {!activePage ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "#E0F2FE" }}>
-              <BookOpen size={28} color="#0EA5E9" strokeWidth={1.5} />
-            </div>
-            <div className="text-center">
-              <p className="text-base font-semibold mb-1" style={{ color: "var(--fb-text)" }}>No page selected</p>
-              <p className="text-xs" style={{ color: "var(--fb-text-muted)" }}>Select a page or create a new one.</p>
-            </div>
-            <button onClick={() => createPage(null)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
-              style={{ background: "#0EA5E9" }}>
-              <Plus size={15} /> New Page
-            </button>
+      {/* Dropdown Menu */}
+      {menuOpen && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setMenuOpen(false)} />
+          <div style={{
+            position: "absolute", top: 52, right: 8, zIndex: 100,
+            background: "white", borderRadius: 12, padding: "6px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb",
+            minWidth: 160,
+          }}>
+            {menuItems.map(({ icon: Icon, label, action, danger }) => (
+              <button
+                key={label}
+                onClick={e => { e.stopPropagation(); setMenuOpen(false); action(); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 9,
+                  width: "100%", padding: "8px 12px", borderRadius: 8,
+                  background: "none", border: "none", cursor: "pointer",
+                  color: danger ? "#F43F5E" : "#374151",
+                  fontSize: 13, fontWeight: 500, textAlign: "left",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+                onMouseLeave={e => (e.currentTarget.style.background = "none")}
+              >
+                <Icon size={14} />
+                {label}
+              </button>
+            ))}
           </div>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col min-h-0">
-
-          {/* Breadcrumb + toolbar */}
-          <div className="flex items-center gap-3 px-8 py-3 shrink-0" style={{ borderBottom: "1px solid var(--fb-border)" }}>
-            <FileText size={13} style={{ color: "var(--fb-text-muted)" }} />
-            {activePage.parentId && (
-              <>
-                <span className="text-xs" style={{ color: "var(--fb-text-muted)" }}>
-                  {pages.find(p => p.id === activePage.parentId)?.title ?? "Parent"}
-                </span>
-                <ChevronRight size={12} style={{ color: "var(--fb-text-muted)" }} />
-              </>
-            )}
-            <span className="text-xs font-medium" style={{ color: "var(--fb-text)" }}>{activePage.title}</span>
-            <div className="flex-1" />
-            {saving ? (
-              <span className="text-xs" style={{ color: "var(--fb-text-muted)" }}>Saving…</span>
-            ) : (
-              <span className="flex items-center gap-1 text-xs" style={{ color: "#10B981" }}>
-                <Check size={11} /> Saved
-              </span>
-            )}
-            <button onClick={() => createPage(activePage.id)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-blue-50"
-              style={{ color: "#0EA5E9", border: "1px solid #0EA5E922" }}>
-              <Plus size={11} /> Sub-page
-            </button>
-            <button onClick={() => deletePage(activePage.id)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors"
-              style={{ color: "#F43F5E", border: "1px solid #F43F5E22" }}>
-              <Trash2 size={11} /> Delete
-            </button>
-          </div>
-
-          {/* Editor area */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto px-12 py-10">
-
-              {/* Emoji + Title */}
-              <div className="flex items-start gap-4 mb-6">
-                <EmojiPicker value={activePage.emoji} onChange={e => updatePage(activePage.id, { emoji: e })} />
-                <input
-                  value={activePage.title}
-                  onChange={e => updatePage(activePage.id, { title: e.target.value })}
-                  placeholder="Untitled Page"
-                  className="flex-1 text-3xl font-bold outline-none bg-transparent"
-                  style={{ color: "var(--fb-text)" }}
-                />
-              </div>
-
-              {/* Content */}
-              <textarea
-                value={activePage.content}
-                onChange={e => updatePage(activePage.id, { content: e.target.value })}
-                placeholder={"Start writing your page…\n\nYou can use this as a wiki, documentation, or notes space."}
-                className="w-full outline-none resize-none bg-transparent text-sm leading-relaxed"
-                style={{ color: "var(--fb-text)", minHeight: "400px" }}
-              />
-            </div>
-          </div>
-        </div>
+        </>
       )}
     </div>
+  );
+}
+
+// ─── Space Detail View ────────────────────────────────────────────────────────
+
+function SpaceDetailView({
+  space, pages, onBack, onNewPage, onPageClick, onPageFavorite, onPageDelete, selectedPageId,
+}: {
+  space: Space; pages: Page[];
+  onBack: () => void;
+  onNewPage: () => void;
+  onPageClick: (id: string) => void;
+  onPageFavorite: (id: string) => void;
+  onPageDelete: (id: string) => void;
+  selectedPageId: string | null;
+}) {
+  const [search, setSearch] = useState("");
+
+  const templateColor: Record<string, string> = {
+    project: "#0EA5E9", meeting: "#10B981", prd: "#7467F0",
+    research: "#F59E0B", task: "#F43F5E", blank: "#6b7280",
+  };
+
+  const filtered = pages.filter(p =>
+    p.title.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ padding: "20px 28px 0", borderBottom: "1px solid #e5e7eb", background: "white", flexShrink: 0 }}>
+        {/* Breadcrumb */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, fontSize: 12, color: "#9ca3af" }}>
+          <button
+            onClick={onBack}
+            style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", color: "#7467F0", fontWeight: 500, fontSize: 12, padding: 0 }}
+          >
+            <ArrowLeft size={13} />
+            All Spaces
+          </button>
+          <ChevronRight size={12} />
+          <span style={{ color: "#1a1f36", fontWeight: 600 }}>{space.name}</span>
+        </div>
+
+        {/* Title row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+          <SpaceFolderIcon color={space.color} size={42} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#1a1f36" }}>{space.name}</div>
+            {space.description && (
+              <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 3 }}>{space.description}</div>
+            )}
+          </div>
+          <div style={{ display: "flex", items: "center", gap: 10 }}>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginRight: 8 }}>
+              {pages.length} {pages.length === 1 ? "page" : "pages"}
+            </div>
+            <button
+              onClick={onNewPage}
+              style={{
+                display: "flex", alignItems: "center", gap: 7,
+                padding: "9px 16px", borderRadius: 10,
+                background: "#7467F0", color: "white",
+                border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+              }}
+            >
+              <Plus size={15} />
+              New Page
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div style={{ position: "relative", marginBottom: 20, maxWidth: 340 }}>
+          <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search pages…"
+            style={{
+              width: "100%", padding: "8px 12px 8px 34px", borderRadius: 10,
+              border: "1.5px solid #e5e7eb", fontSize: 13, color: "#1a1f36",
+              outline: "none", background: "#f9fafb", boxSizing: "border-box",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Pages table */}
+      <div style={{ flex: 1, overflow: "auto", padding: "0 28px 24px" }}>
+        {filtered.length === 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "64px 0" }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <FileText size={24} color="#7467F0" />
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1f36", marginBottom: 4 }}>
+                {search ? "No pages found" : "No pages yet"}
+              </div>
+              <div style={{ fontSize: 13, color: "#9ca3af" }}>
+                {search ? "Try a different search" : "Create your first page in this space"}
+              </div>
+            </div>
+            {!search && (
+              <button
+                onClick={onNewPage}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  padding: "9px 18px", borderRadius: 10,
+                  background: "#7467F0", color: "white",
+                  border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                }}
+              >
+                <Plus size={15} /> Create Page
+              </button>
+            )}
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
+                {["Page Name", "Template", "Last Updated", "Favorite"].map(h => (
+                  <th key={h} style={{ padding: "12px 12px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(page => {
+                const tc = templateColor[page.template] ?? "#6b7280";
+                const isSelected = selectedPageId === page.id;
+                return (
+                  <tr
+                    key={page.id}
+                    onClick={() => onPageClick(page.id)}
+                    style={{
+                      borderBottom: "1px solid #f3f4f6", cursor: "pointer",
+                      background: isSelected ? "#fafafa" : "transparent",
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={e => !isSelected && (e.currentTarget.style.background = "#f9fafb")}
+                    onMouseLeave={e => !isSelected && (e.currentTarget.style.background = "transparent")}
+                  >
+                    <td style={{ padding: "14px 12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 18 }}>{page.emoji}</span>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: "#1a1f36" }}>{page.title || "Untitled"}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: "14px 12px" }}>
+                      <Badge label={TEMPLATE_LABELS[page.template] ?? page.template} color={tc} />
+                    </td>
+                    <td style={{ padding: "14px 12px" }}>
+                      <span style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}>{formatRelativeTime(page.updatedAt)}</span>
+                    </td>
+                    <td style={{ padding: "14px 12px" }}>
+                      <button
+                        onClick={e => { e.stopPropagation(); onPageFavorite(page.id); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: page.isFavorite ? "#F59E0B" : "#d1d5db", padding: 4 }}
+                      >
+                        <Star size={15} fill={page.isFavorite ? "#F59E0B" : "none"} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── All Spaces View ──────────────────────────────────────────────────────────
+
+function AllSpacesView({
+  spaces, pages,
+  onOpenSpace, onFavoriteSpace, onEditSpace, onDeleteSpace,
+  onNewSpace, onNewPage, loading,
+}: {
+  spaces: Space[]; pages: Page[];
+  onOpenSpace: (id: string) => void;
+  onFavoriteSpace: (id: string) => void;
+  onEditSpace: (space: Space) => void;
+  onDeleteSpace: (id: string) => void;
+  onNewSpace: () => void;
+  onNewPage: () => void;
+  loading: boolean;
+}) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "favorites" | "recent" | "archived">("all");
+  const [sort, setSort] = useState("updated");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [sortOpen, setSortOpen] = useState(false);
+
+  const pageCountForSpace = (spaceId: string) => pages.filter(p => p.spaceId === spaceId).length;
+
+  const filtered = spaces
+    .filter(s => {
+      if (filter === "favorites") return s.isFavorite && !s.isArchived;
+      if (filter === "archived") return s.isArchived;
+      if (filter === "recent") return !s.isArchived;
+      return !s.isArchived;
+    })
+    .filter(s => {
+      const q = search.toLowerCase();
+      return s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      if (sort === "name") return a.name.localeCompare(b.name);
+      if (sort === "pages") return pageCountForSpace(b.id) - pageCountForSpace(a.id);
+      if (sort === "favorites") return (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0);
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+
+  const tabs: { key: typeof filter; label: string; icon: React.ElementType }[] = [
+    { key: "all", label: "All Spaces", icon: FolderOpen },
+    { key: "favorites", label: "Favorites", icon: Star },
+    { key: "recent", label: "Recently Opened", icon: Clock },
+    { key: "archived", label: "Archived", icon: Archive },
+  ];
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ padding: "24px 28px 0", background: "white", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1a1f36", margin: 0 }}>All Spaces</h1>
+            <p style={{ fontSize: 13, color: "#9ca3af", margin: "4px 0 0" }}>
+              {spaces.filter(s => !s.isArchived).length} space{spaces.filter(s => !s.isArchived).length !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={onNewPage}
+              style={{
+                display: "flex", alignItems: "center", gap: 7,
+                padding: "9px 14px", borderRadius: 10,
+                border: "1.5px solid #e5e7eb", background: "white",
+                color: "#374151", cursor: "pointer", fontSize: 13, fontWeight: 600,
+              }}
+            >
+              <FileText size={14} />
+              New Page
+            </button>
+            <button
+              onClick={onNewSpace}
+              style={{
+                display: "flex", alignItems: "center", gap: 7,
+                padding: "9px 16px", borderRadius: 10,
+                background: "#7467F0", color: "white",
+                border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+              }}
+            >
+              <Plus size={15} />
+              New Space
+            </button>
+          </div>
+        </div>
+
+        {/* Search + controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 0 }}>
+          <div style={{ position: "relative", flex: 1, maxWidth: 380 }}>
+            <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search spaces or pages…"
+              style={{
+                width: "100%", padding: "9px 12px 9px 34px", borderRadius: 10,
+                border: "1.5px solid #e5e7eb", fontSize: 13, color: "#1a1f36",
+                outline: "none", background: "#f9fafb", boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {/* View toggle */}
+          <div style={{ display: "flex", border: "1.5px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+            {(["grid", "list"] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                style={{
+                  padding: "8px 12px", background: viewMode === mode ? "#7467F0" : "white",
+                  color: viewMode === mode ? "white" : "#6b7280",
+                  border: "none", cursor: "pointer", display: "flex", alignItems: "center",
+                  transition: "all 0.15s",
+                }}
+              >
+                {mode === "grid" ? <Grid3X3 size={15} /> : <List size={15} />}
+              </button>
+            ))}
+          </div>
+
+          {/* Sort */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setSortOpen(o => !o)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "8px 12px", borderRadius: 10,
+                border: "1.5px solid #e5e7eb", background: "white",
+                color: "#374151", cursor: "pointer", fontSize: 13,
+              }}
+            >
+              {SORT_OPTIONS.find(o => o.value === sort)?.label}
+              <ChevronDown size={13} />
+            </button>
+            {sortOpen && (
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setSortOpen(false)} />
+                <div style={{
+                  position: "absolute", top: 44, right: 0, zIndex: 100,
+                  background: "white", borderRadius: 12, padding: 6,
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb",
+                  minWidth: 180,
+                }}>
+                  {SORT_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { setSort(opt.value); setSortOpen(false); }}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        width: "100%", padding: "8px 12px", borderRadius: 8,
+                        background: "none", border: "none", cursor: "pointer",
+                        color: sort === opt.value ? "#7467F0" : "#374151",
+                        fontSize: 13, fontWeight: sort === opt.value ? 600 : 400,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                    >
+                      {opt.label}
+                      {sort === opt.value && <Check size={13} />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Filter tabs */}
+        <div style={{ display: "flex", gap: 0, marginTop: 16, borderBottom: "1px solid #e5e7eb" }}>
+          {tabs.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "10px 16px", background: "none", border: "none",
+                cursor: "pointer", fontSize: 13, fontWeight: filter === key ? 600 : 400,
+                color: filter === key ? "#7467F0" : "#6b7280",
+                borderBottom: `2px solid ${filter === key ? "#7467F0" : "transparent"}`,
+                marginBottom: -1, transition: "all 0.15s", whiteSpace: "nowrap",
+              }}
+            >
+              <Icon size={13} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflow: "auto", padding: "24px 28px" }}>
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid #EEF0FF", borderTopColor: "#7467F0", animation: "spin 0.8s linear infinite" }} />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "64px 0" }}>
+            <div style={{ width: 64, height: 64, borderRadius: 18, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <FolderOpen size={28} color="#7467F0" />
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36", marginBottom: 6 }}>
+                {search ? "No spaces found" : filter === "favorites" ? "No favorite spaces" : filter === "archived" ? "No archived spaces" : "No spaces yet"}
+              </div>
+              <div style={{ fontSize: 13, color: "#9ca3af" }}>
+                {search ? "Try a different search term" : "Create your first space to get started"}
+              </div>
+            </div>
+            {!search && filter === "all" && (
+              <button
+                onClick={onNewSpace}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  padding: "10px 20px", borderRadius: 12,
+                  background: "#7467F0", color: "white",
+                  border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
+                }}
+              >
+                <Plus size={15} /> Create Space
+              </button>
+            )}
+          </div>
+        ) : viewMode === "grid" ? (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: 16,
+          }}>
+            {filtered.map(space => (
+              <SpaceCard
+                key={space.id}
+                space={space}
+                pageCount={pageCountForSpace(space.id)}
+                viewMode="grid"
+                onOpen={() => onOpenSpace(space.id)}
+                onFavorite={() => onFavoriteSpace(space.id)}
+                onEdit={() => onEditSpace(space)}
+                onDelete={() => onDeleteSpace(space.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {filtered.map(space => (
+              <SpaceCard
+                key={space.id}
+                space={space}
+                pageCount={pageCountForSpace(space.id)}
+                viewMode="list"
+                onOpen={() => onOpenSpace(space.id)}
+                onFavorite={() => onFavoriteSpace(space.id)}
+                onEdit={() => onEditSpace(space)}
+                onDelete={() => onDeleteSpace(space.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Export ──────────────────────────────────────────────────────────────
+
+export default function PagesSpacesPage() {
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<"spaces" | "space-detail">("spaces");
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [spacePages, setSpacePages] = useState<Page[]>([]);
+  const [spacePagesLoading, setSpacePagesLoading] = useState(false);
+
+  const [showCreateSpace, setShowCreateSpace] = useState(false);
+  const [showCreatePage, setShowCreatePage] = useState(false);
+  const [editingSpace, setEditingSpace] = useState<Space | null>(null);
+
+  // Load spaces + all pages
+  useEffect(() => {
+    Promise.all([
+      api.get<Space[]>("/spaces"),
+      api.get<Page[]>("/pages"),
+    ]).then(([s, p]) => {
+      setSpaces(s);
+      setPages(p);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
+
+  // Load pages for selected space
+  useEffect(() => {
+    if (!selectedSpaceId) { setSpacePages([]); return; }
+    setSpacePagesLoading(true);
+    api.get<Page[]>(`/pages?spaceId=${selectedSpaceId}`)
+      .then(setSpacePages)
+      .catch(console.error)
+      .finally(() => setSpacePagesLoading(false));
+  }, [selectedSpaceId]);
+
+  const openSpace = (id: string) => {
+    setSelectedSpaceId(id);
+    setSelectedPageId(null);
+    setView("space-detail");
+  };
+
+  const goBack = () => {
+    setView("spaces");
+    setSelectedSpaceId(null);
+    setSelectedPageId(null);
+    // Refresh pages count
+    api.get<Page[]>("/pages").then(setPages).catch(console.error);
+  };
+
+  const handleCreateSpace = async (data: { name: string; description: string; color: string }) => {
+    const space = { id: uid(), ...data, isFavorite: false, isArchived: false };
+    try {
+      const created = await api.post<Space>("/spaces", space);
+      setSpaces(prev => [created, ...prev]);
+    } catch { setSpaces(prev => [space as Space, ...prev]); }
+    setShowCreateSpace(false);
+  };
+
+  const handleEditSpace = async (data: { name: string; description: string; color: string }) => {
+    if (!editingSpace) return;
+    const updated = { ...editingSpace, ...data };
+    setSpaces(prev => prev.map(s => s.id === editingSpace.id ? updated : s));
+    try { await api.put(`/spaces/${editingSpace.id}`, data); } catch (e) { console.error(e); }
+    setEditingSpace(null);
+  };
+
+  const handleFavoriteSpace = async (id: string) => {
+    setSpaces(prev => prev.map(s => s.id === id ? { ...s, isFavorite: !s.isFavorite } : s));
+    const space = spaces.find(s => s.id === id);
+    if (space) {
+      try { await api.put(`/spaces/${id}`, { ...space, isFavorite: !space.isFavorite }); } catch (e) { console.error(e); }
+    }
+  };
+
+  const handleDeleteSpace = async (id: string) => {
+    setSpaces(prev => prev.filter(s => s.id !== id));
+    try { await api.delete(`/spaces/${id}`); } catch (e) { console.error(e); }
+    if (selectedSpaceId === id) goBack();
+  };
+
+  const handleCreatePage = async (data: { title: string; spaceId: string; template: string }) => {
+    const page = { id: uid(), title: data.title, spaceId: data.spaceId, template: data.template, content: "", emoji: "📄", parentId: null, isFavorite: false };
+    try {
+      const created = await api.post<Page>("/pages", page);
+      if (data.spaceId === selectedSpaceId) setSpacePages(prev => [created, ...prev]);
+      setPages(prev => [created, ...prev]);
+    } catch {
+      if (data.spaceId === selectedSpaceId) setSpacePages(prev => [page as Page, ...prev]);
+      setPages(prev => [page as Page, ...prev]);
+    }
+    setShowCreatePage(false);
+    if (data.spaceId !== selectedSpaceId) openSpace(data.spaceId);
+  };
+
+  const handleFavoritePage = async (id: string) => {
+    const update = (prev: Page[]) => prev.map(p => p.id === id ? { ...p, isFavorite: !p.isFavorite } : p);
+    setSpacePages(update);
+    setPages(update);
+    const page = spacePages.find(p => p.id === id) ?? pages.find(p => p.id === id);
+    if (page) {
+      try { await api.put(`/pages/${id}`, { ...page, isFavorite: !page.isFavorite }); } catch (e) { console.error(e); }
+    }
+  };
+
+  const handleDeletePage = async (id: string) => {
+    setSpacePages(prev => prev.filter(p => p.id !== id));
+    setPages(prev => prev.filter(p => p.id !== id));
+    if (selectedPageId === id) setSelectedPageId(null);
+    try { await api.delete(`/pages/${id}`); } catch (e) { console.error(e); }
+  };
+
+  const selectedSpace = spaces.find(s => s.id === selectedSpaceId);
+  const selectedPage = spacePages.find(p => p.id === selectedPageId) ?? pages.find(p => p.id === selectedPageId);
+
+  return (
+    <>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ display: "flex", height: "100%", overflow: "hidden", background: "#f8fafc" }}>
+        {/* Main content */}
+        {view === "spaces" ? (
+          <AllSpacesView
+            spaces={spaces}
+            pages={pages}
+            loading={loading}
+            onOpenSpace={openSpace}
+            onFavoriteSpace={handleFavoriteSpace}
+            onEditSpace={setEditingSpace}
+            onDeleteSpace={handleDeleteSpace}
+            onNewSpace={() => setShowCreateSpace(true)}
+            onNewPage={() => { if (spaces.length > 0) setShowCreatePage(true); else setShowCreateSpace(true); }}
+          />
+        ) : selectedSpace ? (
+          <>
+            <SpaceDetailView
+              space={selectedSpace}
+              pages={spacePages}
+              onBack={goBack}
+              onNewPage={() => setShowCreatePage(true)}
+              onPageClick={id => setSelectedPageId(prev => prev === id ? null : id)}
+              onPageFavorite={handleFavoritePage}
+              onPageDelete={handleDeletePage}
+              selectedPageId={selectedPageId}
+            />
+            {selectedPage && (
+              <PagePreviewPanel
+                page={selectedPage}
+                space={selectedSpace}
+                onClose={() => setSelectedPageId(null)}
+                onDelete={handleDeletePage}
+                onFavorite={handleFavoritePage}
+              />
+            )}
+          </>
+        ) : null}
+
+        {/* Modals */}
+        {showCreateSpace && (
+          <CreateSpaceModal
+            onClose={() => setShowCreateSpace(false)}
+            onSave={handleCreateSpace}
+          />
+        )}
+        {editingSpace && (
+          <CreateSpaceModal
+            initial={editingSpace}
+            onClose={() => setEditingSpace(null)}
+            onSave={handleEditSpace}
+          />
+        )}
+        {showCreatePage && (
+          <CreatePageModal
+            spaces={spaces}
+            defaultSpaceId={selectedSpaceId ?? undefined}
+            onClose={() => setShowCreatePage(false)}
+            onSave={handleCreatePage}
+          />
+        )}
+      </div>
+    </>
   );
 }

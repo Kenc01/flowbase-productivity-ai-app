@@ -15,24 +15,39 @@ function requireUser(req: any, res: any): string | null {
 router.get("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const pages = await db.select().from(pagesTable).where(eq(pagesTable.userId, userId));
+  const { spaceId } = req.query as { spaceId?: string };
+  let query = db.select().from(pagesTable).where(eq(pagesTable.userId, userId));
+  const pages = await db.select().from(pagesTable).where(
+    spaceId
+      ? and(eq(pagesTable.userId, userId), eq(pagesTable.spaceId, spaceId))
+      : eq(pagesTable.userId, userId)
+  );
   res.json(pages);
 });
 
 router.post("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const { id, title, content, emoji, parentId } = req.body;
-  const [page] = await db.insert(pagesTable).values({ id, userId, title: title ?? "Untitled Page", content: content ?? "", emoji: emoji ?? "📄", parentId: parentId ?? null }).returning();
+  const { id, title, content, emoji, parentId, spaceId, template, isFavorite } = req.body;
+  const [page] = await db.insert(pagesTable).values({
+    id, userId,
+    title: title ?? "Untitled Page",
+    content: content ?? "",
+    emoji: emoji ?? "📄",
+    parentId: parentId ?? null,
+    spaceId: spaceId ?? null,
+    template: template ?? "blank",
+    isFavorite: isFavorite ?? false,
+  }).returning();
   res.status(201).json(page);
 });
 
 router.put("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const { title, content, emoji, parentId } = req.body;
+  const { title, content, emoji, parentId, spaceId, template, isFavorite } = req.body;
   const [page] = await db.update(pagesTable)
-    .set({ title, content, emoji, parentId })
+    .set({ title, content, emoji, parentId, spaceId, template, isFavorite })
     .where(and(eq(pagesTable.id, req.params.id), eq(pagesTable.userId, userId)))
     .returning();
   if (!page) return res.status(404).json({ error: "Not found" });
