@@ -670,6 +670,8 @@ export default function WhiteboardPage() {
                       currentItemStrokeColor: strokeColor,
                       currentItemBackgroundColor: fillColor === "transparent" ? "transparent" : fillColor,
                       ...initialAppState,
+                      viewModeEnabled: false,
+                      zenModeEnabled: false,
                     },
                     scrollToContent: initialElements.length > 0,
                   }}
