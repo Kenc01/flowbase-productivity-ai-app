@@ -3,14 +3,12 @@ import React, {
 } from "react";
 import {
   Plus, Trash2, Pencil, Check, X, Download, Sparkles,
-  MoreHorizontal, Clock, Loader2, Search, Star, StarOff,
-  Share2, ChevronDown, ChevronLeft, FolderPlus, LayoutGrid,
-  List, Undo2, Redo2,
+  MoreHorizontal, Loader2, StickyNote, Ellipsis,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import Sidebar from "@/components/Sidebar";
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────
 interface Whiteboard {
   id: string;
   title: string;
@@ -19,22 +17,23 @@ interface Whiteboard {
   appState: string;
   createdAt?: string;
   updatedAt?: string;
-  starred?: boolean;
 }
 type SaveStatus = "saved" | "saving" | "unsaved";
 
-// ─── Lazy Excalidraw ────────────────────────────────────────────────────────
+// ─── Lazy Excalidraw ─────────────────────────────────────────────────────────
 const ExcalidrawLazy = lazy(() =>
   import("@excalidraw/excalidraw").then((m) => ({ default: m.Excalidraw }))
 );
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function uid() {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);
   const s = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (s < 60) return "just now";
+  if (s < 60) return "Just now";
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
@@ -45,79 +44,111 @@ function timeAgo(dateStr?: string): string {
 }
 
 const BOARD_COLORS = [
-  "#7C3AED", "#4F46E5", "#0891B2", "#059669",
-  "#D97706", "#DC2626", "#DB2777", "#475569",
+  "#7C3AED","#4F46E5","#0891B2","#059669",
+  "#D97706","#DC2626","#DB2777","#475569",
 ];
 
-// ─── Board Thumbnail ────────────────────────────────────────────────────────
-function BoardThumbnail({ color, title }: { color: string; title: string }) {
-  const lines = [
-    { x: 12, y: 18, w: 40, h: 8, opacity: 0.7 },
-    { x: 12, y: 30, w: 30, h: 5, opacity: 0.5 },
-    { x: 12, y: 39, w: 35, h: 5, opacity: 0.5 },
-    { x: 58, y: 18, w: 28, h: 24, opacity: 0.6, rect: true },
-    { x: 12, y: 50, w: 20, h: 14, opacity: 0.4, rect: true },
-    { x: 36, y: 50, w: 18, h: 14, opacity: 0.4, rect: true },
-  ];
+// Color palettes
+const STROKE_COLORS = ["#1e1e1e","#e03131","#f08c00","#2f9e44","#1971c2","#7048e8","#c2255c","#343a40"];
+const FILL_COLORS   = ["#1e1e1e","#ffc9c9","#b2f2bb","#a5d8ff","#d0bfff","#fcc2d7","#fff9db","transparent"];
+const TEXT_COLORS   = ["#1e1e1e","#e03131","#f08c00","#2f9e44","#1971c2","#7048e8"];
+const STICKY_COLORS = [
+  { bg: "#fff9db", stroke: "#e9b50d" },
+  { bg: "#ffc9c9", stroke: "#e03131" },
+  { bg: "#b2f2bb", stroke: "#2f9e44" },
+  { bg: "#a5d8ff", stroke: "#1971c2" },
+  { bg: "#d0bfff", stroke: "#7048e8" },
+  { bg: "#f8f9fa", stroke: "#868e96" },
+  { bg: "#ffffff", stroke: "#ced4da" },
+];
+
+// ─── Color Swatch ─────────────────────────────────────────────────────────────
+function Swatch({
+  color, active, onClick, outline,
+}: {
+  color: string; active?: boolean; onClick: () => void; outline?: boolean;
+}) {
   return (
-    <div style={{
-      width: "100%", height: 60, borderRadius: 8, overflow: "hidden",
-      background: `linear-gradient(135deg, ${color}15, ${color}08)`,
-      border: `1px solid ${color}25`,
-      position: "relative", flexShrink: 0,
-    }}>
-      <svg width="100%" height="100%" viewBox="0 0 96 60" preserveAspectRatio="none">
-        {lines.map((l, i) =>
-          l.rect ? (
-            <rect key={i} x={l.x} y={l.y} width={l.w} height={l.h}
-              rx="3" fill={color} opacity={l.opacity} />
-          ) : (
-            <rect key={i} x={l.x} y={l.y} width={l.w} height={l.h}
-              rx="2" fill={color} opacity={l.opacity} />
-          )
-        )}
-        <circle cx="72" cy="48" r="6" fill={color} opacity="0.3" />
-        <line x1="58" y1="42" x2="66" y2="42" stroke={color} strokeWidth="1.5" opacity="0.5" />
-      </svg>
-      <div style={{
-        position: "absolute", bottom: 4, left: 6,
-        fontSize: 7, fontWeight: 600, color, opacity: 0.6,
-        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-        maxWidth: "calc(100% - 12px)",
-      }}>
-        {title}
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      title={color}
+      style={{
+        width: 18, height: 18, borderRadius: 4, cursor: "pointer",
+        border: active ? "2px solid #7C3AED" : `1.5px solid ${color === "transparent" ? "#ced4da" : color === "#ffffff" ? "#ced4da" : "rgba(0,0,0,0.15)"}`,
+        background: color === "transparent"
+          ? "repeating-conic-gradient(#e5e7eb 0% 25%, transparent 0% 50%) 0 0 / 8px 8px"
+          : color,
+        flexShrink: 0, outline: "none", padding: 0,
+        boxSizing: "border-box",
+        transform: active ? "scale(1.15)" : "scale(1)",
+        transition: "transform 0.12s",
+      }}
+    />
   );
 }
 
-// ─── Rename Input ───────────────────────────────────────────────────────────
-function RenameInput({ value, onSave, onCancel }: { value: string; onSave: (v: string) => void; onCancel: () => void }) {
+// ─── Sticky Color Swatch ──────────────────────────────────────────────────────
+function StickySwatch({
+  sc, onClick,
+}: {
+  sc: { bg: string; stroke: string }; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title="Add sticky note"
+      style={{
+        width: 20, height: 20, borderRadius: 4, cursor: "pointer",
+        background: sc.bg,
+        border: `1.5px solid ${sc.stroke}`,
+        flexShrink: 0, outline: "none", padding: 0,
+        transition: "transform 0.12s",
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.2)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+    />
+  );
+}
+
+// ─── Rename Input ─────────────────────────────────────────────────────────────
+function RenameInput({
+  value, onSave, onCancel,
+}: {
+  value: string; onSave: (v: string) => void; onCancel: () => void;
+}) {
   const [v, setV] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
   return (
-    <form onSubmit={(e) => { e.preventDefault(); if (v.trim()) onSave(v.trim()); }}
-      style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
-      <input ref={ref} value={v} onChange={(e) => setV(e.target.value)}
+    <form
+      onSubmit={(e) => { e.preventDefault(); if (v.trim()) onSave(v.trim()); }}
+      style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}
+    >
+      <input
+        ref={ref} value={v} onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
         style={{
           flex: 1, background: "var(--fb-surface)", border: "1px solid #7C3AED",
-          borderRadius: 6, padding: "3px 7px", fontSize: 13, color: "var(--fb-text)",
+          borderRadius: 5, padding: "2px 6px", fontSize: 13, color: "var(--fb-text)",
           outline: "none", minWidth: 0,
         }}
-        onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }} />
-      <button type="submit" style={{ padding: 3, cursor: "pointer", color: "#10b981", background: "none", border: "none", flexShrink: 0 }}>
-        <Check size={13} />
+      />
+      <button type="submit" style={{ padding: 2, cursor: "pointer", color: "#10b981", background: "none", border: "none" }}>
+        <Check size={12} />
       </button>
-      <button type="button" onClick={onCancel} style={{ padding: 3, cursor: "pointer", color: "var(--fb-muted)", background: "none", border: "none", flexShrink: 0 }}>
-        <X size={13} />
+      <button type="button" onClick={onCancel} style={{ padding: 2, cursor: "pointer", color: "var(--fb-muted)", background: "none", border: "none" }}>
+        <X size={12} />
       </button>
     </form>
   );
 }
 
-// ─── AI Dialog ─────────────────────────────────────────────────────────────
-function AIDialog({ onClose, onGenerate }: { onClose: () => void; onGenerate: (p: string) => Promise<void> }) {
+// ─── AI Dialog ───────────────────────────────────────────────────────────────
+function AIDialog({
+  onClose, onGenerate,
+}: {
+  onClose: () => void; onGenerate: (p: string) => Promise<void>;
+}) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -126,8 +157,6 @@ function AIDialog({ onClose, onGenerate }: { onClose: () => void; onGenerate: (p
     "User login flowchart with error handling and password reset",
     "Mind map of React ecosystem: hooks, routing, state, testing",
     "Microservices architecture for e-commerce platform",
-    "User onboarding journey from landing page to activation",
-    "Software release process with QA and deployment stages",
   ];
 
   async function handleSubmit(e: React.FormEvent) {
@@ -142,90 +171,79 @@ function AIDialog({ onClose, onGenerate }: { onClose: () => void; onGenerate: (p
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2000,
-      background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)",
+      background: "rgba(0,0,0,0.55)", backdropFilter: "blur(5px)",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       <div style={{
-        background: "var(--fb-card)", borderRadius: 18,
-        border: "1px solid var(--fb-border)", padding: 32,
-        width: "min(540px, 92vw)", boxShadow: "0 32px 80px rgba(0,0,0,0.5)",
+        background: "var(--fb-card)", borderRadius: 16,
+        border: "1px solid var(--fb-border)", padding: 28,
+        width: "min(520px, 90vw)", boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
           <div style={{
-            width: 40, height: 40, borderRadius: 12,
+            width: 36, height: 36, borderRadius: 10,
             background: "linear-gradient(135deg, #7C3AED, #4F46E5)",
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           }}>
-            <Sparkles size={20} color="#fff" />
+            <Sparkles size={17} color="#fff" />
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 17, color: "var(--fb-text)" }}>AI Diagram Generator</div>
-            <div style={{ fontSize: 12, color: "var(--fb-muted)", marginTop: 1 }}>Describe a diagram and AI will place it on your board</div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "var(--fb-text)" }}>AI Diagram Generator</div>
+            <div style={{ fontSize: 12, color: "var(--fb-muted)" }}>Describe a diagram and AI will draw it on your board</div>
           </div>
-          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--fb-muted)", padding: 6, borderRadius: 8 }}>
-            <X size={18} />
+          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--fb-muted)" }}>
+            <X size={17} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
-            placeholder='Describe your diagram… e.g. "User authentication flowchart with login, signup, and OAuth"'
-            rows={4}
+          <textarea
+            value={prompt} onChange={(e) => setPrompt(e.target.value)}
+            placeholder='e.g. "User authentication flowchart with login, signup, and OAuth"'
+            rows={3}
             style={{
               width: "100%", background: "var(--fb-surface)", border: "1.5px solid var(--fb-border)",
-              borderRadius: 12, padding: "12px 14px", fontSize: 14, color: "var(--fb-text)",
+              borderRadius: 10, padding: "10px 12px", fontSize: 13.5, color: "var(--fb-text)",
               resize: "vertical", outline: "none", fontFamily: "inherit", boxSizing: "border-box",
-              lineHeight: 1.5,
             }}
             onFocus={(e) => { e.target.style.borderColor = "#7C3AED"; }}
-            onBlur={(e) => { e.target.style.borderColor = "var(--fb-border)"; }} />
-
-          <div style={{ margin: "14px 0 18px" }}>
-            <div style={{ fontSize: 11, color: "var(--fb-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
-              Quick prompts
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {SUGGESTIONS.slice(0, 3).map((s) => (
-                <button key={s} type="button" onClick={() => setPrompt(s)}
-                  style={{
-                    background: "var(--fb-surface)", border: "1px solid var(--fb-border)",
-                    borderRadius: 8, padding: "7px 12px", fontSize: 12.5, color: "var(--fb-muted)",
-                    cursor: "pointer", textAlign: "left", transition: "all 0.15s",
-                  }}
-                  onMouseEnter={(e) => { const t = e.currentTarget; t.style.borderColor = "#7C3AED"; t.style.color = "var(--fb-text)"; t.style.background = "#7C3AED10"; }}
-                  onMouseLeave={(e) => { const t = e.currentTarget; t.style.borderColor = "var(--fb-border)"; t.style.color = "var(--fb-muted)"; t.style.background = "var(--fb-surface)"; }}>
-                  {s}
-                </button>
-              ))}
-            </div>
+            onBlur={(e) => { e.target.style.borderColor = "var(--fb-border)"; }}
+          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, margin: "12px 0 16px" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--fb-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Quick prompts</div>
+            {SUGGESTIONS.map((s) => (
+              <button key={s} type="button" onClick={() => setPrompt(s)}
+                style={{
+                  background: "var(--fb-surface)", border: "1px solid var(--fb-border)",
+                  borderRadius: 7, padding: "6px 10px", fontSize: 12.5, color: "var(--fb-muted)",
+                  cursor: "pointer", textAlign: "left",
+                }}
+                onMouseEnter={(e) => { const t = e.currentTarget; t.style.borderColor = "#7C3AED"; t.style.color = "var(--fb-text)"; }}
+                onMouseLeave={(e) => { const t = e.currentTarget; t.style.borderColor = "var(--fb-border)"; t.style.color = "var(--fb-muted)"; }}>
+                {s}
+              </button>
+            ))}
           </div>
-
           {error && (
-            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "9px 13px", fontSize: 13, color: "#dc2626", marginBottom: 14 }}>
+            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, padding: "8px 12px", fontSize: 12.5, color: "#dc2626", marginBottom: 12 }}>
               {error}
             </div>
           )}
-
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 8 }}>
             <button type="button" onClick={onClose}
-              style={{
-                flex: 1, padding: "11px 16px", borderRadius: 10,
-                background: "var(--fb-surface)", border: "1px solid var(--fb-border)",
-                color: "var(--fb-text)", fontSize: 14, cursor: "pointer", fontWeight: 500,
-              }}>
+              style={{ flex: 1, padding: "9px 14px", borderRadius: 9, background: "var(--fb-surface)", border: "1px solid var(--fb-border)", color: "var(--fb-text)", fontSize: 13.5, cursor: "pointer", fontWeight: 500 }}>
               Cancel
             </button>
             <button type="submit" disabled={loading || !prompt.trim()}
               style={{
-                flex: 2, padding: "11px 16px", borderRadius: 10,
+                flex: 2, padding: "9px 14px", borderRadius: 9,
                 background: loading || !prompt.trim() ? "#7C3AED60" : "linear-gradient(135deg, #7C3AED, #4F46E5)",
-                border: "none", color: "#fff", fontSize: 14, cursor: loading ? "wait" : "pointer",
-                fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                transition: "opacity 0.15s",
+                border: "none", color: "#fff", fontSize: 13.5, cursor: loading ? "wait" : "pointer",
+                fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
               }}>
               {loading
-                ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Generating…</>
-                : <><Sparkles size={15} /> Generate Diagram</>}
+                ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />Generating…</>
+                : <><Sparkles size={14} />Generate Diagram</>}
             </button>
           </div>
         </form>
@@ -234,7 +252,7 @@ function AIDialog({ onClose, onGenerate }: { onClose: () => void; onGenerate: (p
   );
 }
 
-// ─── Main ───────────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function WhiteboardPage() {
   const [boards, setBoards] = useState<Whiteboard[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -243,42 +261,41 @@ export default function WhiteboardPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showAI, setShowAI] = useState(false);
-  const [search, setSearch] = useState("");
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const [panelOpen, setPanelOpen] = useState(true);
+
+  // Active color selections
+  const [strokeColor, setStrokeColor] = useState(STROKE_COLORS[0]);
+  const [fillColor, setFillColor] = useState("transparent");
+  const [textColor, setTextColor] = useState(STROKE_COLORS[0]);
 
   const excalidrawRef = useRef<any>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedElements = useRef<string>("[]");
+  const lastSavedJson = useRef<string>("[]");
 
   const activeBoard = boards.find((b) => b.id === activeId) ?? null;
-  const filteredBoards = boards.filter((b) =>
-    b.title.toLowerCase().includes(search.toLowerCase())
-  );
 
-  // ── Load ────────────────────────────────────────────────────────────────
+  // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     api.get<Whiteboard[]>("/whiteboards").then((data) => {
-      const sorted = [...data].sort((a, b) =>
-        new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime()
+      const sorted = [...data].sort(
+        (a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime()
       );
       setBoards(sorted);
       if (sorted.length > 0) {
         setActiveId(sorted[0].id);
-        lastSavedElements.current = sorted[0].elements ?? "[]";
+        lastSavedJson.current = sorted[0].elements ?? "[]";
       }
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
 
-  // ── Create ──────────────────────────────────────────────────────────────
+  // ── Create ────────────────────────────────────────────────────────────────
   const createBoard = useCallback(async () => {
     const id = uid();
     const color = BOARD_COLORS[Math.floor(Math.random() * BOARD_COLORS.length)];
-    const nb: Whiteboard = { id, title: "Untitled Board", color, elements: "[]", appState: "{}" };
+    const nb: Whiteboard = { id, title: "Untitled whiteboard", color, elements: "[]", appState: "{}" };
     setBoards((prev) => [nb, ...prev]);
     setActiveId(id);
-    lastSavedElements.current = "[]";
+    lastSavedJson.current = "[]";
     setSaveStatus("saving");
     try {
       const saved = await api.post<Whiteboard>("/whiteboards", nb);
@@ -287,25 +304,25 @@ export default function WhiteboardPage() {
     } catch { setSaveStatus("unsaved"); }
   }, []);
 
-  // ── Delete ──────────────────────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────────────────────────
   const deleteBoard = useCallback(async (id: string) => {
     setBoards((prev) => {
       const next = prev.filter((b) => b.id !== id);
-      if (activeId === id) { setActiveId(next[0]?.id ?? null); }
+      if (activeId === id) setActiveId(next[0]?.id ?? null);
       return next;
     });
     setMenuOpenId(null);
     await api.delete(`/whiteboards/${id}`).catch(() => {});
   }, [activeId]);
 
-  // ── Rename ──────────────────────────────────────────────────────────────
+  // ── Rename ────────────────────────────────────────────────────────────────
   const renameBoard = useCallback(async (id: string, title: string) => {
     setBoards((prev) => prev.map((b) => b.id === id ? { ...b, title } : b));
     setRenamingId(null);
     await api.put(`/whiteboards/${id}`, { title }).catch(() => {});
   }, []);
 
-  // ── Save (debounced) ────────────────────────────────────────────────────
+  // ── Auto-save (debounced) ─────────────────────────────────────────────────
   const scheduleSave = useCallback((id: string, elemJson: string, asJson: string) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaveStatus("unsaved");
@@ -313,8 +330,10 @@ export default function WhiteboardPage() {
       setSaveStatus("saving");
       try {
         await api.put(`/whiteboards/${id}`, { elements: elemJson, appState: asJson });
-        lastSavedElements.current = elemJson;
-        setBoards((prev) => prev.map((b) => b.id === id ? { ...b, elements: elemJson, updatedAt: new Date().toISOString() } : b));
+        lastSavedJson.current = elemJson;
+        setBoards((prev) => prev.map((b) =>
+          b.id === id ? { ...b, elements: elemJson, updatedAt: new Date().toISOString() } : b
+        ));
         setSaveStatus("saved");
       } catch { setSaveStatus("unsaved"); }
     }, 1800);
@@ -323,11 +342,71 @@ export default function WhiteboardPage() {
   const handleChange = useCallback((elements: readonly any[], appState: any) => {
     if (!activeId) return;
     const json = JSON.stringify(elements);
-    if (json === lastSavedElements.current) { setSaveStatus("saved"); return; }
-    scheduleSave(activeId, json, JSON.stringify({ zoom: appState.zoom, scrollX: appState.scrollX, scrollY: appState.scrollY }));
+    if (json === lastSavedJson.current) { setSaveStatus("saved"); return; }
+    scheduleSave(
+      activeId, json,
+      JSON.stringify({ zoom: appState.zoom, scrollX: appState.scrollX, scrollY: appState.scrollY })
+    );
   }, [activeId, scheduleSave]);
 
-  // ── Export PNG ──────────────────────────────────────────────────────────
+  // ── Color → Excalidraw ────────────────────────────────────────────────────
+  const applyStroke = useCallback((color: string) => {
+    setStrokeColor(color);
+    excalidrawRef.current?.updateScene({ appState: { currentItemStrokeColor: color } });
+  }, []);
+  const applyFill = useCallback((color: string) => {
+    setFillColor(color);
+    excalidrawRef.current?.updateScene({
+      appState: {
+        currentItemBackgroundColor: color === "transparent" ? "transparent" : color,
+        currentItemFillStyle: color === "transparent" ? "solid" : "solid",
+      },
+    });
+  }, []);
+  const applyText = useCallback((color: string) => {
+    setTextColor(color);
+    excalidrawRef.current?.updateScene({ appState: { currentItemStrokeColor: color } });
+  }, []);
+
+  // ── Add Sticky Note ───────────────────────────────────────────────────────
+  const addSticky = useCallback((sc: { bg: string; stroke: string }) => {
+    if (!excalidrawRef.current) return;
+    const existing = excalidrawRef.current.getSceneElements() ?? [];
+    const appState = excalidrawRef.current.getAppState();
+    const cx = (appState.scrollX ?? 0) * -1 + 300;
+    const cy = (appState.scrollY ?? 0) * -1 + 200;
+    const sticky = {
+      id: uid(),
+      type: "rectangle" as const,
+      x: cx + Math.random() * 40 - 20,
+      y: cy + Math.random() * 40 - 20,
+      width: 160,
+      height: 120,
+      angle: 0,
+      strokeColor: sc.stroke,
+      backgroundColor: sc.bg,
+      fillStyle: "solid" as const,
+      strokeWidth: 1,
+      strokeStyle: "solid" as const,
+      roughness: 0,
+      opacity: 100,
+      groupIds: [],
+      roundness: { type: 3 },
+      isDeleted: false,
+      boundElements: [],
+      updated: Date.now(),
+      link: null,
+      locked: false,
+      frameId: null,
+      seed: Math.floor(Math.random() * 100000),
+      version: 1,
+      versionNonce: Math.floor(Math.random() * 100000),
+      index: `a${existing.length}`,
+    };
+    excalidrawRef.current.updateScene({ elements: [...existing, sticky] });
+  }, []);
+
+  // ── Export PNG ────────────────────────────────────────────────────────────
   const exportPNG = useCallback(async () => {
     if (!excalidrawRef.current) return;
     try {
@@ -348,18 +427,18 @@ export default function WhiteboardPage() {
     } catch (err) { console.error("Export failed:", err); }
   }, [activeBoard]);
 
-  // ── AI Generate ─────────────────────────────────────────────────────────
+  // ── AI Generate ───────────────────────────────────────────────────────────
   const generateDiagram = useCallback(async (prompt: string) => {
     const data = await api.post<{ elements: any[]; title: string }>("/ai-diagram", { prompt });
     if (!excalidrawRef.current) return;
     const existing = excalidrawRef.current.getSceneElements() ?? [];
-    const shifted = data.elements.map((el: any) => ({ ...el, x: el.x + 120, y: el.y + (existing.length > 0 ? 80 : 0) }));
+    const shifted = data.elements.map((el: any) => ({ ...el, x: el.x + 80, y: el.y + 80 }));
     excalidrawRef.current.updateScene({ elements: [...existing, ...shifted] });
   }, []);
 
   const switchBoard = useCallback((board: Whiteboard) => {
     setActiveId(board.id);
-    lastSavedElements.current = board.elements ?? "[]";
+    lastSavedJson.current = board.elements ?? "[]";
     setMenuOpenId(null);
   }, []);
 
@@ -373,11 +452,11 @@ export default function WhiteboardPage() {
     try { return JSON.parse(activeBoard.appState); } catch { return {}; }
   }, [activeBoard?.id]);
 
+  // Close menu on outside click
   useEffect(() => {
     if (!menuOpenId) return;
     const close = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (!t.closest("[data-menu]")) setMenuOpenId(null);
+      if (!(e.target as HTMLElement).closest("[data-menu]")) setMenuOpenId(null);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -390,243 +469,193 @@ export default function WhiteboardPage() {
       {/* ── App Sidebar ── */}
       <Sidebar />
 
-      {/* ── Whiteboard List Panel ── */}
+      {/* ── Board List Panel ── */}
       <div style={{
-        width: panelOpen ? 240 : 0,
-        minWidth: panelOpen ? 240 : 0,
-        maxWidth: panelOpen ? 240 : 0,
-        overflow: "hidden",
-        transition: "all 0.22s cubic-bezier(.4,0,.2,1)",
+        width: 220, flexShrink: 0,
         borderRight: "1px solid var(--fb-border)",
         display: "flex", flexDirection: "column",
         background: "var(--fb-card)",
-        flexShrink: 0,
+        overflow: "hidden",
       }}>
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-
-          {/* Panel header */}
-          <div style={{ padding: "14px 14px 10px", borderBottom: "1px solid var(--fb-border)", flexShrink: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={{ fontWeight: 700, fontSize: 13, color: "var(--fb-text)" }}>Your Whiteboards</span>
-              <div style={{ display: "flex", gap: 2 }}>
-                <button
-                  onClick={() => setViewMode(v => v === "list" ? "grid" : "list")}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--fb-muted)", padding: 4, borderRadius: 6 }}
-                  title={viewMode === "list" ? "Grid view" : "List view"}>
-                  {viewMode === "list" ? <LayoutGrid size={14} /> : <List size={14} />}
-                </button>
-              </div>
-            </div>
-
-            {/* New board button */}
-            <button onClick={createBoard}
+        {/* Panel header */}
+        <div style={{ padding: "16px 14px 10px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+            <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--fb-text)" }}>Whiteboards</span>
+            <button
+              onClick={createBoard}
               style={{
-                width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                display: "flex", alignItems: "center", gap: 4,
                 background: "linear-gradient(135deg, #7C3AED, #4F46E5)",
-                border: "none", borderRadius: 9, padding: "8px 14px",
-                color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
-                marginBottom: 10, boxShadow: "0 2px 8px #7C3AED30",
+                border: "none", borderRadius: 7, padding: "4px 10px",
+                color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
               }}>
-              <Plus size={14} /> New Whiteboard
+              <Plus size={12} /> New
             </button>
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--fb-muted)", marginBottom: 10 }}>
+            {boards.length} {boards.length === 1 ? "board" : "boards"}
+          </div>
+        </div>
 
-            {/* Search */}
-            <div style={{ position: "relative" }}>
-              <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--fb-muted)" }} />
-              <input
-                value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search whiteboards…"
-                style={{
-                  width: "100%", background: "var(--fb-surface)", border: "1px solid var(--fb-border)",
-                  borderRadius: 8, padding: "6px 10px 6px 28px", fontSize: 12.5,
-                  color: "var(--fb-text)", outline: "none", boxSizing: "border-box",
-                }}
-                onFocus={(e) => { e.target.style.borderColor = "#7C3AED"; }}
-                onBlur={(e) => { e.target.style.borderColor = "var(--fb-border)"; }} />
+        {/* Board list */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 8px" }}>
+          {loading ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: 24 }}>
+              <Loader2 size={18} style={{ animation: "spin 1s linear infinite", color: "var(--fb-muted)" }} />
             </div>
-          </div>
-
-          {/* Boards list */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "8px 8px" }}>
-            {loading ? (
-              <div style={{ display: "flex", justifyContent: "center", padding: 32 }}>
-                <Loader2 size={20} style={{ animation: "spin 1s linear infinite", color: "var(--fb-muted)" }} />
-              </div>
-            ) : filteredBoards.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "28px 12px", color: "var(--fb-muted)", fontSize: 12.5 }}>
-                <div style={{ fontSize: 30, marginBottom: 8 }}>🎨</div>
-                {search ? "No boards match your search." : "No whiteboards yet.\nCreate one to start!"}
-              </div>
-            ) : (
-              <>
-                <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--fb-muted)", padding: "4px 4px 6px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  RECENT
-                </div>
-                {viewMode === "grid" ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    {filteredBoards.map((board) => (
-                      <BoardGridItem key={board.id} board={board} isActive={board.id === activeId}
-                        onSelect={() => switchBoard(board)}
-                        onRename={() => setRenamingId(board.id)}
-                        onDelete={() => deleteBoard(board.id)}
-                        menuOpen={menuOpenId === board.id}
-                        onMenuToggle={() => setMenuOpenId(menuOpenId === board.id ? null : board.id)} />
-                    ))}
-                  </div>
-                ) : (
-                  filteredBoards.map((board) => (
-                    <BoardListItem key={board.id} board={board} isActive={board.id === activeId}
-                      isRenaming={renamingId === board.id}
-                      onSelect={() => switchBoard(board)}
-                      onRenameStart={() => setRenamingId(board.id)}
-                      onRenameSave={(t) => renameBoard(board.id, t)}
-                      onRenameCancel={() => setRenamingId(null)}
-                      onDelete={() => deleteBoard(board.id)}
-                      menuOpen={menuOpenId === board.id}
-                      onMenuToggle={() => setMenuOpenId(menuOpenId === board.id ? null : board.id)} />
-                  ))
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Panel footer */}
-          <div style={{ borderTop: "1px solid var(--fb-border)", padding: "10px 12px" }}>
-            <button style={{
-              display: "flex", alignItems: "center", gap: 7, background: "none", border: "none",
-              cursor: "pointer", color: "var(--fb-muted)", fontSize: 12.5, padding: "4px 0",
-            }}>
-              <FolderPlus size={14} /> New Folder
-            </button>
-          </div>
+          ) : boards.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "20px 12px", color: "var(--fb-muted)", fontSize: 12.5 }}>
+              No whiteboards yet.<br />Create one to start!
+            </div>
+          ) : (
+            boards.map((board) => (
+              <BoardItem
+                key={board.id}
+                board={board}
+                isActive={board.id === activeId}
+                isRenaming={renamingId === board.id}
+                onSelect={() => switchBoard(board)}
+                onRenameStart={() => setRenamingId(board.id)}
+                onRenameSave={(t) => renameBoard(board.id, t)}
+                onRenameCancel={() => setRenamingId(null)}
+                onDelete={() => deleteBoard(board.id)}
+                menuOpen={menuOpenId === board.id}
+                onMenuToggle={() => setMenuOpenId(menuOpenId === board.id ? null : board.id)}
+              />
+            ))
+          )}
         </div>
       </div>
 
       {/* ── Canvas Area ── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
 
-        {/* Top Bar */}
+        {/* ── Title bar ── */}
         <div style={{
-          height: 52, display: "flex", alignItems: "center",
-          padding: "0 14px", borderBottom: "1px solid var(--fb-border)",
+          height: 40, display: "flex", alignItems: "center",
+          padding: "0 16px", borderBottom: "1px solid var(--fb-border)",
           background: "var(--fb-card)", gap: 8, flexShrink: 0,
         }}>
-          {/* Toggle panel */}
-          <button onClick={() => setPanelOpen(o => !o)}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              color: "var(--fb-muted)", padding: 5, borderRadius: 7,
-              display: "flex", alignItems: "center",
-            }}>
-            <ChevronLeft size={16} style={{ transform: panelOpen ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }} />
-          </button>
-
-          <div style={{ width: 1, height: 20, background: "var(--fb-border)" }} />
-
-          {/* Board info */}
           {activeBoard ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-              <div style={{
-                width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                background: `linear-gradient(135deg, ${activeBoard.color}, ${activeBoard.color}99)`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <svg viewBox="0 0 20 20" width="12" height="12" fill="none">
-                  <rect x="3" y="3" width="6" height="6" rx="1.5" fill="white" opacity="0.9" />
-                  <rect x="11" y="3" width="6" height="6" rx="1.5" fill="white" opacity="0.6" />
-                  <rect x="3" y="11" width="6" height="6" rx="1.5" fill="white" opacity="0.6" />
-                  <rect x="11" y="11" width="6" height="6" rx="1.5" fill="white" opacity="0.3" />
-                </svg>
-              </div>
+            <>
               <span style={{
-                fontWeight: 600, fontSize: 14, color: "var(--fb-text)",
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              }}>
+                width: 8, height: 8, borderRadius: "50%",
+                background: "#22c55e", flexShrink: 0,
+              }} />
+              <span style={{ fontWeight: 600, fontSize: 13.5, color: "var(--fb-text)" }}>
                 {activeBoard.title}
               </span>
-
-              {/* Save status */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "var(--fb-muted)", flexShrink: 0 }}>
-                {saveStatus === "saving" && <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> Saving…</>}
-                {saveStatus === "saved" && <>· Last saved {timeAgo(activeBoard.updatedAt)}</>}
-                {saveStatus === "unsaved" && <>· Unsaved changes</>}
-              </div>
-            </div>
+              <span style={{ fontSize: 12, color: "var(--fb-muted)" }}>
+                {saveStatus === "saving" && "Saving..."}
+                {saveStatus === "saved" && ""}
+                {saveStatus === "unsaved" && "Unsaved changes"}
+              </span>
+            </>
           ) : (
-            <div style={{ flex: 1, fontSize: 14, color: "var(--fb-muted)" }}>No board selected</div>
-          )}
-
-          {/* Spacer */}
-          <div style={{ flex: 1 }} />
-
-          {/* Actions */}
-          {activeBoard && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button onClick={() => setShowAI(true)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  background: "linear-gradient(135deg, #7C3AED, #4F46E5)",
-                  border: "none", borderRadius: 9, padding: "6px 14px",
-                  color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  boxShadow: "0 2px 8px #7C3AED30",
-                }}>
-                <Sparkles size={13} /> AI Diagram
-              </button>
-
-              <button onClick={exportPNG}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  background: "var(--fb-surface)", border: "1px solid var(--fb-border)",
-                  borderRadius: 9, padding: "6px 12px",
-                  color: "var(--fb-text)", fontSize: 13, fontWeight: 500, cursor: "pointer",
-                }}>
-                <Download size={13} /> Export
-              </button>
-
-              <div style={{ width: 1, height: 20, background: "var(--fb-border)" }} />
-
-              <button
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  background: "var(--fb-surface)", border: "1px solid var(--fb-border)",
-                  borderRadius: 9, padding: "6px 12px",
-                  color: "var(--fb-text)", fontSize: 13, fontWeight: 600, cursor: "pointer",
-                }}>
-                <Share2 size={13} /> Share
-              </button>
-            </div>
+            <span style={{ fontSize: 13, color: "var(--fb-muted)" }}>No board selected</span>
           )}
         </div>
 
-        {/* Canvas */}
+        {/* ── Color toolbar ── */}
+        {activeBoard && (
+          <div style={{
+            borderBottom: "1px solid var(--fb-border)",
+            background: "var(--fb-card)",
+            padding: "6px 14px",
+            display: "flex", flexDirection: "column", gap: 5, flexShrink: 0,
+          }}>
+            {/* Row 1: Stroke / Fill / Text */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 11.5, color: "var(--fb-muted)", fontWeight: 500, minWidth: 32 }}>Stroke</span>
+                <div style={{ display: "flex", gap: 3 }}>
+                  {STROKE_COLORS.map((c) => (
+                    <Swatch key={c} color={c} active={strokeColor === c} onClick={() => applyStroke(c)} />
+                  ))}
+                </div>
+              </div>
+              <div style={{ width: 1, height: 16, background: "var(--fb-border)", flexShrink: 0 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 11.5, color: "var(--fb-muted)", fontWeight: 500, minWidth: 18 }}>Fill</span>
+                <div style={{ display: "flex", gap: 3 }}>
+                  {FILL_COLORS.map((c) => (
+                    <Swatch key={c} color={c} active={fillColor === c} onClick={() => applyFill(c)} />
+                  ))}
+                </div>
+              </div>
+              <div style={{ width: 1, height: 16, background: "var(--fb-border)", flexShrink: 0 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 11.5, color: "var(--fb-muted)", fontWeight: 500, minWidth: 24 }}>Text</span>
+                <div style={{ display: "flex", gap: 3 }}>
+                  {TEXT_COLORS.map((c) => (
+                    <Swatch key={c} color={c} active={textColor === c} onClick={() => applyText(c)} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: Sticky colors */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11.5, color: "var(--fb-muted)", fontWeight: 500, minWidth: 32 }}>Sticky</span>
+              <div style={{ display: "flex", gap: 3 }}>
+                {STICKY_COLORS.map((sc, i) => (
+                  <StickySwatch key={i} sc={sc} onClick={() => addSticky(sc)} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Action buttons ── */}
+        {activeBoard && (
+          <div style={{
+            height: 38, display: "flex", alignItems: "center",
+            padding: "0 14px", borderBottom: "1px solid var(--fb-border)",
+            background: "var(--fb-card)", gap: 6, flexShrink: 0,
+          }}>
+            <ActionBtn icon={<StickyNote size={13} />} label="Sticky"
+              onClick={() => addSticky(STICKY_COLORS[0])} />
+            <ActionBtn icon={<Sparkles size={13} />} label="AI Diagram"
+              onClick={() => setShowAI(true)} />
+            <ActionBtn icon={<Download size={13} />} label="Export PNG"
+              onClick={exportPNG} primary />
+            <button
+              style={{
+                background: "none", border: "1px solid var(--fb-border)",
+                borderRadius: 7, padding: "4px 8px", cursor: "pointer",
+                color: "var(--fb-muted)", display: "flex", alignItems: "center",
+              }}>
+              <Ellipsis size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* ── Excalidraw canvas ── */}
         <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
           {!activeBoard ? (
             <div style={{
-              position: "absolute", inset: 0,
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              color: "var(--fb-muted)",
+              position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", color: "var(--fb-muted)",
             }}>
-              <div style={{ fontSize: 60, marginBottom: 18 }}>🎨</div>
-              <div style={{ fontWeight: 700, fontSize: 20, color: "var(--fb-text)", marginBottom: 8 }}>Start creating</div>
-              <div style={{ fontSize: 14, marginBottom: 28, textAlign: "center", maxWidth: 280 }}>
-                Create a new whiteboard to start drawing, diagramming, and collaborating
+              <div style={{ fontSize: 48, marginBottom: 14 }}>🎨</div>
+              <div style={{ fontWeight: 700, fontSize: 18, color: "var(--fb-text)", marginBottom: 6 }}>No board selected</div>
+              <div style={{ fontSize: 13, marginBottom: 22, textAlign: "center", maxWidth: 260 }}>
+                Create a whiteboard to start drawing
               </div>
               <button onClick={createBoard}
                 style={{
-                  display: "flex", alignItems: "center", gap: 9,
+                  display: "flex", alignItems: "center", gap: 8,
                   background: "linear-gradient(135deg, #7C3AED, #4F46E5)",
-                  border: "none", borderRadius: 12, padding: "12px 24px",
-                  color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
-                  boxShadow: "0 4px 16px #7C3AED40",
+                  border: "none", borderRadius: 10, padding: "10px 22px",
+                  color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer",
                 }}>
-                <Plus size={17} /> New Whiteboard
+                <Plus size={15} /> New Whiteboard
               </button>
             </div>
           ) : (
             <Suspense fallback={
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
-                <Loader2 size={32} style={{ animation: "spin 1s linear infinite", color: "#7C3AED" }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                <Loader2 size={28} style={{ animation: "spin 1s linear infinite", color: "#7C3AED" }} />
                 <span style={{ fontSize: 13, color: "var(--fb-muted)" }}>Loading canvas…</span>
               </div>
             }>
@@ -638,6 +667,8 @@ export default function WhiteboardPage() {
                     elements: initialElements,
                     appState: {
                       viewBackgroundColor: "#ffffff",
+                      currentItemStrokeColor: strokeColor,
+                      currentItemBackgroundColor: fillColor === "transparent" ? "transparent" : fillColor,
                       ...initialAppState,
                     },
                     scrollToContent: initialElements.length > 0,
@@ -666,14 +697,13 @@ export default function WhiteboardPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         .excalidraw { height: 100% !important; }
-        .excalidraw-container { height: 100% !important; }
       `}</style>
     </div>
   );
 }
 
-// ─── Board List Item ────────────────────────────────────────────────────────
-function BoardListItem({
+// ─── Board Item ───────────────────────────────────────────────────────────────
+function BoardItem({
   board, isActive, isRenaming,
   onSelect, onRenameStart, onRenameSave, onRenameCancel, onDelete,
   menuOpen, onMenuToggle,
@@ -690,25 +720,25 @@ function BoardListItem({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        borderRadius: 10, padding: "8px 8px", marginBottom: 3,
+        borderRadius: 9, padding: "8px 10px", marginBottom: 2,
         cursor: "pointer", position: "relative",
-        background: isActive ? `${board.color}12` : hovered ? "var(--fb-surface)" : "transparent",
-        border: `1px solid ${isActive ? board.color + "35" : "transparent"}`,
-        transition: "all 0.14s",
+        background: isActive
+          ? `${board.color}18`
+          : hovered ? "var(--fb-surface)" : "transparent",
+        border: `1px solid ${isActive ? board.color + "40" : "transparent"}`,
+        transition: "all 0.13s",
       }}>
-      {/* Thumbnail */}
-      <BoardThumbnail color={board.color} title={board.title} />
-
-      {/* Info row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7 }}>
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: board.color, flexShrink: 0 }} />
-
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{
+          width: 8, height: 8, borderRadius: "50%",
+          background: board.color, flexShrink: 0,
+        }} />
         {isRenaming ? (
           <RenameInput value={board.title} onSave={onRenameSave} onCancel={onRenameCancel} />
         ) : (
           <>
             <span style={{
-              flex: 1, fontSize: 12.5, fontWeight: isActive ? 600 : 500,
+              flex: 1, fontSize: 13, fontWeight: isActive ? 600 : 400,
               color: "var(--fb-text)", whiteSpace: "nowrap",
               overflow: "hidden", textOverflow: "ellipsis",
             }}>
@@ -719,100 +749,84 @@ function BoardListItem({
               onClick={(e) => { e.stopPropagation(); onMenuToggle(); }}
               style={{
                 background: "none", border: "none", cursor: "pointer",
-                color: "var(--fb-muted)", padding: 3, borderRadius: 5,
-                opacity: hovered || menuOpen ? 1 : 0, transition: "opacity 0.15s",
-                flexShrink: 0,
+                color: "var(--fb-muted)", padding: 2, borderRadius: 4,
+                opacity: hovered || menuOpen ? 1 : 0, transition: "opacity 0.13s", flexShrink: 0,
               }}>
               <MoreHorizontal size={13} />
             </button>
           </>
         )}
       </div>
-
       {!isRenaming && (
-        <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2, paddingLeft: 14 }}>
-          <Clock size={9} color="var(--fb-muted)" />
-          <span style={{ fontSize: 10.5, color: "var(--fb-muted)" }}>Edited {timeAgo(board.updatedAt)}</span>
+        <div style={{ fontSize: 11, color: "var(--fb-muted)", marginTop: 2, paddingLeft: 16 }}>
+          {timeAgo(board.updatedAt)}
         </div>
       )}
 
-      {/* Dropdown menu */}
+      {/* Dropdown */}
       {menuOpen && (
         <div data-menu onClick={(e) => e.stopPropagation()}
           style={{
-            position: "absolute", right: 6, top: 44, zIndex: 100,
+            position: "absolute", right: 6, top: 34, zIndex: 200,
             background: "var(--fb-card)", border: "1px solid var(--fb-border)",
-            borderRadius: 10, padding: 5, minWidth: 138,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+            borderRadius: 9, padding: 4, minWidth: 130,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
           }}>
-          <MenuBtn icon={<Pencil size={13} />} label="Rename" onClick={onRenameStart} />
-          <div style={{ borderTop: "1px solid var(--fb-border)", margin: "4px 0" }} />
-          <MenuBtn icon={<Trash2 size={13} />} label="Delete" onClick={onDelete} danger />
+          <MnuBtn icon={<Pencil size={12} />} label="Rename" onClick={onRenameStart} />
+          <div style={{ borderTop: "1px solid var(--fb-border)", margin: "3px 0" }} />
+          <MnuBtn icon={<Trash2 size={12} />} label="Delete" onClick={onDelete} danger />
         </div>
       )}
     </div>
   );
 }
 
-// ─── Board Grid Item ────────────────────────────────────────────────────────
-function BoardGridItem({
-  board, isActive, onSelect, onRename, onDelete, menuOpen, onMenuToggle,
+// ─── Action Button ────────────────────────────────────────────────────────────
+function ActionBtn({
+  icon, label, onClick, primary,
 }: {
-  board: Whiteboard; isActive: boolean; onSelect: () => void;
-  onRename: () => void; onDelete: () => void;
-  menuOpen: boolean; onMenuToggle: () => void;
+  icon: React.ReactNode; label: string; onClick: () => void; primary?: boolean;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const [hov, setHov] = useState(false);
   return (
-    <div onClick={onSelect} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
-        borderRadius: 10, padding: 6, cursor: "pointer", position: "relative",
-        background: isActive ? `${board.color}12` : hovered ? "var(--fb-surface)" : "transparent",
-        border: `1px solid ${isActive ? board.color + "35" : "transparent"}`,
-        transition: "all 0.14s",
+        display: "flex", alignItems: "center", gap: 5,
+        background: primary
+          ? hov ? "#dc2626" : "#ef4444"
+          : hov ? "var(--fb-surface)" : "transparent",
+        border: primary ? "none" : "1px solid var(--fb-border)",
+        borderRadius: 7, padding: "4px 10px",
+        color: primary ? "#fff" : "var(--fb-text)",
+        fontSize: 12.5, fontWeight: 500, cursor: "pointer",
+        transition: "all 0.12s",
       }}>
-      <BoardThumbnail color={board.color} title={board.title} />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 5, gap: 4 }}>
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--fb-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {board.title}
-        </span>
-        <button data-menu onClick={(e) => { e.stopPropagation(); onMenuToggle(); }}
-          style={{
-            background: "none", border: "none", cursor: "pointer", color: "var(--fb-muted)",
-            padding: 2, borderRadius: 4, opacity: hovered || menuOpen ? 1 : 0, transition: "opacity 0.15s", flexShrink: 0,
-          }}>
-          <MoreHorizontal size={12} />
-        </button>
-      </div>
-      {menuOpen && (
-        <div data-menu onClick={(e) => e.stopPropagation()}
-          style={{
-            position: "absolute", right: 4, top: 74, zIndex: 100,
-            background: "var(--fb-card)", border: "1px solid var(--fb-border)",
-            borderRadius: 10, padding: 5, minWidth: 130,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
-          }}>
-          <MenuBtn icon={<Pencil size={13} />} label="Rename" onClick={onRename} />
-          <div style={{ borderTop: "1px solid var(--fb-border)", margin: "4px 0" }} />
-          <MenuBtn icon={<Trash2 size={13} />} label="Delete" onClick={onDelete} danger />
-        </div>
-      )}
-    </div>
+      {icon} {label}
+    </button>
   );
 }
 
-// ─── Menu Button ────────────────────────────────────────────────────────────
-function MenuBtn({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
-  const [hovered, setHovered] = useState(false);
+// ─── Menu Button ──────────────────────────────────────────────────────────────
+function MnuBtn({
+  icon, label, onClick, danger,
+}: {
+  icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean;
+}) {
+  const [hov, setHov] = useState(false);
   return (
-    <button onClick={onClick}
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
-        display: "flex", alignItems: "center", gap: 8,
-        width: "100%", background: hovered ? (danger ? "#fef2f2" : "var(--fb-surface)") : "none",
-        border: "none", padding: "7px 10px", borderRadius: 7,
-        cursor: "pointer", color: danger ? "#ef4444" : "var(--fb-text)", fontSize: 12.5,
-        transition: "background 0.12s",
+        display: "flex", alignItems: "center", gap: 7, width: "100%",
+        background: hov ? (danger ? "#fef2f2" : "var(--fb-surface)") : "none",
+        border: "none", padding: "6px 9px", borderRadius: 6,
+        cursor: "pointer", color: danger ? "#ef4444" : "var(--fb-text)",
+        fontSize: 12.5, transition: "background 0.1s",
       }}>
       {icon} {label}
     </button>
