@@ -3,7 +3,8 @@ import {
   FolderOpen, Plus, Star, MoreHorizontal, Search, Grid3X3, List,
   ChevronRight, FileText, ArrowLeft, X, Check, Folder, Archive,
   Clock, Heart, Trash2, Edit3, Copy, Share2, Move, Download,
-  ChevronDown, Eye, MessageSquare, Link2
+  ChevronDown, Eye, MessageSquare, Link2, Users, UserPlus, Mail,
+  Shield, Crown, Send, CheckCircle2
 } from "lucide-react";
 import { api } from "../../../lib/api";
 
@@ -33,6 +34,16 @@ interface Page {
   parentId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface Collaborator {
+  id: string;
+  spaceId: string;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  createdAt: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -468,14 +479,247 @@ function PagePreviewPanel({
   );
 }
 
+// ─── Invite Collaborators Modal ───────────────────────────────────────────────
+
+function InviteCollaboratorsModal({
+  space, collaborators, onClose,
+  onInvite, onRemove, onChangeRole,
+}: {
+  space: Space;
+  collaborators: Collaborator[];
+  onClose: () => void;
+  onInvite: (email: string, name: string, role: string) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+  onChangeRole: (id: string, role: string) => Promise<void>;
+}) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("viewer");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  const roleOptions = [
+    { value: "viewer", label: "Viewer", desc: "Can read pages", icon: Eye },
+    { value: "editor", label: "Editor", desc: "Can edit pages", icon: Edit3 },
+    { value: "admin", label: "Admin", desc: "Full access", icon: Crown },
+  ];
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailRegex.test(email)) { setError("Enter a valid email address"); return; }
+    setSending(true); setError("");
+    try {
+      await onInvite(email.trim(), name.trim(), role);
+      setSent(true);
+      setEmail(""); setName("");
+      setTimeout(() => setSent(false), 2500);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to send invite");
+    } finally { setSending(false); }
+  };
+
+  const getInitials = (email: string, name: string) => {
+    if (name) return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+    return email.slice(0, 2).toUpperCase();
+  };
+
+  const roleColor: Record<string, string> = { viewer: "#6b7280", editor: "#0EA5E9", admin: "#7467F0" };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.35)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 24,
+    }} onClick={onClose}>
+      <div style={{
+        background: "white", borderRadius: 20, width: "100%", maxWidth: 520,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+        display: "flex", flexDirection: "column", maxHeight: "85vh",
+      }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ padding: "24px 24px 20px", borderBottom: "1px solid #f3f4f6", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Users size={18} color="#7467F0" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36" }}>Invite Collaborators</div>
+              <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1, display: "flex", alignItems: "center", gap: 6 }}>
+                <SpaceFolderIcon color={space.color} size={14} />
+                {space.name}
+              </div>
+            </div>
+            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, borderRadius: 6, flexShrink: 0 }}>
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Invite form */}
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f3f4f6", flexShrink: 0 }}>
+          <form onSubmit={handleInvite}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <div style={{ position: "relative", flex: 1 }}>
+                <Mail size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setError(""); }}
+                  placeholder="Email address"
+                  autoFocus
+                  style={{
+                    width: "100%", padding: "9px 11px 9px 30px", borderRadius: 10,
+                    border: `1.5px solid ${error ? "#F43F5E" : "#e5e7eb"}`,
+                    fontSize: 13, color: "#1a1f36", outline: "none",
+                    boxSizing: "border-box", background: "#f9fafb",
+                  }}
+                />
+              </div>
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Name (optional)"
+                style={{
+                  width: 130, padding: "9px 11px", borderRadius: 10,
+                  border: "1.5px solid #e5e7eb", fontSize: 13, color: "#1a1f36",
+                  outline: "none", background: "#f9fafb",
+                }}
+              />
+            </div>
+
+            {/* Role selector */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {roleOptions.map(({ value, label, desc, icon: Icon }) => (
+                <button
+                  key={value} type="button"
+                  onClick={() => setRole(value)}
+                  style={{
+                    flex: 1, padding: "8px 10px", borderRadius: 10,
+                    border: `1.5px solid ${role === value ? "#7467F0" : "#e5e7eb"}`,
+                    background: role === value ? "#EEF0FF" : "white",
+                    cursor: "pointer", textAlign: "center", transition: "all 0.15s",
+                  }}
+                >
+                  <Icon size={14} color={role === value ? "#7467F0" : "#9ca3af"} style={{ marginBottom: 3 }} />
+                  <div style={{ fontSize: 12, fontWeight: 600, color: role === value ? "#7467F0" : "#374151" }}>{label}</div>
+                  <div style={{ fontSize: 10, color: "#9ca3af" }}>{desc}</div>
+                </button>
+              ))}
+            </div>
+
+            {error && <div style={{ fontSize: 12, color: "#F43F5E", marginBottom: 8 }}>{error}</div>}
+
+            <button
+              type="submit"
+              disabled={!email.trim() || sending}
+              style={{
+                width: "100%", padding: "10px 0", borderRadius: 10,
+                background: email.trim() && !sending ? "#7467F0" : "#e5e7eb",
+                color: email.trim() && !sending ? "white" : "#9ca3af",
+                border: "none", cursor: email.trim() && !sending ? "pointer" : "not-allowed",
+                fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center",
+                justifyContent: "center", gap: 7, transition: "all 0.15s",
+              }}
+            >
+              {sent ? (
+                <><CheckCircle2 size={15} /> Invite sent!</>
+              ) : sending ? (
+                <>Sending…</>
+              ) : (
+                <><Send size={14} /> Send Invite</>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Current collaborators */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 24px" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>
+            {collaborators.length === 0 ? "No collaborators yet" : `${collaborators.length} collaborator${collaborators.length !== 1 ? "s" : ""}`}
+          </div>
+
+          {/* Owner row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
+            <Avatar initials="Me" color={space.color} size={32} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1f36" }}>You (Owner)</div>
+              <div style={{ fontSize: 11, color: "#9ca3af" }}>Workspace owner</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#7467F0" }}>
+              <Crown size={13} /> Owner
+            </div>
+          </div>
+
+          {collaborators.map(collab => {
+            const rc = roleColor[collab.role] ?? "#6b7280";
+            return (
+              <div key={collab.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
+                <Avatar initials={getInitials(collab.email, collab.name)} color={rc} size={32} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1f36", display: "flex", alignItems: "center", gap: 6 }}>
+                    {collab.name || collab.email}
+                    {collab.status === "pending" && (
+                      <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: "#FEF3C7", color: "#D97706", fontWeight: 500 }}>
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{collab.email}</div>
+                </div>
+
+                {/* Role selector */}
+                <select
+                  value={collab.role}
+                  onChange={e => onChangeRole(collab.id, e.target.value)}
+                  style={{
+                    padding: "4px 8px", borderRadius: 8,
+                    border: "1.5px solid #e5e7eb", fontSize: 12,
+                    color: rc, fontWeight: 600, background: "white",
+                    cursor: "pointer", outline: "none",
+                  }}
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="editor">Editor</option>
+                  <option value="admin">Admin</option>
+                </select>
+
+                <button
+                  onClick={() => onRemove(collab.id)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#d1d5db", padding: 4, borderRadius: 6 }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "#F43F5E")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "#d1d5db")}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            );
+          })}
+
+          {collaborators.length === 0 && (
+            <div style={{ textAlign: "center", padding: "24px 0", color: "#9ca3af", fontSize: 13 }}>
+              <UserPlus size={28} style={{ marginBottom: 8, opacity: 0.4 }} />
+              <div>Invite teammates to collaborate on this space.</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Space Card ───────────────────────────────────────────────────────────────
 
 function SpaceCard({
-  space, pageCount, onOpen, onFavorite, onEdit, onDelete, viewMode,
+  space, pageCount, collaborators, onOpen, onFavorite, onEdit, onDelete, onInvite, viewMode,
 }: {
-  space: Space; pageCount: number;
+  space: Space; pageCount: number; collaborators: Collaborator[];
   onOpen: () => void; onFavorite: () => void;
-  onEdit: () => void; onDelete: () => void;
+  onEdit: () => void; onDelete: () => void; onInvite: () => void;
   viewMode: "grid" | "list";
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -483,6 +727,7 @@ function SpaceCard({
   const menuItems = [
     { icon: Edit3, label: "Rename Space", action: onEdit },
     { icon: Plus, label: "Add Page", action: onOpen },
+    { icon: Users, label: "Invite Collaborators", action: onInvite, highlight: true },
     { icon: Trash2, label: "Delete Space", action: onDelete, danger: true },
   ];
 
@@ -552,8 +797,31 @@ function SpaceCard({
 
         {/* Footer */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid #f3f4f6" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {/* Owner avatar */}
             <Avatar initials="Me" color={space.color} size={22} />
+            {/* Collaborator avatars (up to 3) */}
+            {collaborators.slice(0, 3).map((c, i) => {
+              const initials = c.name
+                ? c.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
+                : c.email.slice(0, 2).toUpperCase();
+              const roleColor: Record<string, string> = { viewer: "#6b7280", editor: "#0EA5E9", admin: "#7467F0" };
+              return (
+                <div key={c.id} style={{ marginLeft: -6 }} title={c.name || c.email}>
+                  <Avatar initials={initials} color={roleColor[c.role] ?? "#6b7280"} size={22} />
+                </div>
+              );
+            })}
+            {collaborators.length > 3 && (
+              <div style={{
+                marginLeft: -6, width: 22, height: 22, borderRadius: "50%",
+                background: "#f3f4f6", border: "2px solid white",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 9, fontWeight: 700, color: "#6b7280",
+              }}>
+                +{collaborators.length - 3}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#6b7280", fontSize: 12 }}>
@@ -577,7 +845,7 @@ function SpaceCard({
             boxShadow: "0 8px 32px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb",
             minWidth: 160,
           }}>
-            {menuItems.map(({ icon: Icon, label, action, danger }) => (
+            {menuItems.map(({ icon: Icon, label, action, danger, highlight }: any) => (
               <button
                 key={label}
                 onClick={e => { e.stopPropagation(); setMenuOpen(false); action(); }}
@@ -585,10 +853,10 @@ function SpaceCard({
                   display: "flex", alignItems: "center", gap: 9,
                   width: "100%", padding: "8px 12px", borderRadius: 8,
                   background: "none", border: "none", cursor: "pointer",
-                  color: danger ? "#F43F5E" : "#374151",
-                  fontSize: 13, fontWeight: 500, textAlign: "left",
+                  color: danger ? "#F43F5E" : highlight ? "#7467F0" : "#374151",
+                  fontSize: 13, fontWeight: highlight ? 600 : 500, textAlign: "left",
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+                onMouseEnter={e => (e.currentTarget.style.background = highlight ? "#EEF0FF" : "#f9fafb")}
                 onMouseLeave={e => (e.currentTarget.style.background = "none")}
               >
                 <Icon size={14} />
@@ -777,17 +1045,19 @@ function SpaceDetailView({
 // ─── All Spaces View ──────────────────────────────────────────────────────────
 
 function AllSpacesView({
-  spaces, pages,
+  spaces, pages, collaboratorsMap,
   onOpenSpace, onFavoriteSpace, onEditSpace, onDeleteSpace,
-  onNewSpace, onNewPage, loading,
+  onNewSpace, onNewPage, onInviteCollaborators, loading,
 }: {
   spaces: Space[]; pages: Page[];
+  collaboratorsMap: Record<string, Collaborator[]>;
   onOpenSpace: (id: string) => void;
   onFavoriteSpace: (id: string) => void;
   onEditSpace: (space: Space) => void;
   onDeleteSpace: (id: string) => void;
   onNewSpace: () => void;
   onNewPage: () => void;
+  onInviteCollaborators: (space: Space) => void;
   loading: boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -1009,11 +1279,13 @@ function AllSpacesView({
                 key={space.id}
                 space={space}
                 pageCount={pageCountForSpace(space.id)}
+                collaborators={collaboratorsMap[space.id] ?? []}
                 viewMode="grid"
                 onOpen={() => onOpenSpace(space.id)}
                 onFavorite={() => onFavoriteSpace(space.id)}
                 onEdit={() => onEditSpace(space)}
                 onDelete={() => onDeleteSpace(space.id)}
+                onInvite={() => onInviteCollaborators(space)}
               />
             ))}
           </div>
@@ -1024,11 +1296,13 @@ function AllSpacesView({
                 key={space.id}
                 space={space}
                 pageCount={pageCountForSpace(space.id)}
+                collaborators={collaboratorsMap[space.id] ?? []}
                 viewMode="list"
                 onOpen={() => onOpenSpace(space.id)}
                 onFavorite={() => onFavoriteSpace(space.id)}
                 onEdit={() => onEditSpace(space)}
                 onDelete={() => onDeleteSpace(space.id)}
+                onInvite={() => onInviteCollaborators(space)}
               />
             ))}
           </div>
@@ -1053,6 +1327,8 @@ export default function PagesSpacesPage() {
   const [showCreateSpace, setShowCreateSpace] = useState(false);
   const [showCreatePage, setShowCreatePage] = useState(false);
   const [editingSpace, setEditingSpace] = useState<Space | null>(null);
+  const [invitingSpace, setInvitingSpace] = useState<Space | null>(null);
+  const [collaboratorsMap, setCollaboratorsMap] = useState<Record<string, Collaborator[]>>({});
 
   // Load spaces + all pages
   useEffect(() => {
@@ -1062,6 +1338,12 @@ export default function PagesSpacesPage() {
     ]).then(([s, p]) => {
       setSpaces(s);
       setPages(p);
+      // Load collaborators for each space
+      s.forEach(space => {
+        api.get<Collaborator[]>(`/collaborators/${space.id}`)
+          .then(collabs => setCollaboratorsMap(prev => ({ ...prev, [space.id]: collabs })))
+          .catch(() => {});
+      });
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -1151,6 +1433,34 @@ export default function PagesSpacesPage() {
     try { await api.delete(`/pages/${id}`); } catch (e) { console.error(e); }
   };
 
+  const handleInviteCollaborator = async (email: string, name: string, role: string) => {
+    if (!invitingSpace) return;
+    const collab = { id: uid(), email, name, role };
+    const created = await api.post<Collaborator>(`/collaborators/${invitingSpace.id}`, collab);
+    setCollaboratorsMap(prev => ({
+      ...prev,
+      [invitingSpace.id]: [...(prev[invitingSpace.id] ?? []), created],
+    }));
+  };
+
+  const handleRemoveCollaborator = async (collabId: string) => {
+    if (!invitingSpace) return;
+    setCollaboratorsMap(prev => ({
+      ...prev,
+      [invitingSpace.id]: (prev[invitingSpace.id] ?? []).filter(c => c.id !== collabId),
+    }));
+    try { await api.delete(`/collaborators/${invitingSpace.id}/${collabId}`); } catch (e) { console.error(e); }
+  };
+
+  const handleChangeCollaboratorRole = async (collabId: string, role: string) => {
+    if (!invitingSpace) return;
+    setCollaboratorsMap(prev => ({
+      ...prev,
+      [invitingSpace.id]: (prev[invitingSpace.id] ?? []).map(c => c.id === collabId ? { ...c, role } : c),
+    }));
+    try { await api.put(`/collaborators/${invitingSpace.id}/${collabId}`, { role }); } catch (e) { console.error(e); }
+  };
+
   const selectedSpace = spaces.find(s => s.id === selectedSpaceId);
   const selectedPage = spacePages.find(p => p.id === selectedPageId) ?? pages.find(p => p.id === selectedPageId);
 
@@ -1163,6 +1473,7 @@ export default function PagesSpacesPage() {
           <AllSpacesView
             spaces={spaces}
             pages={pages}
+            collaboratorsMap={collaboratorsMap}
             loading={loading}
             onOpenSpace={openSpace}
             onFavoriteSpace={handleFavoriteSpace}
@@ -1170,6 +1481,7 @@ export default function PagesSpacesPage() {
             onDeleteSpace={handleDeleteSpace}
             onNewSpace={() => setShowCreateSpace(true)}
             onNewPage={() => { if (spaces.length > 0) setShowCreatePage(true); else setShowCreateSpace(true); }}
+            onInviteCollaborators={setInvitingSpace}
           />
         ) : selectedSpace ? (
           <>
@@ -1207,6 +1519,16 @@ export default function PagesSpacesPage() {
             initial={editingSpace}
             onClose={() => setEditingSpace(null)}
             onSave={handleEditSpace}
+          />
+        )}
+        {invitingSpace && (
+          <InviteCollaboratorsModal
+            space={invitingSpace}
+            collaborators={collaboratorsMap[invitingSpace.id] ?? []}
+            onClose={() => setInvitingSpace(null)}
+            onInvite={handleInviteCollaborator}
+            onRemove={handleRemoveCollaborator}
+            onChangeRole={handleChangeCollaboratorRole}
           />
         )}
         {showCreatePage && (
