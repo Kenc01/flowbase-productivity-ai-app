@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Wand2, Sparkles, Loader2, Trash2, Eye, LayoutTemplate,
-  PanelLeftOpen, PanelLeftClose, AlertTriangle,
-  Search, X, Star,
+  PanelLeftOpen, PanelLeftClose, AlertTriangle, Search, X, Star, Plus,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { api } from "../../../lib/api";
@@ -75,17 +74,19 @@ const EXAMPLE_PROMPTS = [
   "Book Reading List tracker",
 ];
 
+const GEN_STEPS = [
+  "Analyzing your prompt...",
+  "Designing the layout...",
+  "Building sections...",
+  "Saving your app...",
+];
+
 // ─── App Card ─────────────────────────────────────────────────────────────────
 
 function AppCard({
-  template,
-  isSidebarApp,
-  onPreview,
-  onDelete,
-  onToggleSidebar,
+  template, isSidebarApp, onPreview, onDelete, onToggleSidebar,
 }: {
-  template: AiTemplate;
-  isSidebarApp: boolean;
+  template: AiTemplate; isSidebarApp: boolean;
   onPreview: (t: AiTemplate) => void;
   onDelete: (id: string) => void;
   onToggleSidebar: (t: AiTemplate) => void;
@@ -93,6 +94,7 @@ function AppCard({
   const [hovered, setHovered] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const rgb = hexToRgb(template.color);
+  const sections = (() => { try { return JSON.parse(template.sectionsJson); } catch { return []; } })();
 
   return (
     <div
@@ -101,22 +103,19 @@ function AppCard({
       style={{
         background: "var(--fb-surface)",
         border: `1px solid ${hovered ? `rgba(${rgb}, 0.4)` : "var(--fb-border)"}`,
-        borderRadius: "12px",
-        overflow: "hidden",
-        transition: "border-color 0.2s, box-shadow 0.2s",
-        boxShadow: hovered ? `0 4px 20px rgba(${rgb}, 0.14)` : "0 1px 3px rgba(0,0,0,0.07)",
-        display: "flex",
-        flexDirection: "column",
+        borderRadius: "12px", overflow: "hidden",
+        transition: "border-color 0.2s, box-shadow 0.2s, transform 0.15s",
+        boxShadow: hovered ? `0 6px 24px rgba(${rgb}, 0.16)` : "0 1px 3px rgba(0,0,0,0.06)",
+        transform: hovered ? "translateY(-1px)" : "translateY(0)",
+        display: "flex", flexDirection: "column",
       }}
     >
-      {/* Color bar */}
-      <div style={{ height: "4px", background: `linear-gradient(90deg, ${template.color}, ${template.color}77)` }} />
+      <div style={{ height: "4px", background: `linear-gradient(90deg, ${template.color}, ${template.color}55)` }} />
 
       <div style={{ padding: "14px 14px 10px", flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
-        {/* Header row */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
           <div style={{
-            width: "36px", height: "36px", borderRadius: "9px", flexShrink: 0,
+            width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0,
             background: `linear-gradient(135deg, ${template.color}, ${template.color}bb)`,
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: `0 3px 8px rgba(${rgb}, 0.28)`,
@@ -125,38 +124,41 @@ function AppCard({
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: "0.85rem", fontWeight: 700, color: "var(--fb-text)",
+              fontSize: "0.86rem", fontWeight: 700, color: "var(--fb-text)",
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             }}>{template.appName}</div>
             <div style={{
               fontSize: "0.7rem", color: "var(--fb-text-muted)", marginTop: "2px",
-              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-              overflow: "hidden",
+              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
             }}>{template.description}</div>
           </div>
         </div>
 
-        {/* Meta badges */}
         <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
           <span style={{
             fontSize: "0.61rem", color: "var(--fb-text-muted)", fontWeight: 500,
             background: "var(--fb-surface2)", padding: "2px 7px", borderRadius: "10px",
-          }}>
-            {timeAgo(template.createdAt)}
-          </span>
+          }}>{timeAgo(template.createdAt)}</span>
+
+          {sections.length > 0 && (
+            <span style={{
+              fontSize: "0.61rem", color: "var(--fb-text-muted)", fontWeight: 500,
+              background: "var(--fb-surface2)", padding: "2px 7px", borderRadius: "10px",
+            }}>{sections.length} section{sections.length !== 1 ? "s" : ""}</span>
+          )}
+
           {isSidebarApp && (
             <span style={{
               fontSize: "0.61rem", fontWeight: 600, padding: "2px 7px", borderRadius: "10px",
               background: `rgba(${rgb}, 0.13)`, color: template.color,
               display: "flex", alignItems: "center", gap: "3px",
             }}>
-              <Star size={9} strokeWidth={2.5} /> In Sidebar
+              <Star size={9} strokeWidth={2.5} /> Pinned
             </span>
           )}
         </div>
       </div>
 
-      {/* Action row */}
       <div style={{
         borderTop: "1px solid var(--fb-border)", padding: "8px 10px",
         display: "flex", gap: "5px", alignItems: "center",
@@ -164,20 +166,21 @@ function AppCard({
         <button
           onClick={() => onPreview(template)}
           style={{
-            display: "flex", alignItems: "center", gap: "4px",
-            padding: "5px 10px", borderRadius: "7px", border: "none",
-            background: template.color, color: "#fff", fontSize: "0.71rem",
+            display: "flex", alignItems: "center", gap: "5px",
+            padding: "6px 10px", borderRadius: "7px", border: "none",
+            background: template.color, color: "#fff", fontSize: "0.72rem",
             fontWeight: 600, cursor: "pointer", flex: 1, justifyContent: "center",
+            boxShadow: `0 2px 6px rgba(${rgb}, 0.28)`,
           }}
         >
-          <Eye size={12} strokeWidth={2.2} /> Preview
+          <Eye size={12} strokeWidth={2.2} /> Open
         </button>
         <button
           onClick={() => onToggleSidebar(template)}
-          title={isSidebarApp ? "Remove from sidebar" : "Add to sidebar"}
+          title={isSidebarApp ? "Unpin from sidebar" : "Pin to sidebar"}
           style={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            width: "30px", height: "30px", borderRadius: "7px", border: "none",
+            width: "32px", height: "32px", borderRadius: "7px", border: "none",
             background: isSidebarApp ? `rgba(${rgb}, 0.15)` : "var(--fb-surface2)",
             color: isSidebarApp ? template.color : "var(--fb-text-muted)",
             cursor: "pointer", flexShrink: 0,
@@ -190,8 +193,8 @@ function AppCard({
             onClick={() => onDelete(template.id)}
             title="Confirm delete"
             style={{
-              width: "30px", height: "30px", borderRadius: "7px", border: "none",
-              background: "#F43F5E1A", color: "#F43F5E",
+              width: "32px", height: "32px", borderRadius: "7px", border: "none",
+              background: "#F43F5E20", color: "#F43F5E",
               cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >
@@ -202,7 +205,7 @@ function AppCard({
             onClick={() => setConfirmDelete(true)}
             title="Delete app"
             style={{
-              width: "30px", height: "30px", borderRadius: "7px", border: "none",
+              width: "32px", height: "32px", borderRadius: "7px", border: "none",
               background: "var(--fb-surface2)", color: "var(--fb-text-muted)",
               cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
             }}
@@ -221,14 +224,23 @@ export default function TemplatesPage() {
   const [, navigate] = useLocation();
   const [prompt, setPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [genStep, setGenStep] = useState(0);
   const [templates, setTemplates] = useState<AiTemplate[]>([]);
   const [sidebarApps, setSidebarApps] = useState<SidebarApp[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
-
   const { toast } = useToast();
-  const sidebarTemplateIds = new Set(sidebarApps.map(a => a.templateId));
+
+  // Read reprompt from URL query (set by preview page "Regenerate" button)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reprompt = params.get("reprompt");
+    if (reprompt) {
+      setPrompt(decodeURIComponent(reprompt));
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -240,12 +252,24 @@ export default function TemplatesPage() {
     }).catch(console.error).finally(() => setLoadingTemplates(false));
   }, []);
 
+  const sidebarTemplateIds = new Set(sidebarApps.map(a => a.templateId));
+
   const handleGenerate = async () => {
     if (!prompt.trim() || generating) return;
     setGenerating(true);
+    setGenStep(0);
     setError(null);
+
+    // Step through generation phases
+    const stepTimer = setInterval(() => {
+      setGenStep(s => Math.min(s + 1, GEN_STEPS.length - 2));
+    }, 1100);
+
     try {
       const generated = await api.post<any>("/ai-templates/generate", { prompt });
+      clearInterval(stepTimer);
+      setGenStep(GEN_STEPS.length - 1); // "Saving..."
+
       const saved = await api.post<AiTemplate>("/ai-templates", {
         appName: generated.appName,
         description: generated.description,
@@ -257,16 +281,24 @@ export default function TemplatesPage() {
         sampleDataJson: JSON.stringify(generated.sampleData ?? []),
         prompt: prompt.trim(),
       });
+
       setTemplates(prev => [saved, ...prev]);
       setPrompt("");
-      toast({ title: `✨ ${saved.appName} created!`, description: "Click Preview to open your app." });
+      toast({ title: `✨ ${saved.appName} ready!`, description: "Opening preview..." });
+
+      // Navigate to the new app's preview
+      setTimeout(() => navigate(`/dashboard/templates/${saved.id}`), 600);
     } catch (err: any) {
+      clearInterval(stepTimer);
       const msg = err?.message?.includes("GROQ_API_KEY")
-        ? "GROQ_API_KEY is not configured. Add it in the Secrets tab to enable AI generation."
+        ? "GROQ_API_KEY is not configured."
+        : err?.message?.includes("Invalid API Key")
+        ? "Your Groq API key is invalid. Please check it in the Secrets tab."
         : (err?.message ?? "Generation failed. Please try again.");
       setError(msg);
     } finally {
       setGenerating(false);
+      setGenStep(0);
     }
   };
 
@@ -287,15 +319,15 @@ export default function TemplatesPage() {
       if (isIn) {
         await api.delete(`/ai-templates/sidebar/apps/${template.id}`);
         setSidebarApps(prev => prev.filter(a => a.templateId !== template.id));
-        toast({ title: "Removed from sidebar" });
+        toast({ title: "Unpinned from sidebar" });
       } else {
         if (sidebarApps.length >= 3) {
-          toast({ title: "Sidebar full (max 3)", description: "Remove an app from the sidebar first.", variant: "destructive" });
+          toast({ title: "Sidebar full (max 3)", description: "Unpin an app first.", variant: "destructive" });
           return;
         }
         const app = await api.post<SidebarApp>("/ai-templates/sidebar/apps", { templateId: template.id });
         setSidebarApps(prev => [...prev, app]);
-        toast({ title: `${template.appName} added to sidebar!` });
+        toast({ title: `${template.appName} pinned to sidebar!` });
       }
     } catch (err: any) {
       toast({ title: "Failed", description: err?.message, variant: "destructive" });
@@ -305,7 +337,8 @@ export default function TemplatesPage() {
   const filtered = templates.filter(t =>
     !search ||
     t.appName.toLowerCase().includes(search.toLowerCase()) ||
-    t.description.toLowerCase().includes(search.toLowerCase())
+    t.description.toLowerCase().includes(search.toLowerCase()) ||
+    t.prompt.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -314,35 +347,44 @@ export default function TemplatesPage() {
       {/* ── Page Header ── */}
       <div style={{
         background: "var(--fb-surface)", borderBottom: "1px solid var(--fb-border)",
-        padding: "20px 28px", display: "flex", alignItems: "center", gap: "14px",
+        padding: "18px 28px", display: "flex", alignItems: "center", gap: "14px",
       }}>
         <div style={{
-          width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0,
+          width: "40px", height: "40px", borderRadius: "11px", flexShrink: 0,
           background: "linear-gradient(135deg, #A855F7, #7467F0)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 4px 12px rgba(168,85,247,0.3)",
+          boxShadow: "0 4px 14px rgba(168,85,247,0.32)",
         }}>
-          <Wand2 size={18} color="#fff" strokeWidth={2.2} />
+          <Wand2 size={19} color="#fff" strokeWidth={2.2} />
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "var(--fb-text)" }}>AI Template Builder</h1>
-          <p style={{ margin: 0, fontSize: "0.73rem", color: "var(--fb-text-muted)", marginTop: "2px" }}>
-            Describe any mini app — AI generates a complete interactive layout for you.
+          <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--fb-text-muted)", marginTop: "2px" }}>
+            Describe any app — AI generates a complete interactive layout instantly.
           </p>
         </div>
+        {templates.length > 0 && (
+          <div style={{
+            padding: "5px 11px", borderRadius: "20px",
+            background: "linear-gradient(135deg, rgba(168,85,247,0.12), rgba(116,103,240,0.12))",
+            fontSize: "0.7rem", fontWeight: 700, color: "#A855F7",
+          }}>
+            {templates.length} app{templates.length !== 1 ? "s" : ""}
+          </div>
+        )}
       </div>
 
-      <div style={{ flex: 1, padding: "24px 28px", maxWidth: "920px", width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+      <div style={{ flex: 1, padding: "24px 28px", maxWidth: "960px", width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
 
         {/* ── Prompt Box ── */}
         <div style={{
           background: "var(--fb-surface)", border: "1px solid var(--fb-border)",
           borderRadius: "14px", padding: "18px", marginBottom: "28px",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "11px" }}>
             <Sparkles size={14} color="#A855F7" strokeWidth={2.2} />
-            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--fb-text)" }}>What app do you want to build?</span>
+            <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--fb-text)" }}>What app do you want to build?</span>
           </div>
 
           <textarea
@@ -357,7 +399,8 @@ export default function TemplatesPage() {
               borderRadius: "9px", padding: "11px 13px",
               background: "var(--fb-surface2)", color: "var(--fb-text)",
               fontSize: "0.84rem", fontFamily: "inherit", outline: "none",
-              lineHeight: 1.55, boxSizing: "border-box", opacity: generating ? 0.6 : 1,
+              lineHeight: 1.55, boxSizing: "border-box",
+              opacity: generating ? 0.6 : 1, transition: "opacity 0.2s",
             }}
           />
 
@@ -366,12 +409,15 @@ export default function TemplatesPage() {
             {EXAMPLE_PROMPTS.map(ex => (
               <button
                 key={ex}
-                onClick={() => setPrompt(ex)}
+                onClick={() => { setPrompt(ex); setError(null); }}
                 disabled={generating}
                 style={{
-                  padding: "3px 10px", borderRadius: "20px", border: "1px solid var(--fb-border)",
-                  background: "var(--fb-surface2)", color: "var(--fb-text-muted)",
-                  fontSize: "0.67rem", cursor: "pointer", fontFamily: "inherit",
+                  padding: "4px 10px", borderRadius: "20px", border: "1px solid var(--fb-border)",
+                  background: prompt === ex ? "rgba(168,85,247,0.1)" : "var(--fb-surface2)",
+                  color: prompt === ex ? "#A855F7" : "var(--fb-text-muted)",
+                  fontSize: "0.68rem", cursor: "pointer", fontFamily: "inherit",
+                  fontWeight: prompt === ex ? 600 : 400,
+                  transition: "all 0.15s",
                 }}
               >{ex}</button>
             ))}
@@ -379,12 +425,35 @@ export default function TemplatesPage() {
 
           {error && (
             <div style={{
-              marginTop: "10px", padding: "9px 12px", borderRadius: "8px",
+              marginTop: "10px", padding: "10px 13px", borderRadius: "8px",
               background: "#F43F5E12", border: "1px solid #F43F5E30",
-              color: "#F43F5E", fontSize: "0.74rem",
-              display: "flex", alignItems: "center", gap: "7px",
+              color: "#F43F5E", fontSize: "0.75rem",
+              display: "flex", alignItems: "flex-start", gap: "8px",
             }}>
-              <AlertTriangle size={13} strokeWidth={2.2} /> {error}
+              <AlertTriangle size={14} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: "1px" }} /> {error}
+            </div>
+          )}
+
+          {/* Generating steps */}
+          {generating && (
+            <div style={{
+              marginTop: "12px", padding: "10px 14px", borderRadius: "8px",
+              background: "rgba(168,85,247,0.07)", border: "1px solid rgba(168,85,247,0.18)",
+              display: "flex", alignItems: "center", gap: "10px",
+            }}>
+              <Loader2 size={14} color="#A855F7" strokeWidth={2.5} style={{ animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "0.76rem", color: "#A855F7", fontWeight: 600 }}>{GEN_STEPS[genStep]}</div>
+                <div style={{ display: "flex", gap: "4px", marginTop: "5px" }}>
+                  {GEN_STEPS.map((_, i) => (
+                    <div key={i} style={{
+                      height: "3px", flex: 1, borderRadius: "2px",
+                      background: i <= genStep ? "#A855F7" : "rgba(168,85,247,0.2)",
+                      transition: "background 0.3s",
+                    }} />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -395,17 +464,19 @@ export default function TemplatesPage() {
               disabled={!prompt.trim() || generating}
               style={{
                 display: "flex", alignItems: "center", gap: "7px",
-                padding: "9px 20px", borderRadius: "9px", border: "none",
-                background: !prompt.trim() || generating ? "var(--fb-surface2)" : "linear-gradient(135deg, #A855F7, #7467F0)",
+                padding: "9px 22px", borderRadius: "9px", border: "none",
+                background: !prompt.trim() || generating
+                  ? "var(--fb-surface2)"
+                  : "linear-gradient(135deg, #A855F7, #7467F0)",
                 color: !prompt.trim() || generating ? "var(--fb-text-muted)" : "#fff",
-                fontSize: "0.82rem", fontWeight: 700,
+                fontSize: "0.83rem", fontWeight: 700,
                 cursor: !prompt.trim() || generating ? "not-allowed" : "pointer",
-                boxShadow: !prompt.trim() || generating ? "none" : "0 4px 14px rgba(168,85,247,0.32)",
-                transition: "all 0.2s",
+                boxShadow: !prompt.trim() || generating ? "none" : "0 4px 16px rgba(168,85,247,0.35)",
+                transition: "all 0.2s", fontFamily: "inherit",
               }}
             >
               {generating
-                ? <><Loader2 size={14} strokeWidth={2.5} style={{ animation: "spin 1s linear infinite" }} /> Generating...</>
+                ? <><Loader2 size={14} strokeWidth={2.5} style={{ animation: "spin 0.8s linear infinite" }} /> Generating...</>
                 : <><Wand2 size={14} strokeWidth={2.2} /> Generate App</>
               }
             </button>
@@ -415,56 +486,73 @@ export default function TemplatesPage() {
         {/* ── My Apps Header ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "var(--fb-text)" }}>My Generated Apps</h2>
+            <h2 style={{ margin: 0, fontSize: "0.92rem", fontWeight: 700, color: "var(--fb-text)" }}>My Generated Apps</h2>
             <p style={{ margin: "2px 0 0", fontSize: "0.7rem", color: "var(--fb-text-muted)" }}>
-              {templates.length} app{templates.length !== 1 ? "s" : ""} · {sidebarApps.length}/3 pinned to sidebar
+              {templates.length} app{templates.length !== 1 ? "s" : ""} · {sidebarApps.length}/3 pinned
             </p>
           </div>
-          {templates.length > 3 && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: "6px",
-              background: "var(--fb-surface)", border: "1px solid var(--fb-border)",
-              borderRadius: "8px", padding: "5px 10px",
-            }}>
-              <Search size={13} color="var(--fb-text-muted)" strokeWidth={2} />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{
-                  border: "none", outline: "none", background: "transparent",
-                  fontSize: "0.75rem", color: "var(--fb-text)", width: "110px", fontFamily: "inherit",
-                }}
-              />
-              {search && (
-                <button onClick={() => setSearch("")} style={{ border: "none", background: "none", cursor: "pointer", padding: 0, color: "var(--fb-text-muted)", display: "flex" }}>
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-          )}
+          <div style={{
+            display: "flex", alignItems: "center", gap: "6px",
+            background: "var(--fb-surface)", border: "1px solid var(--fb-border)",
+            borderRadius: "8px", padding: "5px 10px",
+          }}>
+            <Search size={13} color="var(--fb-text-muted)" strokeWidth={2} />
+            <input
+              type="text"
+              placeholder="Search apps..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                border: "none", outline: "none", background: "transparent",
+                fontSize: "0.75rem", color: "var(--fb-text)", width: "120px", fontFamily: "inherit",
+              }}
+            />
+            {search && (
+              <button onClick={() => setSearch("")} style={{ border: "none", background: "none", cursor: "pointer", padding: 0, color: "var(--fb-text-muted)", display: "flex" }}>
+                <X size={12} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Grid ── */}
         {loadingTemplates ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "52px", gap: "10px", color: "var(--fb-text-muted)" }}>
-            <Loader2 size={20} strokeWidth={2} style={{ animation: "spin 1s linear infinite" }} />
-            <span style={{ fontSize: "0.82rem" }}>Loading your apps...</span>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "14px" }}>
+            {[1, 2, 3].map(i => (
+              <div key={i} style={{
+                height: "150px", background: "var(--fb-surface)", borderRadius: "12px",
+                border: "1px solid var(--fb-border)", animation: "pulse 1.5s ease-in-out infinite",
+              }} />
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           <div style={{
             textAlign: "center", padding: "52px 24px",
-            background: "var(--fb-surface)", borderRadius: "12px",
+            background: "var(--fb-surface)", borderRadius: "14px",
             border: "1px dashed var(--fb-border)",
           }}>
-            <LayoutTemplate size={38} color="var(--fb-text-muted)" strokeWidth={1.3} style={{ marginBottom: "12px", opacity: 0.45 }} />
-            <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--fb-text)", marginBottom: "6px" }}>
+            <LayoutTemplate size={40} color="var(--fb-text-muted)" strokeWidth={1.3} style={{ marginBottom: "14px", opacity: 0.4 }} />
+            <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--fb-text)", marginBottom: "6px" }}>
               {search ? "No apps match your search" : "No apps yet"}
             </div>
-            <div style={{ fontSize: "0.73rem", color: "var(--fb-text-muted)" }}>
-              {search ? "Try a different search term." : "Enter a prompt above and click Generate to create your first mini app."}
+            <div style={{ fontSize: "0.73rem", color: "var(--fb-text-muted)", maxWidth: "280px", margin: "0 auto" }}>
+              {search
+                ? "Try a different search term or clear the filter."
+                : "Enter a prompt above and hit Generate to create your first mini app."}
             </div>
+            {!search && (
+              <button
+                onClick={() => { setPrompt(EXAMPLE_PROMPTS[0]); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                style={{
+                  marginTop: "16px", display: "inline-flex", alignItems: "center", gap: "6px",
+                  padding: "8px 18px", borderRadius: "8px", border: "none",
+                  background: "linear-gradient(135deg, #A855F7, #7467F0)", color: "#fff",
+                  fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                <Plus size={14} strokeWidth={2.5} /> Try an example
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "14px" }}>
@@ -482,7 +570,13 @@ export default function TemplatesPage() {
         )}
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
     </div>
   );
 }

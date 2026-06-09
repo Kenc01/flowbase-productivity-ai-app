@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { db, aiTemplatesTable, aiSidebarAppsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import Groq from "groq-sdk";
 
 const router = Router();
@@ -38,7 +38,7 @@ Output format (strict JSON, no markdown, no explanation):
       "id": "unique_id",
       "type": "stats|checklist|list|table|form|progress|tags|chart_placeholder",
       "title": "string",
-      "items": [] // see below for each type
+      "items": []
     }
   ],
   "actions": [
@@ -123,11 +123,82 @@ router.post("/generate", async (req, res) => {
   }
 });
 
-// GET /api/ai-templates — list user's templates
+// GET /api/ai-templates/sidebar/apps — must be before /:id
+router.get("/sidebar/apps", async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  const sidebarApps = await db.select({
+    sidebarId: aiSidebarAppsTable.id,
+    templateId: aiSidebarAppsTable.templateId,
+    sortOrder: aiSidebarAppsTable.sortOrder,
+    appName: aiTemplatesTable.appName,
+    icon: aiTemplatesTable.icon,
+    color: aiTemplatesTable.color,
+    description: aiTemplatesTable.description,
+  })
+    .from(aiSidebarAppsTable)
+    .innerJoin(aiTemplatesTable, eq(aiSidebarAppsTable.templateId, aiTemplatesTable.id))
+    .where(eq(aiSidebarAppsTable.userId, userId));
+  res.json(sidebarApps);
+});
+
+// POST /api/ai-templates/sidebar/apps — add to sidebar
+router.post("/sidebar/apps", async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+
+  const { templateId } = req.body as { templateId: string };
+  if (!templateId) return res.status(400).json({ error: "templateId is required" });
+
+  const existing = await db.select().from(aiSidebarAppsTable).where(eq(aiSidebarAppsTable.userId, userId));
+  if (existing.length >= SIDEBAR_LIMIT) {
+    return res.status(400).json({ error: `Maximum ${SIDEBAR_LIMIT} apps can be added to the sidebar.` });
+  }
+  if (existing.some(a => a.templateId === templateId)) {
+    return res.status(400).json({ error: "App is already in the sidebar." });
+  }
+
+  const [app] = await db.insert(aiSidebarAppsTable).values({
+    id: uid(),
+    userId,
+    templateId,
+    sortOrder: existing.length,
+  }).returning();
+
+  // Return full joined data matching GET /sidebar/apps shape
+  const [fullApp] = await db.select({
+    sidebarId: aiSidebarAppsTable.id,
+    templateId: aiSidebarAppsTable.templateId,
+    sortOrder: aiSidebarAppsTable.sortOrder,
+    appName: aiTemplatesTable.appName,
+    icon: aiTemplatesTable.icon,
+    color: aiTemplatesTable.color,
+    description: aiTemplatesTable.description,
+  })
+    .from(aiSidebarAppsTable)
+    .innerJoin(aiTemplatesTable, eq(aiSidebarAppsTable.templateId, aiTemplatesTable.id))
+    .where(eq(aiSidebarAppsTable.id, app.id));
+
+  res.status(201).json(fullApp);
+});
+
+// DELETE /api/ai-templates/sidebar/apps/:templateId — remove from sidebar
+router.delete("/sidebar/apps/:templateId", async (req, res) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  await db.delete(aiSidebarAppsTable).where(
+    and(eq(aiSidebarAppsTable.templateId, req.params.templateId), eq(aiSidebarAppsTable.userId, userId))
+  );
+  res.status(204).end();
+});
+
+// GET /api/ai-templates — list user's templates (newest first)
 router.get("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const templates = await db.select().from(aiTemplatesTable).where(eq(aiTemplatesTable.userId, userId));
+  const templates = await db.select().from(aiTemplatesTable)
+    .where(eq(aiTemplatesTable.userId, userId))
+    .orderBy(desc(aiTemplatesTable.createdAt));
   res.json(templates);
 });
 
@@ -172,60 +243,6 @@ router.delete("/:id", async (req, res) => {
   );
   await db.delete(aiTemplatesTable).where(
     and(eq(aiTemplatesTable.id, req.params.id), eq(aiTemplatesTable.userId, userId))
-  );
-  res.status(204).end();
-});
-
-// GET /api/ai-templates/sidebar/apps — get user's sidebar apps
-router.get("/sidebar/apps", async (req, res) => {
-  const userId = requireUser(req, res);
-  if (!userId) return;
-  const sidebarApps = await db.select({
-    sidebarId: aiSidebarAppsTable.id,
-    templateId: aiSidebarAppsTable.templateId,
-    sortOrder: aiSidebarAppsTable.sortOrder,
-    appName: aiTemplatesTable.appName,
-    icon: aiTemplatesTable.icon,
-    color: aiTemplatesTable.color,
-    description: aiTemplatesTable.description,
-  })
-    .from(aiSidebarAppsTable)
-    .innerJoin(aiTemplatesTable, eq(aiSidebarAppsTable.templateId, aiTemplatesTable.id))
-    .where(eq(aiSidebarAppsTable.userId, userId));
-  res.json(sidebarApps);
-});
-
-// POST /api/ai-templates/sidebar/apps — add to sidebar
-router.post("/sidebar/apps", async (req, res) => {
-  const userId = requireUser(req, res);
-  if (!userId) return;
-
-  const { templateId } = req.body as { templateId: string };
-  if (!templateId) return res.status(400).json({ error: "templateId is required" });
-
-  const existing = await db.select().from(aiSidebarAppsTable).where(eq(aiSidebarAppsTable.userId, userId));
-  if (existing.length >= SIDEBAR_LIMIT) {
-    return res.status(400).json({ error: `Maximum ${SIDEBAR_LIMIT} apps can be added to the sidebar.` });
-  }
-  if (existing.some(a => a.templateId === templateId)) {
-    return res.status(400).json({ error: "App is already in the sidebar." });
-  }
-
-  const [app] = await db.insert(aiSidebarAppsTable).values({
-    id: uid(),
-    userId,
-    templateId,
-    sortOrder: existing.length,
-  }).returning();
-  res.status(201).json(app);
-});
-
-// DELETE /api/ai-templates/sidebar/apps/:templateId — remove from sidebar
-router.delete("/sidebar/apps/:templateId", async (req, res) => {
-  const userId = requireUser(req, res);
-  if (!userId) return;
-  await db.delete(aiSidebarAppsTable).where(
-    and(eq(aiSidebarAppsTable.templateId, req.params.templateId), eq(aiSidebarAppsTable.userId, userId))
   );
   res.status(204).end();
 });
