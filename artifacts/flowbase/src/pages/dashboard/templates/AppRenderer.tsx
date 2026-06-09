@@ -252,52 +252,80 @@ function StatsSection({ items, color, storageKey }: { items: StatsItem[]; color:
           </div>
         ))}
       </div>
-      {stats.some(s => s.value && s.value !== "—") && (
-        <button onClick={resetStats} style={{ marginTop: "8px", border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", padding: "2px 0", fontFamily: "inherit" }}>
-          ↺ Reset values
-        </button>
-      )}
+      <button onClick={resetStats} style={{ marginTop: "8px", border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", padding: "2px 0", fontFamily: "inherit" }}>
+        ↺ Reset to AI defaults
+      </button>
     </div>
   );
 }
 
 // ─── Checklist Section ─────────────────────────────────────────────────────────
 
-function ChecklistSection({ color, storageKey }: { items: ChecklistItem[]; color: string; storageKey: string }) {
-  const [items, setItems, resetItems] = useStoredState<ChecklistItem[]>(storageKey, []);
+function ChecklistSection({ items, color, storageKey }: { items: ChecklistItem[]; color: string; storageKey: string }) {
+  const normalizedItems = items.map(i => ({
+    id: i.id ?? uid(),
+    label: i.label,
+    done: i.done ?? false,
+    streak: i.streak,
+  }));
+  const [checklist, setChecklist, resetChecklist] = useStoredState<ChecklistItem[]>(storageKey, normalizedItems);
   const [adding, setAdding] = useState(false);
   const [newLabel, setNewLabel] = useState("");
-  const doneCount = items.filter(i => i.done).length;
+  const doneCount = checklist.filter(i => i.done).length;
 
   const addItem = () => {
     if (!newLabel.trim()) return;
-    setItems(prev => [...prev, { id: uid(), label: newLabel.trim(), done: false }]);
+    setChecklist(prev => [...prev, { id: uid(), label: newLabel.trim(), done: false }]);
     setNewLabel("");
     setAdding(false);
   };
 
   return (
     <div>
-      {items.length > 0 && (
+      {checklist.length > 0 && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
           <div style={{ height: "4px", flex: 1, borderRadius: "4px", background: "var(--fb-border)", overflow: "hidden", marginRight: "12px" }}>
-            <div style={{ height: "100%", width: `${items.length ? (doneCount / items.length) * 100 : 0}%`, background: color, borderRadius: "4px", transition: "width 0.3s ease" }} />
+            <div style={{
+              height: "100%",
+              width: `${checklist.length ? (doneCount / checklist.length) * 100 : 0}%`,
+              background: color, borderRadius: "4px", transition: "width 0.3s ease",
+            }} />
           </div>
-          <span style={{ fontSize: "0.68rem", color: "var(--fb-text-muted)", fontWeight: 600, whiteSpace: "nowrap" }}>{doneCount}/{items.length}</span>
+          <span style={{ fontSize: "0.68rem", color: "var(--fb-text-muted)", fontWeight: 600, whiteSpace: "nowrap" }}>
+            {doneCount}/{checklist.length}
+          </span>
         </div>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        {items.map(item => (
-          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "9px 12px", borderRadius: "8px", background: item.done ? `rgba(${hexToRgb(color)}, 0.06)` : "var(--fb-surface2)", border: `1px solid ${item.done ? `rgba(${hexToRgb(color)}, 0.2)` : "transparent"}`, transition: "background 0.15s" }}>
+        {checklist.map(item => (
+          <div key={item.id} style={{
+            display: "flex", alignItems: "center", gap: "8px", padding: "9px 12px", borderRadius: "8px",
+            background: item.done ? `rgba(${hexToRgb(color)}, 0.06)` : "var(--fb-surface2)",
+            border: `1px solid ${item.done ? `rgba(${hexToRgb(color)}, 0.2)` : "transparent"}`,
+            transition: "background 0.15s",
+          }}>
             <div
-              onClick={() => setItems(prev => prev.map(x => x.id === item.id ? { ...x, done: !x.done } : x))}
-              style={{ width: "18px", height: "18px", borderRadius: "5px", flexShrink: 0, border: `2px solid ${item.done ? color : "var(--fb-border)"}`, background: item.done ? color : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.15s" }}
+              onClick={() => setChecklist(prev => prev.map(x => x.id === item.id ? { ...x, done: !x.done } : x))}
+              style={{
+                width: "18px", height: "18px", borderRadius: "5px", flexShrink: 0,
+                border: `2px solid ${item.done ? color : "var(--fb-border)"}`,
+                background: item.done ? color : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", transition: "all 0.15s",
+              }}
             >
               {item.done && <LucideIcons.Check size={11} color="#fff" strokeWidth={3} />}
             </div>
-            <span style={{ fontSize: "0.82rem", flex: 1, color: item.done ? "var(--fb-text-muted)" : "var(--fb-text)", textDecoration: item.done ? "line-through" : "none" }}>{item.label}</span>
-            <button onClick={() => setItems(prev => prev.filter(x => x.id !== item.id))} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px", color: "var(--fb-text-muted)", display: "flex", opacity: 0.5, flexShrink: 0 }}>
+            <span style={{
+              fontSize: "0.82rem", flex: 1, color: item.done ? "var(--fb-text-muted)" : "var(--fb-text)",
+              textDecoration: item.done ? "line-through" : "none",
+            }}>{item.label}</span>
+            {item.streak && !item.done && (
+              <span style={{ fontSize: "0.68rem", color: "var(--fb-text-muted)", flexShrink: 0 }}>{item.streak}</span>
+            )}
+            <button onClick={() => setChecklist(prev => prev.filter(x => x.id !== item.id))}
+              style={{ border: "none", background: "none", cursor: "pointer", padding: "2px", color: "var(--fb-text-muted)", display: "flex", opacity: 0.5, flexShrink: 0 }}>
               <LucideIcons.X size={12} strokeWidth={2.5} />
             </button>
           </div>
@@ -306,7 +334,11 @@ function ChecklistSection({ color, storageKey }: { items: ChecklistItem[]; color
 
       {adding ? (
         <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
-          <input autoFocus value={newLabel} onChange={e => setNewLabel(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addItem(); if (e.key === "Escape") { setAdding(false); setNewLabel(""); } }} placeholder="New task..." style={{ flex: 1, padding: "7px 10px", borderRadius: "7px", border: `1.5px solid ${color}`, background: "var(--fb-surface2)", color: "var(--fb-text)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit" }} />
+          <input autoFocus value={newLabel} onChange={e => setNewLabel(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") addItem(); if (e.key === "Escape") { setAdding(false); setNewLabel(""); } }}
+            placeholder="New task..."
+            style={{ flex: 1, padding: "7px 10px", borderRadius: "7px", border: `1.5px solid ${color}`, background: "var(--fb-surface2)", color: "var(--fb-text)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit" }}
+          />
           <button onClick={addItem} style={{ padding: "7px 12px", borderRadius: "7px", border: "none", background: color, color: "#fff", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Add</button>
           <button onClick={() => { setAdding(false); setNewLabel(""); }} style={{ padding: "7px 10px", borderRadius: "7px", border: "none", background: "var(--fb-surface2)", color: "var(--fb-text-muted)", cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
         </div>
@@ -315,11 +347,13 @@ function ChecklistSection({ color, storageKey }: { items: ChecklistItem[]; color
           <button onClick={() => setAdding(true)} style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "7px", border: `1px dashed var(--fb-border)`, background: "transparent", color: "var(--fb-text-muted)", fontSize: "0.75rem", cursor: "pointer", fontFamily: "inherit" }}>
             <LucideIcons.Plus size={13} strokeWidth={2.2} /> Add task
           </button>
-          {items.length > 0 && <button onClick={resetItems} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", fontFamily: "inherit" }}>↺ Clear all</button>}
+          {checklist.length > 0 && (
+            <button onClick={resetChecklist} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", fontFamily: "inherit" }}>↺ Reset</button>
+          )}
         </div>
       )}
 
-      {items.length === 0 && !adding && (
+      {checklist.length === 0 && !adding && (
         <div style={{ textAlign: "center", padding: "20px", color: "var(--fb-text-muted)", fontSize: "0.78rem", opacity: 0.6 }}>
           No tasks yet — add one above
         </div>
@@ -330,8 +364,15 @@ function ChecklistSection({ color, storageKey }: { items: ChecklistItem[]; color
 
 // ─── List Section ─────────────────────────────────────────────────────────────
 
-function ListSection({ color, storageKey }: { items: ListItem[]; color: string; storageKey: string }) {
-  const [list, setList, resetList] = useStoredState<ListItem[]>(storageKey, []);
+function ListSection({ items, color, storageKey }: { items: ListItem[]; color: string; storageKey: string }) {
+  const normalizedItems = items.map(i => ({
+    id: i.id ?? uid(),
+    label: i.label,
+    sublabel: i.sublabel,
+    tag: i.tag,
+    tagColor: i.tagColor,
+  }));
+  const [list, setList, resetList] = useStoredState<ListItem[]>(storageKey, normalizedItems);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ label: "", sublabel: "", tag: "" });
 
@@ -346,14 +387,25 @@ function ListSection({ color, storageKey }: { items: ListItem[]; color: string; 
     <div>
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         {list.map(item => (
-          <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", borderRadius: "8px", background: "var(--fb-surface2)", border: "1px solid var(--fb-border)" }}>
+          <div key={item.id} style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 13px", borderRadius: "8px",
+            background: "var(--fb-surface2)", border: "1px solid var(--fb-border)",
+          }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: "0.82rem", color: "var(--fb-text)", fontWeight: 500 }}>{item.label}</div>
               {item.sublabel && <div style={{ fontSize: "0.7rem", color: "var(--fb-text-muted)", marginTop: "2px" }}>{item.sublabel}</div>}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-              {item.tag && <span style={{ fontSize: "0.64rem", fontWeight: 600, padding: "2px 8px", borderRadius: "20px", background: `rgba(${hexToRgb(color)}, 0.15)`, color }}>{item.tag}</span>}
-              <button onClick={() => setList(prev => prev.filter(l => l.id !== item.id))} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px", color: "var(--fb-text-muted)", display: "flex", opacity: 0.5 }}>
+              {item.tag && (
+                <span style={{
+                  fontSize: "0.64rem", fontWeight: 600, padding: "2px 8px", borderRadius: "20px",
+                  background: item.tagColor ? `${item.tagColor}22` : `rgba(${hexToRgb(color)}, 0.15)`,
+                  color: item.tagColor ?? color,
+                }}>{item.tag}</span>
+              )}
+              <button onClick={() => setList(prev => prev.filter(l => l.id !== item.id))}
+                style={{ border: "none", background: "none", cursor: "pointer", padding: "2px", color: "var(--fb-text-muted)", display: "flex", opacity: 0.5 }}>
                 <LucideIcons.X size={12} strokeWidth={2.5} />
               </button>
             </div>
@@ -363,14 +415,24 @@ function ListSection({ color, storageKey }: { items: ListItem[]; color: string; 
 
       {adding ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px", padding: "12px", background: "var(--fb-surface2)", borderRadius: "8px", border: `1px solid ${color}40` }}>
-          <input autoFocus value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} onKeyDown={e => e.key === "Enter" && addItem()} placeholder="Item name *" style={{ padding: "7px 10px", borderRadius: "7px", border: "1px solid var(--fb-border)", background: "var(--fb-surface)", color: "var(--fb-text)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit" }} />
+          <input autoFocus value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))}
+            onKeyDown={e => e.key === "Enter" && addItem()} placeholder="Item name *"
+            style={{ padding: "7px 10px", borderRadius: "7px", border: "1px solid var(--fb-border)", background: "var(--fb-surface)", color: "var(--fb-text)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit" }}
+          />
           <div style={{ display: "flex", gap: "6px" }}>
-            <input value={draft.sublabel} onChange={e => setDraft(d => ({ ...d, sublabel: e.target.value }))} placeholder="Detail (optional)" style={{ flex: 1, padding: "7px 10px", borderRadius: "7px", border: "1px solid var(--fb-border)", background: "var(--fb-surface)", color: "var(--fb-text)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit" }} />
-            <input value={draft.tag} onChange={e => setDraft(d => ({ ...d, tag: e.target.value }))} placeholder="Tag (optional)" style={{ width: "110px", padding: "7px 10px", borderRadius: "7px", border: "1px solid var(--fb-border)", background: "var(--fb-surface)", color: "var(--fb-text)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit" }} />
+            <input value={draft.sublabel} onChange={e => setDraft(d => ({ ...d, sublabel: e.target.value }))}
+              placeholder="Detail (optional)"
+              style={{ flex: 1, padding: "7px 10px", borderRadius: "7px", border: "1px solid var(--fb-border)", background: "var(--fb-surface)", color: "var(--fb-text)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit" }}
+            />
+            <input value={draft.tag} onChange={e => setDraft(d => ({ ...d, tag: e.target.value }))}
+              placeholder="Tag (optional)"
+              style={{ width: "110px", padding: "7px 10px", borderRadius: "7px", border: "1px solid var(--fb-border)", background: "var(--fb-surface)", color: "var(--fb-text)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit" }}
+            />
           </div>
           <div style={{ display: "flex", gap: "6px" }}>
             <button onClick={addItem} style={{ padding: "7px 14px", borderRadius: "7px", border: "none", background: color, color: "#fff", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Add</button>
-            <button onClick={() => { setAdding(false); setDraft({ label: "", sublabel: "", tag: "" }); }} style={{ padding: "7px 10px", borderRadius: "7px", border: "none", background: "transparent", color: "var(--fb-text-muted)", cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+            <button onClick={() => { setAdding(false); setDraft({ label: "", sublabel: "", tag: "" }); }}
+              style={{ padding: "7px 10px", borderRadius: "7px", border: "none", background: "transparent", color: "var(--fb-text-muted)", cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
           </div>
         </div>
       ) : (
@@ -378,7 +440,9 @@ function ListSection({ color, storageKey }: { items: ListItem[]; color: string; 
           <button onClick={() => setAdding(true)} style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px", borderRadius: "7px", border: `1px dashed var(--fb-border)`, background: "transparent", color: "var(--fb-text-muted)", fontSize: "0.75rem", cursor: "pointer", fontFamily: "inherit" }}>
             <LucideIcons.Plus size={13} strokeWidth={2.2} /> Add item
           </button>
-          {list.length > 0 && <button onClick={resetList} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", fontFamily: "inherit" }}>↺ Clear all</button>}
+          {list.length > 0 && (
+            <button onClick={resetList} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", fontFamily: "inherit" }}>↺ Reset</button>
+          )}
         </div>
       )}
 
@@ -395,7 +459,8 @@ function ListSection({ color, storageKey }: { items: ListItem[]; color: string; 
 
 function TableSection({ items, color, storageKey }: { items: TableItem[]; color: string; storageKey: string }) {
   const columns = items[0]?.columns ?? [];
-  const [rows, setRows, resetRows] = useStoredState<string[][]>(storageKey, []);
+  const aiRows = items[0]?.rows ?? [];
+  const [rows, setRows, resetRows] = useStoredState<string[][]>(storageKey, aiRows);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<string[]>([]);
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
@@ -452,8 +517,7 @@ function TableSection({ items, color, storageKey }: { items: TableItem[]; color:
                   <td key={ci} style={{ padding: "8px 12px", color: "var(--fb-text)" }}>
                     {editingCell?.row === ri && editingCell?.col === ci ? (
                       <input
-                        autoFocus
-                        value={cellDraft}
+                        autoFocus value={cellDraft}
                         onChange={e => setCellDraft(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter" || e.key === "Tab") confirmEdit(); if (e.key === "Escape") setEditingCell(null); }}
                         onBlur={confirmEdit}
@@ -467,7 +531,8 @@ function TableSection({ items, color, storageKey }: { items: TableItem[]; color:
                   </td>
                 ))}
                 <td style={{ padding: "8px 6px", textAlign: "center" }}>
-                  <button onClick={() => setRows(prev => prev.filter((_, i) => i !== ri))} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--fb-text-muted)", display: "flex", opacity: 0.5, padding: "2px" }}>
+                  <button onClick={() => setRows(prev => prev.filter((_, i) => i !== ri))}
+                    style={{ border: "none", background: "none", cursor: "pointer", color: "var(--fb-text-muted)", display: "flex", opacity: 0.5, padding: "2px" }}>
                     <LucideIcons.Trash2 size={12} strokeWidth={2} />
                   </button>
                 </td>
@@ -478,8 +543,7 @@ function TableSection({ items, color, storageKey }: { items: TableItem[]; color:
                 {draft.map((val, ci) => (
                   <td key={ci} style={{ padding: "6px 8px" }}>
                     <input
-                      autoFocus={ci === 0}
-                      value={val}
+                      autoFocus={ci === 0} value={val}
                       onChange={e => setDraft(d => d.map((v, i) => i === ci ? e.target.value : v))}
                       onKeyDown={e => { if (e.key === "Enter") confirmAdd(); if (e.key === "Escape") setAdding(false); }}
                       placeholder={columns[ci]}
@@ -509,7 +573,9 @@ function TableSection({ items, color, storageKey }: { items: TableItem[]; color:
             <LucideIcons.Check size={12} strokeWidth={2.5} /> Save row
           </button>
         )}
-        {rows.length > 0 && <button onClick={resetRows} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", fontFamily: "inherit" }}>↺ Clear all rows</button>}
+        {rows.length > 0 && (
+          <button onClick={resetRows} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", fontFamily: "inherit" }}>↺ Reset</button>
+        )}
       </div>
     </div>
   );
@@ -520,6 +586,7 @@ function TableSection({ items, color, storageKey }: { items: TableItem[]; color:
 function FormSection({ items, color, storageKey }: { items: FormField[]; color: string; storageKey: string }) {
   const [log, setLog, resetLog] = useStoredState<Record<string, string>[]>(`${storageKey}-log`, []);
   const [values, setValues] = useState<Record<number, string>>({});
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
     const entry: Record<string, string> = {};
@@ -527,6 +594,8 @@ function FormSection({ items, color, storageKey }: { items: FormField[]; color: 
     if (Object.keys(entry).length === 0) return;
     setLog(prev => [{ ...entry, _ts: new Date().toLocaleString() }, ...prev]);
     setValues({});
+    setSubmitted(true);
+    setTimeout(() => setSubmitted(false), 2000);
   };
 
   return (
@@ -536,19 +605,39 @@ function FormSection({ items, color, storageKey }: { items: FormField[]; color: 
           <div key={i} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <label style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--fb-text-muted)" }}>{field.label}</label>
             {field.type === "textarea" ? (
-              <textarea value={values[i] ?? ""} onChange={e => setValues(v => ({ ...v, [i]: e.target.value }))} placeholder={field.placeholder ?? ""} rows={3} style={{ background: "var(--fb-surface2)", border: "1px solid var(--fb-border)", borderRadius: "7px", padding: "8px 10px", fontSize: "0.8rem", color: "var(--fb-text)", resize: "vertical", outline: "none", fontFamily: "inherit", transition: "border-color 0.15s" }} onFocus={e => { e.target.style.borderColor = color; }} onBlur={e => { e.target.style.borderColor = "var(--fb-border)"; }} />
+              <textarea value={values[i] ?? ""} onChange={e => setValues(v => ({ ...v, [i]: e.target.value }))}
+                placeholder={field.placeholder ?? ""} rows={3}
+                style={{ background: "var(--fb-surface2)", border: "1px solid var(--fb-border)", borderRadius: "7px", padding: "8px 10px", fontSize: "0.8rem", color: "var(--fb-text)", resize: "vertical", outline: "none", fontFamily: "inherit", transition: "border-color 0.15s" }}
+                onFocus={e => { e.target.style.borderColor = color; }} onBlur={e => { e.target.style.borderColor = "var(--fb-border)"; }}
+              />
             ) : field.type === "select" ? (
-              <select value={values[i] ?? ""} onChange={e => setValues(v => ({ ...v, [i]: e.target.value }))} style={{ background: "var(--fb-surface2)", border: "1px solid var(--fb-border)", borderRadius: "7px", padding: "7px 10px", fontSize: "0.8rem", color: "var(--fb-text)", outline: "none", fontFamily: "inherit" }}>
+              <select value={values[i] ?? ""} onChange={e => setValues(v => ({ ...v, [i]: e.target.value }))}
+                style={{ background: "var(--fb-surface2)", border: "1px solid var(--fb-border)", borderRadius: "7px", padding: "7px 10px", fontSize: "0.8rem", color: "var(--fb-text)", outline: "none", fontFamily: "inherit" }}>
                 <option value="">Select...</option>
                 {(field.options ?? []).map((opt, j) => <option key={j}>{opt}</option>)}
               </select>
             ) : (
-              <input type={field.type} value={values[i] ?? ""} onChange={e => setValues(v => ({ ...v, [i]: e.target.value }))} placeholder={field.placeholder ?? ""} style={{ background: "var(--fb-surface2)", border: "1px solid var(--fb-border)", borderRadius: "7px", padding: "7px 10px", fontSize: "0.8rem", color: "var(--fb-text)", outline: "none", fontFamily: "inherit", transition: "border-color 0.15s" }} onFocus={e => { e.target.style.borderColor = color; }} onBlur={e => { e.target.style.borderColor = "var(--fb-border)"; }} />
+              <input type={field.type} value={values[i] ?? ""} onChange={e => setValues(v => ({ ...v, [i]: e.target.value }))}
+                placeholder={field.placeholder ?? ""}
+                style={{ background: "var(--fb-surface2)", border: "1px solid var(--fb-border)", borderRadius: "7px", padding: "7px 10px", fontSize: "0.8rem", color: "var(--fb-text)", outline: "none", fontFamily: "inherit", transition: "border-color 0.15s" }}
+                onFocus={e => { e.target.style.borderColor = color; }} onBlur={e => { e.target.style.borderColor = "var(--fb-border)"; }}
+              />
             )}
           </div>
         ))}
-        <button onClick={handleSubmit} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "9px 18px", borderRadius: "8px", border: "none", background: color, color: "#fff", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", alignSelf: "flex-start", fontFamily: "inherit", boxShadow: `0 3px 10px rgba(${hexToRgb(color)}, 0.3)` }}>
-          <LucideIcons.Send size={13} strokeWidth={2.2} /> Submit
+        <button onClick={handleSubmit} style={{
+          display: "flex", alignItems: "center", gap: "6px", padding: "9px 18px",
+          borderRadius: "8px", border: "none",
+          background: submitted ? "#10B981" : color,
+          color: "#fff", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer",
+          alignSelf: "flex-start", fontFamily: "inherit",
+          boxShadow: `0 3px 10px rgba(${hexToRgb(submitted ? "#10B981" : color)}, 0.3)`,
+          transition: "background 0.2s",
+        }}>
+          {submitted
+            ? <><LucideIcons.Check size={13} strokeWidth={2.5} /> Saved!</>
+            : <><LucideIcons.Send size={13} strokeWidth={2.2} /> Submit</>
+          }
         </button>
       </div>
 
@@ -561,7 +650,8 @@ function FormSection({ items, color, storageKey }: { items: FormField[]; color: 
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {log.map((entry, i) => (
               <div key={i} style={{ padding: "10px 12px", borderRadius: "8px", background: "var(--fb-surface2)", border: "1px solid var(--fb-border)", position: "relative" }}>
-                <button onClick={() => setLog(prev => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: "8px", right: "8px", border: "none", background: "none", cursor: "pointer", color: "var(--fb-text-muted)", opacity: 0.5, display: "flex" }}>
+                <button onClick={() => setLog(prev => prev.filter((_, j) => j !== i))}
+                  style={{ position: "absolute", top: "8px", right: "8px", border: "none", background: "none", cursor: "pointer", color: "var(--fb-text-muted)", opacity: 0.5, display: "flex" }}>
                   <LucideIcons.X size={11} strokeWidth={2.5} />
                 </button>
                 {entry._ts && <div style={{ fontSize: "0.62rem", color: "var(--fb-text-muted)", marginBottom: "5px" }}>{entry._ts}</div>}
@@ -584,7 +674,12 @@ function FormSection({ items, color, storageKey }: { items: FormField[]; color: 
 // ─── Progress Section ─────────────────────────────────────────────────────────
 
 function ProgressSection({ items, color, storageKey }: { items: ProgressItem[]; color: string; storageKey: string }) {
-  const [bars, setBars, resetBars] = useStoredState<ProgressItem[]>(storageKey, items.map(i => ({ ...i, value: 0 })));
+  const normalizedItems = items.map(i => ({
+    label: i.label,
+    value: typeof i.value === "number" ? Math.max(0, Math.min(100, i.value)) : 0,
+    color: i.color,
+  }));
+  const [bars, setBars, resetBars] = useStoredState<ProgressItem[]>(storageKey, normalizedItems);
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
 
@@ -596,11 +691,7 @@ function ProgressSection({ items, color, storageKey }: { items: ProgressItem[]; 
             <span style={{ fontSize: "0.8rem", color: "var(--fb-text)", fontWeight: 500 }}>{item.label}</span>
             {editing === i ? (
               <input
-                autoFocus
-                value={draft}
-                type="number"
-                min="0"
-                max="100"
+                autoFocus value={draft} type="number" min="0" max="100"
                 onChange={e => setDraft(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === "Enter" || e.key === "Escape") {
@@ -617,19 +708,26 @@ function ProgressSection({ items, color, storageKey }: { items: ProgressItem[]; 
                 style={{ width: "56px", border: `1px solid ${color}`, borderRadius: "5px", padding: "2px 6px", background: "var(--fb-surface2)", color: "var(--fb-text)", fontSize: "0.7rem", outline: "none", fontFamily: "inherit", textAlign: "center" }}
               />
             ) : (
-              <span onClick={() => { setDraft(String(item.value)); setEditing(i); }} title="Click to edit" style={{ fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", color: item.value >= 80 ? "#10B981" : item.value >= 50 ? color : "var(--fb-text-muted)" }}>
+              <span onClick={() => { setDraft(String(item.value)); setEditing(i); }} title="Click to edit"
+                style={{ fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", color: item.value >= 80 ? "#10B981" : item.value >= 50 ? color : "var(--fb-text-muted)" }}>
                 {item.value}%
               </span>
             )}
           </div>
           <div style={{ height: "7px", borderRadius: "10px", background: "var(--fb-border)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, item.value))}%`, background: item.color ?? color, borderRadius: "10px", transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)", boxShadow: item.value > 0 ? `0 0 6px rgba(${hexToRgb(item.color ?? color)}, 0.4)` : "none" }} />
+            <div style={{
+              height: "100%",
+              width: `${Math.max(0, Math.min(100, item.value))}%`,
+              background: item.color ?? color, borderRadius: "10px",
+              transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+              boxShadow: item.value > 0 ? `0 0 6px rgba(${hexToRgb(item.color ?? color)}, 0.4)` : "none",
+            }} />
           </div>
         </div>
       ))}
       {bars.some(b => b.value > 0) && (
         <button onClick={resetBars} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", padding: "0", fontFamily: "inherit", alignSelf: "flex-start" }}>
-          ↺ Reset all to 0%
+          ↺ Reset to AI defaults
         </button>
       )}
     </div>
@@ -640,8 +738,8 @@ function ProgressSection({ items, color, storageKey }: { items: ProgressItem[]; 
 
 const TAG_COLORS = ["#7467F0", "#10B981", "#F59E0B", "#EF4444", "#3B82F6", "#8B5CF6", "#EC4899", "#14B8A6"];
 
-function TagsSection({ color, storageKey }: { items: TagItem[]; color: string; storageKey: string }) {
-  const [tags, setTags, resetTags] = useStoredState<TagItem[]>(storageKey, []);
+function TagsSection({ items, color, storageKey }: { items: TagItem[]; color: string; storageKey: string }) {
+  const [tags, setTags, resetTags] = useStoredState<TagItem[]>(storageKey, items.length ? items : []);
   const [adding, setAdding] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [tagColor, setTagColor] = useState(color);
@@ -658,9 +756,14 @@ function TagsSection({ color, storageKey }: { items: TagItem[]; color: string; s
     <div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: tags.length ? "10px" : 0 }}>
         {tags.map((tag, i) => (
-          <span key={i} style={{ padding: "5px 10px 5px 12px", borderRadius: "20px", fontSize: "0.76rem", fontWeight: 600, background: `rgba(${hexToRgb(tag.color || color)}, 0.14)`, color: tag.color || color, display: "flex", alignItems: "center", gap: "5px" }}>
+          <span key={i} style={{
+            padding: "5px 10px 5px 12px", borderRadius: "20px", fontSize: "0.76rem", fontWeight: 600,
+            background: `rgba(${hexToRgb(tag.color || color)}, 0.14)`, color: tag.color || color,
+            display: "flex", alignItems: "center", gap: "5px",
+          }}>
             {tag.label}
-            <button onClick={() => setTags(t => t.filter((_, j) => j !== i))} style={{ border: "none", background: "none", cursor: "pointer", padding: 0, display: "flex", opacity: 0.6, color: "inherit" }}>
+            <button onClick={() => setTags(t => t.filter((_, j) => j !== i))}
+              style={{ border: "none", background: "none", cursor: "pointer", padding: 0, display: "flex", opacity: 0.6, color: "inherit" }}>
               <LucideIcons.X size={10} strokeWidth={3} />
             </button>
           </span>
@@ -669,7 +772,11 @@ function TagsSection({ color, storageKey }: { items: TagItem[]; color: string; s
 
       {adding ? (
         <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
-          <input autoFocus value={newLabel} onChange={e => setNewLabel(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addTag(); if (e.key === "Escape") setAdding(false); }} placeholder="Tag name..." style={{ padding: "5px 10px", borderRadius: "20px", border: `1.5px solid ${color}`, background: "var(--fb-surface2)", color: "var(--fb-text)", fontSize: "0.76rem", outline: "none", fontFamily: "inherit", width: "140px" }} />
+          <input autoFocus value={newLabel} onChange={e => setNewLabel(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") addTag(); if (e.key === "Escape") setAdding(false); }}
+            placeholder="Tag name..."
+            style={{ padding: "5px 10px", borderRadius: "20px", border: `1.5px solid ${color}`, background: "var(--fb-surface2)", color: "var(--fb-text)", fontSize: "0.76rem", outline: "none", fontFamily: "inherit", width: "140px" }}
+          />
           <div style={{ display: "flex", gap: "4px" }}>
             {TAG_COLORS.map(c => (
               <div key={c} onClick={() => setTagColor(c)} style={{ width: "16px", height: "16px", borderRadius: "50%", background: c, cursor: "pointer", border: tagColor === c ? "2px solid var(--fb-text)" : "2px solid transparent", flexShrink: 0 }} />
@@ -683,7 +790,9 @@ function TagsSection({ color, storageKey }: { items: TagItem[]; color: string; s
           <button onClick={() => setAdding(true)} style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "4px 10px", borderRadius: "20px", border: `1px dashed var(--fb-border)`, background: "transparent", color: "var(--fb-text-muted)", fontSize: "0.72rem", cursor: "pointer", fontFamily: "inherit" }}>
             <LucideIcons.Plus size={11} strokeWidth={2.5} /> Add tag
           </button>
-          {tags.length > 0 && <button onClick={resetTags} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", fontFamily: "inherit" }}>↺ Clear all</button>}
+          {tags.length > 0 && (
+            <button onClick={resetTags} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--fb-text-muted)", fontFamily: "inherit" }}>↺ Reset</button>
+          )}
         </div>
       )}
 
@@ -725,20 +834,39 @@ export default function AppRenderer({ template, templateId }: { template: AppTem
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%", background: "var(--fb-bg)" }}>
 
       {/* App Header */}
-      <div style={{ background: `linear-gradient(135deg, rgba(${rgb}, 0.12) 0%, rgba(${rgb}, 0.04) 100%)`, borderBottom: `1px solid rgba(${rgb}, 0.15)`, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: `linear-gradient(135deg, ${color}, ${color}cc)`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 14px rgba(${rgb}, 0.38)`, flexShrink: 0 }}>
-            <LucideIcon name={icon} size={22} color="#fff" strokeWidth={2} />
+      <div style={{
+        background: `linear-gradient(135deg, rgba(${rgb}, 0.12) 0%, rgba(${rgb}, 0.04) 100%)`,
+        borderBottom: `1px solid rgba(${rgb}, 0.15)`,
+        padding: "22px 24px",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <div style={{
+            width: "48px", height: "48px", borderRadius: "14px",
+            background: `linear-gradient(135deg, ${color}, ${color}cc)`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: `0 4px 16px rgba(${rgb}, 0.4)`, flexShrink: 0,
+          }}>
+            <LucideIcon name={icon} size={24} color="#fff" strokeWidth={2} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--fb-text)", lineHeight: 1.2 }}>{appName}</h2>
-            <p style={{ margin: 0, fontSize: "0.73rem", color: "var(--fb-text-muted)", marginTop: "3px" }}>{description}</p>
+            <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--fb-text)", lineHeight: 1.2 }}>{appName}</h2>
+            <p style={{ margin: 0, fontSize: "0.74rem", color: "var(--fb-text-muted)", marginTop: "4px", lineHeight: 1.5 }}>{description}</p>
           </div>
         </div>
         {actions.length > 0 && (
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {actions.map((action, i) => (
-              <button key={i} style={{ display: "flex", alignItems: "center", gap: "5px", padding: "7px 14px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "0.76rem", fontWeight: 600, fontFamily: "inherit", background: action.variant === "primary" ? color : action.variant === "secondary" ? `rgba(${rgb}, 0.12)` : "transparent", color: action.variant === "primary" ? "#fff" : color, boxShadow: action.variant === "primary" ? `0 3px 10px rgba(${rgb}, 0.3)` : "none", transition: "opacity 0.15s" }}
+              <button key={i}
+                style={{
+                  display: "flex", alignItems: "center", gap: "5px",
+                  padding: "8px 16px", borderRadius: "8px", border: "none", cursor: "pointer",
+                  fontSize: "0.76rem", fontWeight: 600, fontFamily: "inherit",
+                  background: action.variant === "primary" ? color : action.variant === "secondary" ? `rgba(${rgb}, 0.12)` : "transparent",
+                  color: action.variant === "primary" ? "#fff" : color,
+                  boxShadow: action.variant === "primary" ? `0 3px 10px rgba(${rgb}, 0.3)` : "none",
+                  transition: "opacity 0.15s",
+                }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = "0.82")}
                 onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                 onClick={() => {}}>
@@ -751,10 +879,14 @@ export default function AppRenderer({ template, templateId }: { template: AppTem
       </div>
 
       {/* Sections */}
-      <div style={{ flex: 1, padding: "20px 24px", display: "flex", flexDirection: "column", gap: "28px" }}>
+      <div style={{ flex: 1, padding: "22px 24px", display: "flex", flexDirection: "column", gap: "28px" }}>
         {sections.map(section => (
           <div key={section.id}>
-            <h3 style={{ margin: "0 0 12px 0", fontSize: "0.78rem", fontWeight: 700, color: "var(--fb-text)", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "7px" }}>
+            <h3 style={{
+              margin: "0 0 14px 0", fontSize: "0.76rem", fontWeight: 700,
+              color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em",
+              display: "flex", alignItems: "center", gap: "8px",
+            }}>
               <span style={{ width: "3px", height: "14px", borderRadius: "2px", background: color, display: "inline-block", flexShrink: 0 }} />
               {section.title}
             </h3>
@@ -769,6 +901,8 @@ export default function AppRenderer({ template, templateId }: { template: AppTem
           </div>
         ))}
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

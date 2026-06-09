@@ -759,7 +759,7 @@ function SpaceCard({
         <SpaceFolderIcon color={space.color} size={36} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1f36", marginBottom: 2 }}>{space.name}</div>
-          <div style={{ fontSize: 12, color: "#9ca3af", truncate: true }}>{space.description || "No description"}</div>
+          <div style={{ fontSize: 12, color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{space.description || "No description"}</div>
         </div>
         <div style={{ fontSize: 12, color: "#6b7280", whiteSpace: "nowrap" }}>{pageCount} {pageCount === 1 ? "page" : "pages"}</div>
         <div style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}>{formatRelativeTime(space.updatedAt)}</div>
@@ -932,7 +932,7 @@ function SpaceDetailView({
               <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 3 }}>{space.description}</div>
             )}
           </div>
-          <div style={{ display: "flex", items: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ fontSize: 12, color: "#9ca3af", marginRight: 8 }}>
               {pages.length} {pages.length === 1 ? "page" : "pages"}
             </div>

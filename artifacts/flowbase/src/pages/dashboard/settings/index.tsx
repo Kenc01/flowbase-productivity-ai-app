@@ -680,12 +680,10 @@ export default function SettingsPage() {
       setLoading(true);
       setError(null);
       try {
-        const [sRes, cRes] = await Promise.all([
-          api.get("/settings"),
-          api.get("/settings/categories"),
+        const [s, cats] = await Promise.all([
+          api.get<any>("/settings"),
+          api.get<any>("/settings/categories"),
         ]);
-        const s    = await sRes.json();
-        const cats = await cRes.json();
         if (!cancelled) {
           if (s && !s.error) setSettings({ ...DEFAULT_SETTINGS, ...s });
           setCategories(Array.isArray(cats) ? cats : []);
@@ -701,8 +699,7 @@ export default function SettingsPage() {
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
       try {
-        const res = await api.patch("/settings", { body: JSON.stringify(next) });
-        if (!res.ok) throw new Error();
+        await api.patch<any>("/settings", next);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       } catch { setError("Failed to save — try again"); }
@@ -720,16 +717,14 @@ export default function SettingsPage() {
 
   const handleCreateCategory = async (data: { type: string; name: string; color: string; icon: string }) => {
     try {
-      const res = await api.post("/settings/categories", { body: JSON.stringify(data) });
-      const cat = await res.json();
+      const cat = await api.post<any>("/settings/categories", data);
       if (!cat.error) setCategories(prev => [...prev, cat]);
     } catch { setError("Failed to create category"); }
   };
 
   const handleUpdateCategory = async (id: string, data: Partial<Category>) => {
     try {
-      const res = await api.patch(`/settings/categories/${id}`, { body: JSON.stringify(data) });
-      const cat = await res.json();
+      const cat = await api.patch<any>(`/settings/categories/${id}`, data);
       if (!cat.error) setCategories(prev => prev.map(c => c.id === id ? { ...c, ...cat } : c));
     } catch { setError("Failed to update category"); }
   };
