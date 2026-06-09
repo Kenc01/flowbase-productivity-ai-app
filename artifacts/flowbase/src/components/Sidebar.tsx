@@ -732,7 +732,8 @@ export default function Sidebar() {
               />
             ))}
 
-            {/* ── Add App Button ── */}
+            {/* ── Add App Button — only visible on the AI Template Builder page ── */}
+            {location.startsWith("/dashboard/templates") && (
             <button
               ref={addBtnRef as React.RefObject<HTMLButtonElement>}
               type="button"
@@ -780,6 +781,7 @@ export default function Sidebar() {
                 <Tooltip label={isFull ? "Sidebar full (3/3)" : "Pin an app"} visible={!showAddPopover} />
               )}
             </button>
+            )}
           </div>
         </nav>
 
