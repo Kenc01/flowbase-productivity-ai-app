@@ -10,6 +10,7 @@ const SIDEBAR_LIMIT = 3;
 
 const GROQ_MODELS = [
   "llama-3.3-70b-versatile",
+  "llama-3.1-70b-versatile",
   "llama-3.1-8b-instant",
 ];
 
@@ -24,18 +25,18 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
 }
 
-const GENERATE_SYSTEM_PROMPT = `You are an AI mini-app designer. Given a user prompt, output ONLY valid JSON describing a single-page mini app layout.
+const GENERATE_SYSTEM_PROMPT = `You are an AI mini-app designer. Given a user prompt, output ONLY valid JSON describing a single-page mini app layout. No prose, no markdown, no explanation — just the raw JSON object.
 
-Output format (strict JSON, no markdown, no explanation):
+Output format:
 {
-  "appName": "string (short, 2-4 words)",
-  "description": "string (one sentence)",
-  "icon": "string (Lucide icon name like Flame, Target, BookOpen, Apple, DollarSign, Brain, Dumbbell, etc.)",
-  "color": "string (hex color, pick a fitting one)",
+  "appName": "string (short, 2-4 words, e.g. 'Habit Tracker')",
+  "description": "string (one sentence describing the app)",
+  "icon": "string (one Lucide icon name: Flame, Target, BookOpen, Apple, DollarSign, Brain, Dumbbell, ShoppingCart, Heart, Coffee, Music, Plane, Star, Zap, Clock, etc.)",
+  "color": "string (a vivid hex color that fits the theme, e.g. '#10B981' for health, '#F59E0B' for finance, '#6366F1' for study)",
   "layout": "single-page",
   "sections": [
     {
-      "id": "unique_id",
+      "id": "s1",
       "type": "stats|checklist|list|table|form|progress|tags|chart_placeholder",
       "title": "string",
       "items": []
@@ -44,31 +45,38 @@ Output format (strict JSON, no markdown, no explanation):
   "actions": [
     { "label": "string", "icon": "string (Lucide icon name)", "variant": "primary|secondary|ghost" }
   ],
-  "sampleData": [
-    { "key": "value" }
-  ]
+  "sampleData": [{ "key": "value" }]
 }
 
-Section type schemas:
-- "stats": items = [{ "label": "string", "value": "string", "icon": "string", "change": "string (optional, e.g. +12%)" }]
-- "checklist": items = [{ "id": "string", "label": "string", "done": boolean, "streak": "string (optional)" }]
-- "list": items = [{ "id": "string", "label": "string", "sublabel": "string (optional)", "tag": "string (optional)", "tagColor": "string hex (optional)" }]
-- "table": items = [{ "columns": ["col1","col2"], "rows": [["val1","val2"]] }] (put the whole table spec as one item)
-- "form": items = [{ "label": "string", "type": "text|number|select|date|textarea", "placeholder": "string", "options": ["opt1"] (for select) }]
-- "progress": items = [{ "label": "string", "value": number (0-100), "color": "string hex (optional)" }]
-- "tags": items = [{ "label": "string", "color": "string hex" }]
-- "chart_placeholder": items = [{ "chartType": "bar|line|pie|donut", "label": "string" }]
+Section type item schemas (use realistic, specific data — not generic placeholders):
+- "stats": items = [{ "label": "string", "value": "string (number or text)", "icon": "string (Lucide name)", "change": "string (e.g. +12% this week)" }] — include 3-4 stat cards
+- "checklist": items = [{ "id": "c1", "label": "string (specific task)", "done": false, "streak": "🔥 5 days (optional)" }] — include 4-6 realistic items, some done:true
+- "list": items = [{ "id": "l1", "label": "string", "sublabel": "string (detail)", "tag": "string (status/category)", "tagColor": "#hex" }] — include 3-5 items with varied tags
+- "table": items = [{ "columns": ["Name","Amount","Date","Status"], "rows": [["Item A","$50","Jan 1","Paid"],["Item B","$30","Jan 3","Pending"]] }]
+- "form": items = [{ "label": "string", "type": "text|number|select|date|textarea", "placeholder": "string", "options": ["opt1","opt2"] }] — 3-5 fields
+- "progress": items = [{ "label": "string", "value": number (0-100), "color": "#hex (optional)" }] — 3-5 bars with varied values
+- "tags": items = [{ "label": "string (category/tag name)", "color": "#hex" }] — 5-8 colorful tags
+- "chart_placeholder": items = [{ "chartType": "bar|line|pie|donut", "label": "string (what the chart shows)" }]
+
+App-type guidance (pick the right sections):
+- Habit/routine tracker → stats + checklist + progress + chart_placeholder
+- Budget/expense tracker → stats + table + chart_placeholder + form
+- Meal/food planner → list + form + tags + progress
+- Study/learning planner → checklist + progress + stats + chart_placeholder
+- Workout/fitness → checklist + stats + progress + chart_placeholder
+- Reading/book list → list + progress + tags + stats
+- Travel planner → list + checklist + form + table
+- Project manager → checklist + stats + table + tags
+- Shopping list → checklist + list + stats
+- Journal/diary → form + list + tags
 
 Rules:
-- Include 2-5 meaningful sections that make sense for the app type
-- For a Habit Tracker: use stats, checklist, progress sections
-- For a Budget Tracker: use stats, table, chart_placeholder sections
-- For a Meal Planner: use list, form, tags sections
-- For a Study Planner: use checklist, progress, stats sections
-- Always include at least 1 action button
-- sampleData should have 3-5 realistic example entries
-- Make it feel complete and useful
-- Output ONLY valid JSON, nothing else`;
+- Always produce 3-5 sections (never fewer than 2)
+- Always include 1-3 action buttons (primary for the main action)
+- All items must have realistic, domain-specific sample data — never use "Item 1", "Value 1", etc.
+- Section ids must be unique strings (s1, s2, s3...)
+- Checklist item ids: c1, c2... List item ids: l1, l2...
+- Output ONLY the JSON object, starting with { and ending with }. No other text.`;
 
 // POST /api/ai-templates/generate
 router.post("/generate", async (req, res) => {
@@ -103,17 +111,39 @@ router.post("/generate", async (req, res) => {
       }
     }
 
+    // Strip markdown code fences if present
     raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+
+    // Extract the outermost JSON object even if there's extra text around it
+    const firstBrace = raw.indexOf("{");
+    const lastBrace = raw.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      raw = raw.slice(firstBrace, lastBrace + 1);
+    }
 
     let parsed: any;
     try {
       parsed = JSON.parse(raw);
     } catch {
-      return res.status(500).json({ error: "AI returned invalid JSON. Please try a different prompt." });
+      return res.status(500).json({ error: "AI returned invalid JSON. Please try again with a different prompt." });
     }
 
-    if (!parsed.appName || !parsed.sections) {
+    if (!parsed.appName || !Array.isArray(parsed.sections) || parsed.sections.length === 0) {
       return res.status(500).json({ error: "AI returned incomplete data. Please try again." });
+    }
+
+    // Normalise sections — ensure every section has an id and items array
+    parsed.sections = parsed.sections.map((s: any, i: number) => ({
+      id: s.id ?? `s${i + 1}`,
+      type: s.type ?? "list",
+      title: s.title ?? "Section",
+      items: Array.isArray(s.items) ? s.items : [],
+    }));
+
+    // Normalise actions
+    if (!Array.isArray(parsed.actions)) parsed.actions = [];
+    if (parsed.actions.length === 0) {
+      parsed.actions = [{ label: "Get Started", icon: "Sparkles", variant: "primary" }];
     }
 
     res.json(parsed);
