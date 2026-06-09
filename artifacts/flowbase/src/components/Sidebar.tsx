@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useClerk } from "@clerk/react";
+import { useClerk, useAuth } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import {
   Bell,
@@ -17,7 +17,18 @@ import {
   Settings,
   Wand2,
   Zap,
+  X,
 } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+import { api } from "@/lib/api";
+
+interface SidebarAppEntry {
+  sidebarId: string;
+  templateId: string;
+  appName: string;
+  icon: string;
+  color: string;
+}
 
 interface NavItem {
   label: string;
@@ -306,10 +317,106 @@ function FooterButton({
   );
 }
 
+function SidebarAppRow({ app, isActive, collapsed, onRemove }: {
+  app: SidebarAppEntry;
+  isActive: boolean;
+  collapsed: boolean;
+  onRemove: (templateId: string) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [showRemove, setShowRemove] = useState(false);
+  const Icon = (LucideIcons as any)[app.icon] ?? LucideIcons.Sparkles;
+
+  return (
+    <div
+      style={{ position: "relative" }}
+      onMouseEnter={() => { setHovered(true); setShowRemove(true); }}
+      onMouseLeave={() => { setHovered(false); setShowRemove(false); }}
+    >
+      <Link
+        href={`/dashboard/templates/${app.templateId}`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: collapsed ? "center" : "flex-start",
+          gap: collapsed ? 0 : "8px",
+          padding: collapsed ? "7px" : "6px 9px",
+          borderRadius: "8px",
+          textDecoration: "none",
+          position: "relative",
+          background: isActive ? "var(--fb-sidebar-active)" : hovered ? "var(--fb-sidebar-hover)" : "transparent",
+          transition: "background 0.15s ease",
+          marginBottom: "1px",
+          paddingRight: !collapsed && showRemove ? "30px" : undefined,
+        }}
+      >
+        {isActive && (
+          <span style={{
+            position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
+            width: "3px", height: "60%", background: app.color, borderRadius: "0 3px 3px 0",
+          }} />
+        )}
+        <span style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: "26px", height: "26px", borderRadius: "7px", flexShrink: 0,
+          background: isActive || hovered ? `${app.color}22` : "transparent",
+          transition: "background 0.15s ease",
+        }}>
+          <Icon size={13} style={{ color: isActive || hovered ? app.color : "var(--fb-sidebar-text)", transition: "color 0.15s ease" }} strokeWidth={isActive ? 2.25 : 1.8} />
+        </span>
+        {!collapsed && (
+          <span style={{
+            fontSize: "0.76rem",
+            fontWeight: isActive ? 600 : 450,
+            color: isActive ? "var(--fb-sidebar-text-active)" : hovered ? "hsl(220, 20%, 86%)" : "var(--fb-sidebar-text)",
+            transition: "color 0.15s ease",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1,
+          }}>{app.appName}</span>
+        )}
+        {collapsed && (
+          <div style={{
+            position: "absolute", left: "calc(100% + 12px)", top: "50%", transform: "translateY(-50%)",
+            background: "hsl(231, 34%, 10%)", color: "#f8fafc",
+            padding: "5px 10px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 500,
+            whiteSpace: "nowrap", pointerEvents: "none", zIndex: 999,
+            boxShadow: "0 8px 18px rgba(15, 23, 42, 0.24)",
+            display: hovered ? "block" : "none",
+          }}>
+            {app.appName}
+            <span style={{
+              position: "absolute", right: "100%", top: "50%", transform: "translateY(-50%)",
+              borderWidth: "5px", borderStyle: "solid",
+              borderColor: "transparent hsl(231, 34%, 10%) transparent transparent",
+            }} />
+          </div>
+        )}
+      </Link>
+      {!collapsed && showRemove && (
+        <button
+          type="button"
+          onClick={e => { e.preventDefault(); onRemove(app.templateId); }}
+          style={{
+            position: "absolute", right: "6px", top: "50%", transform: "translateY(-50%)",
+            width: "20px", height: "20px", borderRadius: "5px",
+            border: "none", background: "transparent",
+            color: "var(--fb-sidebar-label)", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            opacity: 0.7,
+          }}
+          title="Remove from sidebar"
+        >
+          <X size={11} strokeWidth={2.5} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Sidebar() {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [sidebarApps, setSidebarApps] = useState<SidebarAppEntry[]>([]);
   const { signOut } = useClerk();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -317,6 +424,20 @@ export default function Sidebar() {
     setMounted(true);
     setCollapsed(localStorage.getItem("fb-sidebar-collapsed") === "true");
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    api.get<SidebarAppEntry[]>("/ai-templates/sidebar/apps")
+      .then(apps => setSidebarApps(apps))
+      .catch(() => {});
+  }, [mounted]);
+
+  const handleRemoveSidebarApp = async (templateId: string) => {
+    try {
+      await api.delete(`/ai-templates/sidebar/apps/${templateId}`);
+      setSidebarApps(prev => prev.filter(a => a.templateId !== templateId));
+    } catch {}
+  };
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -505,6 +626,32 @@ export default function Sidebar() {
             ))}
           </div>
         ))}
+
+        {/* ── My Apps (dynamic sidebar apps) ── */}
+        {sidebarApps.length > 0 && (
+          <div style={{ marginBottom: "4px" }}>
+            {!collapsed && (
+              <div style={{
+                fontSize: "0.6rem", fontWeight: 700, color: "var(--fb-sidebar-label)",
+                letterSpacing: 0, textTransform: "uppercase", padding: "12px 9px 5px", whiteSpace: "nowrap",
+              }}>
+                My Apps
+              </div>
+            )}
+            {collapsed && (
+              <div style={{ height: "1px", background: "var(--fb-sidebar-border)", margin: "7px 4px" }} />
+            )}
+            {sidebarApps.map(app => (
+              <SidebarAppRow
+                key={app.templateId}
+                app={app}
+                isActive={location === `/dashboard/templates/${app.templateId}`}
+                collapsed={collapsed}
+                onRemove={handleRemoveSidebarApp}
+              />
+            ))}
+          </div>
+        )}
       </nav>
 
       <footer

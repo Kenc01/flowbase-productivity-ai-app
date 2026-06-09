@@ -18,6 +18,7 @@ import NotesPage from "@/pages/dashboard/notes/index";
 import WhiteboardPage from "@/pages/dashboard/whiteboard/index";
 import PagesSpacesPage from "@/pages/dashboard/pages/index";
 import TemplatesPage from "@/pages/dashboard/templates/index";
+import TemplatePreviewPage from "@/pages/dashboard/templates/preview";
 import SettingsPage from "@/pages/dashboard/settings/index";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
@@ -257,6 +258,16 @@ function Router() {
               <DashboardRoute>
                 <TemplatesPage />
               </DashboardRoute>
+            </Route>
+            <Route path="/dashboard/templates/:id">
+              <Show when="signed-in">
+                <DashboardLayout>
+                  <TemplatePreviewPage />
+                </DashboardLayout>
+              </Show>
+              <Show when="signed-out">
+                <Redirect to="/sign-in" />
+              </Show>
             </Route>
             <Route path="/dashboard/settings">
               <DashboardRoute>
