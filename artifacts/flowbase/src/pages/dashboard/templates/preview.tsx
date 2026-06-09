@@ -295,7 +295,7 @@ export default function TemplatePreviewPage() {
 
       {/* ── App Content ── */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        <AppRenderer template={appData} />
+        <AppRenderer template={appData} templateId={template.id} />
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
