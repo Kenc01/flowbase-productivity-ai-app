@@ -78,7 +78,7 @@ router.post("/generate", async (req, res) => {
   const { prompt } = req.body as { prompt: string };
   if (!prompt?.trim()) return res.status(400).json({ error: "Prompt is required" });
 
-  const groqKey = process.env.GROQ_API_KEY;
+  const groqKey = (process.env.GROQ_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
   if (!groqKey) return res.status(500).json({ error: "GROQ_API_KEY not configured" });
 
   try {
