@@ -26,9 +26,9 @@ const ACTIONS: Record<string, string> = {
 
 // Groq models - most reliable for free tier
 const GROQ_MODELS = [
-  "llama-3.1-70b-versatile", // best quality, stable
-  "llama-3.1-8b-instant", // fast, reliable
-  "mixtral-8x7b-32768", // good quality, high context
+  "llama-3.3-70b-versatile", // best quality, current
+  "llama-3.1-70b-versatile", // fallback
+  "llama-3.1-8b-instant",    // fast fallback
 ];
 
 router.post("/", async (req, res) => {
@@ -42,12 +42,11 @@ router.post("/", async (req, res) => {
   const prompt = ACTIONS[action];
   if (!prompt) return res.status(400).json({ error: "Unknown action" });
 
-  const groqKey = process.env.GROQ_API_KEY;
+  const groqKey = (process.env.GROQ_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
   if (!groqKey) {
     logger.error("GROQ_API_KEY is not set");
     return res.status(500).json({
-      error:
-        "GROQ_API_KEY not set. Get a free key at console.groq.com and add it to .env",
+      error: "GROQ_API_KEY not set. Get a free key at console.groq.com",
     });
   }
 
