@@ -241,9 +241,12 @@ function Router() {
               </DashboardRoute>
             </Route>
             <Route path="/dashboard/whiteboard">
-              <DashboardRoute>
+              <Show when="signed-in">
                 <WhiteboardPage />
-              </DashboardRoute>
+              </Show>
+              <Show when="signed-out">
+                <Redirect to="/sign-in" />
+              </Show>
             </Route>
             <Route path="/dashboard/pages">
               <DashboardRoute>

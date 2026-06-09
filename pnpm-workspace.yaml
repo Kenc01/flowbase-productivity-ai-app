@@ -68,7 +68,7 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
-  # Exclude all non-windows platforms (we run on Windows locally)
+  # Exclude non-linux-x64 platforms (we run on Linux x64 on Replit)
   "esbuild>@esbuild/darwin-arm64": "-"
   "esbuild>@esbuild/darwin-x64": "-"
   "esbuild>@esbuild/freebsd-arm64": "-"
@@ -88,6 +88,7 @@ overrides:
   "esbuild>@esbuild/sunos-x64": "-"
   "esbuild>@esbuild/win32-arm64": "-"
   "esbuild>@esbuild/win32-ia32": "-"
+  "esbuild>@esbuild/win32-x64": "-"
   "esbuild>@esbuild/aix-ppc64": '-'
   "esbuild>@esbuild/android-arm": '-'
   "esbuild>@esbuild/android-arm64": '-'

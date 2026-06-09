@@ -1,0 +1,88 @@
+Create a "Pages & Spaces" section for a productivity workspace app.
+Goal:
+Users should organize content using Spaces as top-Level folders and Pages as individual documents inside each space.
+Main Screen: All Spaces
+Show a main content page titled "All Spaces" with:
+Space count, for example "6 spaces"
+New Space button
+Search input: "Search spaces or pages _. "
+Filter tabs: ALl Spaces, Favorites, Recently Opened, Archived
+Grid/List view toggle
+Sort dropdown: Recently Updated, Name, Most Pages, Favorites
+Spaces Grid:
+Display space cords in a clean responsive grid.
+Each card should include:
+Colored folder icon
+Space name
+Short description
+Member avatars
+Page count
+Last updated tine
+Favarite star
+More menu
+Exomple spaces:
+Productivity Hub - Daily planning, notes, tasks, and productivity workflows. 24 Pages . Updated just now
+Work Projects - Project plans, documentation, and team collaboration. 18 Pages - Updated 2h ago
+Personal - Personal notes, gools, and life orgonization. 12 Pages . Updated yesterday
+Learning & Growth - Courses, books, and research notes. 15 Pages . Updated 2 days ago
+Ideas & Research - Brainstorming, references, and future ideas. 9 Pages . Updated 3 days ago
+Archive - Old projects and completed work. 32 Pages - Updated Last week
+Create New Space:
+Show a modal or side panel with:
+Space Name input
+Description input
+Colar selector
+Create Space button
+Create New Page:
+Show a madal or side panel with:
+Page Name input
+Add to Space dropdown
+Template dropdown: Blank Page, Project Plan, Meeting Notes, PRD, Research Notes, Task Plan
+Create Page button
+Inside o Space:
+When a space is
+Breadcrumb: ALL Spaces > Work Projects
+Space title and page count
+New Page button
+More menu
+Display pages in a table/list with:
+Page Name
+Type/Template
+Last Updated
+Updated By
+Favorite status
+Example pages:
+02 Roadmap - Project Plan - Just now - JD
+- Planning - 2h ago - AM
+Sprint Planning - P
+Meeting Notes
+Project PRD - Document - 2 days ago - TL
+Resources & Links - Reference - 3 days ago - AN
+Page Preview:
+Yhen a page is selected, show a quick preview card with:
+Page title
+Type badge
+Space name
+Description
+Comments count
+Linked tasks count
+Last edited by
+Actions:
+Page actions:
+Rename, Move, Duplicate, Favorite, Share, Export, Archive, Delete
+Space actions:
+Rename Space, Change Color, Add Page, Invite Collaborators, Duplicate, Archive, Delete
+Design Style:
+Use a clean white layout with soft purple accents, rounded cards, subtle borders, light shadows, folder/document icons, avatars, badges, and modern spacing.
+Dverall flow:
+Create Space + Add Pages + Drganize > Collaborate + Link with other features + Stay Organized
+make sure to show pages once user click on spaces and then naviagte to pages with details. Also remove all dummy date. Dont show spaces and pages at same
++ime
+
+opened, show:
+
+12 Nay -
+
+Notes
+
+Yesterday - SK

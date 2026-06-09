@@ -61,6 +61,7 @@ router.post("/auth", async (req, res) => {
       session.allow(room, session.FULL_ACCESS);
     } else {
       session.allow("flowbase-board-*", session.FULL_ACCESS);
+      session.allow("flowbase-whiteboard-*", session.FULL_ACCESS);
     }
 
     const { body, status } = await session.authorize();
