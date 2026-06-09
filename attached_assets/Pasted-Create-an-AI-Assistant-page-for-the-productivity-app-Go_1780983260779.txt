@@ -1,0 +1,69 @@
+Create an AI Assistant page for the productivity app.
+Goal:
+Build a ChatGPT-style AI Assistant page where users can chat with
+AI, ask questions, and tell AI to perform actions across the app.
+
+Page Layout:
+- Create a clean chat interface similar to ChatGPT.
+- Add messages area in the center.
+Add prompt textarea at the bottom.
+Add send button.
+Add voice/talk button using AssemblyAI voice agent.
+- Keep UI cozy, modern, responsive, and consistent with the app
+theme.
+
+Empty State:
+When there are no messages, show:
+- AI Assistant title
+- Short description
+Quick suggestion cards
+
+Suggestion examples:
+"Create a task for tomorrow"
+"Add meeting reminder on calendar"
+"Summarize my notes"
+"Create a Kanban board"
+"Plan my week"
+"Generate a habit tracker template"
+Chat Behavior:
+- Once user starts chatting, show proper conversation messages.
+Show user messages and AI responses in clean chat bubbles.
+Add Loading/typing state while AI is responding.
+Keep conversation history visible.
+Support multiline prompts.
+
+AI Task Actions:
+AI should be able to perform actions for app features like:
+- Add task to Kanban board
+Create new Kanban board
+Add reminder/task to Calendar for a specific date
+Create a new Note
+Summarize or refine note content
+Create Whiteboard idea/diagram prompt
+Generate AI Template Builder app
+- Update user settings if needed
+
+Clarification Flow:
+- If user request is unclear, AI should ask follow-up questions
+before taking action.
+Example: If user says "add meeting," AI should ask for
+date/time if missing.
+AI should confirm important actions before saving when needed.
+
+Voice Assistant:
+Add option to talk directly with AI vsing AssemblyAI voice
+agent.
+- User can click microphone button and speak.
+Convert speech to text in real time.
+Send the transcribed prompt to AI.
+Show listening, processing, and error states.
+Do not expose API keys on the frontend.
+
+UI / Tech:
+- Use React, Next.js, TypeScript, Tailwind CSS, ShadCN UI, Lucide
+icons, and AssemblyAI.
+
+Important:
+AI Assistant should work as a central command center for the
+entire app and perform actions only for the logged-in user.
+User Voice AI agent doc from below:

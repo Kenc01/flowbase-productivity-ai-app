@@ -13,6 +13,7 @@ import whiteboardsRouter from "./whiteboards";
 import aiDiagramRouter from "./ai-diagram";
 import aiTemplatesRouter from "./ai-templates";
 import settingsRouter from "./settings";
+import aiAssistantRouter from "./ai-assistant";
 
 const router: IRouter = Router();
 
@@ -30,6 +31,7 @@ router.use("/whiteboards", whiteboardsRouter);
 router.use("/ai-diagram", aiDiagramRouter);
 router.use("/ai-templates", aiTemplatesRouter);
 router.use("/settings", settingsRouter);
+router.use("/ai-assistant", aiAssistantRouter);
 
 export default router;
 
