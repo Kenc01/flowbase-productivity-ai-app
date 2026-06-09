@@ -106,6 +106,35 @@ async function main() {
       ALTER TABLE pages ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE;
     `);
 
+    console.log("Adding settings tables...");
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_settings (
+        user_id TEXT PRIMARY KEY,
+        preferred_model TEXT NOT NULL DEFAULT 'llama-3.3-70b-versatile',
+        ai_tone TEXT NOT NULL DEFAULT 'balanced',
+        ai_refine_enabled BOOLEAN NOT NULL DEFAULT true,
+        ai_assistant_enabled BOOLEAN NOT NULL DEFAULT true,
+        ai_template_builder_enabled BOOLEAN NOT NULL DEFAULT true,
+        theme TEXT NOT NULL DEFAULT 'system',
+        default_calendar_view TEXT NOT NULL DEFAULT 'week',
+        default_task_priority TEXT NOT NULL DEFAULT 'medium',
+        notifications_enabled BOOLEAN NOT NULL DEFAULT true,
+        email_notifications BOOLEAN NOT NULL DEFAULT false,
+        auto_save BOOLEAN NOT NULL DEFAULT true,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS user_categories (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#7467F0',
+        icon TEXT NOT NULL DEFAULT 'Tag',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
     console.log("✓ All tables created/verified successfully");
   } finally {
     client.release();

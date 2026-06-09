@@ -6,3 +6,4 @@ export * from "./whiteboards";
 export * from "./spaces";
 export * from "./collaborators";
 export * from "./ai-templates";
+export * from "./settings";
