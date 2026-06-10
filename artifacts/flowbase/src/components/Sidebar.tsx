@@ -27,6 +27,7 @@ import {
 import * as LucideIcons from "lucide-react";
 import { api } from "@/lib/api";
 import { NotificationsPanel } from "./NotificationsPanel";
+import { HelpPanel } from "./HelpPanel";
 
 interface SidebarAppEntry {
   sidebarId: string;
@@ -566,6 +567,7 @@ export default function Sidebar() {
   const [showAddPopover, setShowAddPopover] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const [showHelp, setShowHelp] = useState(false);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const { signOut } = useClerk();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -808,7 +810,7 @@ export default function Sidebar() {
           display: "flex", flexDirection: "column", gap: "2px",
         }}>
           <FooterButton icon={Bell} label="Notifications" color="var(--fb-amber)" collapsed={collapsed} badge={notifCount > 0 ? notifCount : undefined} onClick={() => setShowNotifs(v => !v)} />
-          <FooterButton icon={HelpCircle} label="Help & Support" color="var(--fb-sky)" collapsed={collapsed} />
+          <FooterButton icon={HelpCircle} label="Help & Support" color="var(--fb-sky)" collapsed={collapsed} onClick={() => setShowHelp(v => !v)} />
           <FooterButton icon={LogOut} label="Sign Out" color="var(--fb-rose)" collapsed={collapsed} danger
             onClick={() => signOut({ redirectUrl: basePath || "/" })} />
           {!collapsed && (
@@ -839,6 +841,13 @@ export default function Sidebar() {
         onClose={() => setShowNotifs(false)}
         sidebarWidth={sidebarWidthPx}
         onCountChange={setNotifCount}
+      />
+
+      {/* ── Help & Support Panel ── */}
+      <HelpPanel
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
+        sidebarWidth={sidebarWidthPx}
       />
 
       <style>{`
