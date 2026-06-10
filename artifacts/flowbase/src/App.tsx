@@ -92,10 +92,12 @@ function SignInPage() {
       style={{
         minHeight: "100dvh",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         background: "linear-gradient(135deg, hsl(246 80% 14%) 0%, hsl(246 60% 18%) 50%, hsl(195 80% 12%) 100%)",
         padding: "24px 16px",
+        gap: "16px",
       }}
     >
       <SignIn
@@ -103,6 +105,22 @@ function SignInPage() {
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
       />
+      <a
+        href={`${basePath}/`}
+        style={{
+          color: "rgba(255,255,255,0.6)",
+          fontSize: "14px",
+          textDecoration: "none",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          transition: "color 0.2s",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.9)")}
+        onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.6)")}
+      >
+        ← Back to home
+      </a>
     </div>
   );
 }
