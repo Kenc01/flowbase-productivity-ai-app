@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { api } from "@/lib/api";
+import { NotificationsPanel } from "./NotificationsPanel";
 
 interface SidebarAppEntry {
   sidebarId: string;
@@ -563,6 +564,8 @@ export default function Sidebar() {
   const [mounted, setMounted] = useState(false);
   const [sidebarApps, setSidebarApps] = useState<SidebarAppEntry[]>([]);
   const [showAddPopover, setShowAddPopover] = useState(false);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const { signOut } = useClerk();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -576,6 +579,16 @@ export default function Sidebar() {
     if (!mounted) return;
     api.get<SidebarAppEntry[]>("/ai-templates/sidebar/apps")
       .then(apps => setSidebarApps(apps))
+      .catch(() => {});
+
+    // Pre-fetch notification count so badge shows immediately
+    const dismissed: string[] = (() => {
+      try { return JSON.parse(localStorage.getItem("fb-dismissed-notifs") || "[]"); }
+      catch { return []; }
+    })();
+    const dimSet = new Set(dismissed);
+    api.get("/notifications")
+      .then((data: any[]) => setNotifCount(data.filter((n: any) => !dimSet.has(n.id)).length))
       .catch(() => {});
   }, [mounted]);
 
@@ -603,6 +616,7 @@ export default function Sidebar() {
   if (!mounted) return null;
 
   const sidebarWidth = collapsed ? "var(--fb-sidebar-width-collapsed)" : "var(--fb-sidebar-width)";
+  const sidebarWidthPx = collapsed ? 60 : 228;
   const isFull = sidebarApps.length >= SIDEBAR_LIMIT;
 
   return (
@@ -793,7 +807,7 @@ export default function Sidebar() {
           padding: "10px 9px", flexShrink: 0,
           display: "flex", flexDirection: "column", gap: "2px",
         }}>
-          <FooterButton icon={Bell} label="Notifications" color="var(--fb-amber)" collapsed={collapsed} badge={3} />
+          <FooterButton icon={Bell} label="Notifications" color="var(--fb-amber)" collapsed={collapsed} badge={notifCount > 0 ? notifCount : undefined} onClick={() => setShowNotifs(v => !v)} />
           <FooterButton icon={HelpCircle} label="Help & Support" color="var(--fb-sky)" collapsed={collapsed} />
           <FooterButton icon={LogOut} label="Sign Out" color="var(--fb-rose)" collapsed={collapsed} danger
             onClick={() => signOut({ redirectUrl: basePath || "/" })} />
@@ -818,6 +832,14 @@ export default function Sidebar() {
           collapsed={collapsed}
         />
       )}
+
+      {/* ── Notifications Panel ── */}
+      <NotificationsPanel
+        open={showNotifs}
+        onClose={() => setShowNotifs(false)}
+        sidebarWidth={sidebarWidthPx}
+        onCountChange={setNotifCount}
+      />
 
       <style>{`
         @keyframes fadeInTooltip { from { opacity: 0; transform: translateY(-50%) translateX(-4px); } to { opacity: 1; transform: translateY(-50%) translateX(0); } }

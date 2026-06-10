@@ -14,6 +14,7 @@ import aiDiagramRouter from "./ai-diagram";
 import aiTemplatesRouter from "./ai-templates";
 import settingsRouter from "./settings";
 import aiAssistantRouter from "./ai-assistant";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -32,6 +33,7 @@ router.use("/ai-diagram", aiDiagramRouter);
 router.use("/ai-templates", aiTemplatesRouter);
 router.use("/settings", settingsRouter);
 router.use("/ai-assistant", aiAssistantRouter);
+router.use("/notifications", notificationsRouter);
 
 export default router;
 
