@@ -7,8 +7,9 @@ import {
   kanbanTasksTable,
   calendarEventsTable,
   notesTable,
+  chatMessagesTable,
 } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import Groq from "groq-sdk";
 
 const router = Router();
@@ -43,24 +44,84 @@ function getSystemPrompt() {
     month: "long",
     day: "numeric",
   });
-  return `You are FlowBase AI — a smart, friendly productivity assistant built into the FlowBase workspace app. You help users manage their tasks, notes, calendar, and ideas.
+  return `You are FlowBase AI — a smart, friendly productivity assistant built into the FlowBase workspace app. You have memory of your full conversation history with this user.
 
-You have access to tools that let you take real actions inside the app:
+You have access to tools that let you take real actions AND read live data from the app:
 - Create Kanban tasks and boards
 - Add events and reminders to the calendar
 - Create notes
-- Generate AI mini-app templates
+- Read the user's calendar/schedule
+- Read the user's Kanban tasks
+- Read the user's notes
 
 Guidelines:
 - Be concise, warm, and helpful. Keep responses short unless detail is asked for.
-- When a user asks you to do something (add task, create note, set reminder), use the appropriate tool — don't just describe what to do.
+- When a user asks you to do something (add task, create note, set reminder), use the appropriate write tool.
+- When a user asks "what's my schedule", "what do I have today/this week", "what are my tasks/notes", use the read tools to fetch real data.
 - If the request is ambiguous (e.g., "add meeting" with no date), ask ONE focused follow-up question.
 - After completing an action, briefly confirm what you did.
-- For general questions, answer directly without using tools.
+- You remember the full conversation — refer back to earlier messages when relevant.
 - Today is ${today}.`;
 }
 
 const TOOLS: any[] = [
+  {
+    type: "function",
+    function: {
+      name: "get_schedule",
+      description:
+        "Read the user's calendar events and schedule. Use when the user asks about their schedule, what they have today/this week, upcoming events, or reminders.",
+      parameters: {
+        type: "object",
+        properties: {
+          filter: {
+            type: "string",
+            enum: ["today", "week", "all"],
+            description:
+              "Which events to fetch: 'today' for today only, 'week' for the next 7 days, 'all' for everything",
+          },
+        },
+        required: ["filter"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_tasks",
+      description:
+        "Read the user's Kanban tasks. Use when the user asks about their tasks, to-do list, work in progress, or what they need to do.",
+      parameters: {
+        type: "object",
+        properties: {
+          filter: {
+            type: "string",
+            enum: ["all", "todo", "in_progress"],
+            description: "Which tasks to show",
+          },
+        },
+        required: ["filter"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_notes",
+      description:
+        "Read the user's notes. Use when the user asks to see, summarize, or list their notes.",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: {
+            type: "number",
+            description: "Max number of notes to return (default 10)",
+          },
+        },
+        required: [],
+      },
+    },
+  },
   {
     type: "function",
     function: {
@@ -152,12 +213,11 @@ const TOOLS: any[] = [
           title: { type: "string", description: "Note title" },
           content: {
             type: "string",
-            description: "Note body content (plain text or markdown-ish)",
+            description: "Note body content",
           },
           color: {
             type: "string",
-            description:
-              "Accent color hex matching the note's theme (optional)",
+            description: "Accent color hex (optional)",
           },
         },
         required: ["title"],
@@ -169,7 +229,7 @@ const TOOLS: any[] = [
     function: {
       name: "generate_ai_template",
       description:
-        "Tell the user to go to AI Template Builder to generate a mini-app. Use this when they ask to generate a habit tracker, budget tracker, workout log, or any mini-app.",
+        "Tell the user to go to AI Template Builder to generate a mini-app (habit tracker, budget tracker, workout log, etc.)",
       parameters: {
         type: "object",
         properties: {
@@ -191,6 +251,93 @@ async function executeTool(
 ): Promise<{ success: boolean; result: any; summary: string; link?: string }> {
   try {
     switch (name) {
+      case "get_schedule": {
+        const events = await db
+          .select()
+          .from(calendarEventsTable)
+          .where(eq(calendarEventsTable.userId, userId));
+
+        const today = new Date().toISOString().slice(0, 10);
+        const weekEnd = new Date(Date.now() + 7 * 86400000)
+          .toISOString()
+          .slice(0, 10);
+
+        let filtered = events;
+        if (args.filter === "today") {
+          filtered = events.filter((e) => e.date === today);
+        } else if (args.filter === "week") {
+          filtered = events.filter((e) => e.date >= today && e.date <= weekEnd);
+        }
+
+        filtered.sort((a, b) => (a.date < b.date ? -1 : 1));
+
+        return {
+          success: true,
+          result: filtered,
+          summary: `Found ${filtered.length} calendar event(s)`,
+          link: "/dashboard/calendar",
+        };
+      }
+
+      case "get_tasks": {
+        const tasks = await db
+          .select()
+          .from(kanbanTasksTable)
+          .where(eq(kanbanTasksTable.userId, userId));
+
+        const columns = await db
+          .select()
+          .from(kanbanColumnsTable)
+          .where(eq(kanbanColumnsTable.userId, userId));
+
+        const colMap: Record<string, string> = {};
+        for (const c of columns) colMap[c.id] = c.name;
+
+        let filtered = tasks;
+        if (args.filter === "todo") {
+          filtered = tasks.filter(
+            (t) => (colMap[t.columnId] ?? "").toLowerCase().includes("to do")
+          );
+        } else if (args.filter === "in_progress") {
+          filtered = tasks.filter((t) =>
+            (colMap[t.columnId] ?? "").toLowerCase().includes("progress")
+          );
+        }
+
+        const enriched = filtered.map((t) => ({
+          ...t,
+          columnName: colMap[t.columnId] ?? "Unknown",
+        }));
+
+        return {
+          success: true,
+          result: enriched,
+          summary: `Found ${enriched.length} task(s)`,
+          link: "/dashboard/kanban",
+        };
+      }
+
+      case "get_notes": {
+        const limit = Math.min(args.limit ?? 10, 20);
+        const notes = await db
+          .select()
+          .from(notesTable)
+          .where(eq(notesTable.userId, userId));
+
+        const sorted = notes
+          .sort((a, b) =>
+            a.updatedAt < b.updatedAt ? 1 : -1
+          )
+          .slice(0, limit);
+
+        return {
+          success: true,
+          result: sorted,
+          summary: `Found ${sorted.length} note(s)`,
+          link: "/dashboard/notes",
+        };
+      }
+
       case "create_kanban_task": {
         let boards = await db
           .select()
@@ -200,9 +347,7 @@ async function executeTool(
 
         if (!board) {
           const boardId = uid();
-          const c1 = uid(),
-            c2 = uid(),
-            c3 = uid();
+          const c1 = uid(), c2 = uid(), c3 = uid();
           [board] = await db
             .insert(kanbanBoardsTable)
             .values({
@@ -229,7 +374,9 @@ async function executeTool(
               eq(kanbanColumnsTable.userId, userId)
             )
           );
-        const todoCol = columns.sort((a: { order: number }, b: { order: number }) => a.order - b.order)[0];
+        const todoCol = columns.sort(
+          (a: { order: number }, b: { order: number }) => a.order - b.order
+        )[0];
 
         const [task] = await db
           .insert(kanbanTasksTable)
@@ -255,9 +402,7 @@ async function executeTool(
 
       case "create_kanban_board": {
         const boardId = uid();
-        const c1 = uid(),
-          c2 = uid(),
-          c3 = uid();
+        const c1 = uid(), c2 = uid(), c3 = uid();
         const [board] = await db
           .insert(kanbanBoardsTable)
           .values({
@@ -305,12 +450,7 @@ async function executeTool(
 
       case "create_note": {
         const palette = [
-          "#F43F5E",
-          "#8B5CF6",
-          "#06B6D4",
-          "#10B981",
-          "#F59E0B",
-          "#3B82F6",
+          "#F43F5E", "#8B5CF6", "#06B6D4", "#10B981", "#F59E0B", "#3B82F6",
         ];
         const [note] = await db
           .insert(notesTable)
@@ -319,8 +459,7 @@ async function executeTool(
             userId,
             title: args.title,
             content: args.content ?? "",
-            color:
-              args.color ?? palette[Math.floor(Math.random() * palette.length)],
+            color: args.color ?? palette[Math.floor(Math.random() * palette.length)],
             symbol: "📝",
             pinned: false,
           })
@@ -350,15 +489,81 @@ async function executeTool(
   }
 }
 
+async function callGroq(
+  groq: Groq,
+  messages: Groq.Chat.ChatCompletionMessageParam[],
+  useTools: boolean,
+  maxTokens = 1000
+): Promise<Groq.Chat.ChatCompletion> {
+  for (const model of GROQ_MODELS) {
+    try {
+      return await groq.chat.completions.create({
+        model,
+        messages,
+        ...(useTools ? { tools: TOOLS, tool_choice: "auto" } : {}),
+        temperature: 0.7,
+        max_tokens: maxTokens,
+      });
+    } catch (e: any) {
+      if (model === GROQ_MODELS[GROQ_MODELS.length - 1]) throw e;
+    }
+  }
+  throw new Error("All models failed");
+}
+
+// GET /history — load saved conversation for this user
+router.get("/history", async (req: Request, res: Response) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+
+  try {
+    const rows = await db
+      .select()
+      .from(chatMessagesTable)
+      .where(eq(chatMessagesTable.userId, userId))
+      .orderBy(asc(chatMessagesTable.createdAt));
+
+    const messages = rows.map((r) => ({
+      id: r.id,
+      role: r.role,
+      content: r.content,
+      actions: JSON.parse(r.actionsJson || "[]"),
+      timestamp: r.createdAt,
+    }));
+
+    return res.json(messages);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /history — clear all messages for this user
+router.delete("/history", async (req: Request, res: Response) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+
+  try {
+    await db
+      .delete(chatMessagesTable)
+      .where(eq(chatMessagesTable.userId, userId));
+    return res.status(204).end();
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /chat — main AI chat endpoint
 router.post("/chat", async (req: Request, res: Response) => {
   const userId = requireUser(req, res);
   if (!userId) return;
 
-  const { messages } = req.body as {
-    messages: Array<{ role: string; content: string }>;
+  const { userMessage, history } = req.body as {
+    userMessage: string;
+    history: Array<{ role: string; content: string }>;
   };
-  if (!Array.isArray(messages) || !messages.length) {
-    return res.status(400).json({ error: "messages array required" });
+
+  if (!userMessage?.trim()) {
+    return res.status(400).json({ error: "userMessage required" });
   }
 
   const groqKey = (process.env.GROQ_API_KEY ?? "")
@@ -369,12 +574,14 @@ router.post("/chat", async (req: Request, res: Response) => {
 
   const groq = new Groq({ apiKey: groqKey });
 
-  let groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [
+  // Build message list: system + history + new user message
+  const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [
     { role: "system", content: getSystemPrompt() },
-    ...messages.map((m) => ({
+    ...(history ?? []).map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     })),
+    { role: "user", content: userMessage },
   ];
 
   const actions: Array<{
@@ -386,35 +593,17 @@ router.post("/chat", async (req: Request, res: Response) => {
   }> = [];
 
   try {
-    let completion: Groq.Chat.ChatCompletion | null = null;
-    for (const model of GROQ_MODELS) {
-      try {
-        completion = await groq.chat.completions.create({
-          model,
-          messages: groqMessages,
-          tools: TOOLS,
-          tool_choice: "auto",
-          temperature: 0.7,
-          max_tokens: 1000,
-        });
-        break;
-      } catch (e: any) {
-        if (model === GROQ_MODELS[GROQ_MODELS.length - 1]) throw e;
-      }
-    }
+    let completion = await callGroq(groq, groqMessages, true, 1200);
+    const first = completion.choices[0];
 
-    const first = completion!.choices[0];
-
+    // Tool calling loop
     if (first.finish_reason === "tool_calls" && first.message.tool_calls) {
-      groqMessages.push(
-        first.message as Groq.Chat.ChatCompletionMessageParam
-      );
+      groqMessages.push(first.message as Groq.Chat.ChatCompletionMessageParam);
 
       for (const call of first.message.tool_calls) {
         let args: any = {};
-        try {
-          args = JSON.parse(call.function.arguments);
-        } catch {}
+        try { args = JSON.parse(call.function.arguments); } catch {}
+
         const exec = await executeTool(call.function.name, args, userId);
         actions.push({
           tool: call.function.name,
@@ -423,44 +612,50 @@ router.post("/chat", async (req: Request, res: Response) => {
           result: exec.result,
           link: exec.link,
         });
+
+        // For read tools, pass the full data to the AI so it can summarize
         groqMessages.push({
           role: "tool",
           tool_call_id: call.id,
           content: JSON.stringify({
             success: exec.success,
             summary: exec.summary,
+            data: exec.result,
           }),
         });
       }
 
-      let finalCompletion: Groq.Chat.ChatCompletion | null = null;
-      for (const model of GROQ_MODELS) {
-        try {
-          finalCompletion = await groq.chat.completions.create({
-            model,
-            messages: groqMessages,
-            temperature: 0.7,
-            max_tokens: 600,
-          });
-          break;
-        } catch (e: any) {
-          if (model === GROQ_MODELS[GROQ_MODELS.length - 1]) throw e;
-        }
-      }
-
-      return res.json({
-        message: finalCompletion!.choices[0].message.content,
-        actions,
-      });
+      completion = await callGroq(groq, groqMessages, false, 800);
     }
 
-    return res.json({ message: first.message.content, actions: [] });
+    const aiContent = completion.choices[0].message.content ?? "";
+
+    // Persist both messages to DB
+    await db.insert(chatMessagesTable).values([
+      {
+        id: uid(),
+        userId,
+        role: "user",
+        content: userMessage,
+        actionsJson: "[]",
+      },
+      {
+        id: uid(),
+        userId,
+        role: "assistant",
+        content: aiContent,
+        actionsJson: JSON.stringify(actions),
+      },
+    ]);
+
+    return res.json({ message: aiContent, actions });
   } catch (err: any) {
     console.error("AI Assistant chat error:", err);
     return res.status(500).json({ error: err.message ?? "AI error" });
   }
 });
 
+// POST /transcribe — AssemblyAI voice transcription
 router.post("/transcribe", async (req: Request, res: Response) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -486,21 +681,13 @@ router.post("/transcribe", async (req: Request, res: Response) => {
     });
     if (!uploadRes.ok)
       throw new Error(`Upload failed: ${uploadRes.statusText}`);
-    const { upload_url } = (await uploadRes.json()) as {
-      upload_url: string;
-    };
+    const { upload_url } = (await uploadRes.json()) as { upload_url: string };
 
-    const transcriptRes = await fetch(
-      "https://api.assemblyai.com/v2/transcript",
-      {
-        method: "POST",
-        headers: {
-          Authorization: apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ audio_url: upload_url }),
-      }
-    );
+    const transcriptRes = await fetch("https://api.assemblyai.com/v2/transcript", {
+      method: "POST",
+      headers: { Authorization: apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ audio_url: upload_url }),
+    });
     if (!transcriptRes.ok)
       throw new Error(`Transcript request failed: ${transcriptRes.statusText}`);
     const { id } = (await transcriptRes.json()) as { id: string };
@@ -517,8 +704,7 @@ router.post("/transcribe", async (req: Request, res: Response) => {
         text?: string;
         error?: string;
       };
-      if (data.status === "completed")
-        return res.json({ text: data.text ?? "" });
+      if (data.status === "completed") return res.json({ text: data.text ?? "" });
       if (data.status === "error")
         throw new Error(data.error ?? "Transcription error");
     }
