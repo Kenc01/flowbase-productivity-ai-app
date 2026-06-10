@@ -1,0 +1,117 @@
+```
+Create a high-class professional SaaS landing page for my productivity app.
+App Concept:
+This app is an AI-powered productivity workspace that combines Notion, Miro, Kanban, Calendar, Notes, AI Assistant, AI Template Builder, and real-time collaboration into one modern platform.
+Goal:
+Build a premium landing page that clearly explains the product, highlights key features, and converts visitors into users.
+Landing Page Sections:
+Hero Section
+Add a strong headline focused on AI productivity.
+Example: “Your AI-Powered Workspace for Notes, Tasks, Whiteboards, and Team Collaboration”
+Add a short subheading explaining the app.
+Add primary CTA button: “Get Started”
+Add secondary CTA button: “Watch Demo”
+Add hero dashboard preview image/mockup area.
+Add trust badges like “AI Assistant”, “Real-time Collaboration”, “Smart Workspace”.
+Feature Highlights
+Show main app features with premium cards:
+AI Assistant
+Smart Dashboard
+Calendar & Reminders
+Kanban / Task Boards
+Notion-style Notes
+Miro-style Whiteboard
+AI Template Builder
+Live Collaboration
+Settings & Custom Categories
+Each feature card should include:
+Colorful Lucide icon
+Title
+Short description
+Soft gradient background or subtle border
+How It Works
+Create 3 simple steps:
+Organize your workspace
+Let AI help you plan and create
+Collaborate and track progress
+Product Showcase
+Add visual sections for:
+Dashboard overview
+Notes editor
+Kanban board
+Whiteboard
+AI Assistant
+Use clean mockup cards, screenshots placeholders, or dashboard preview layouts.
+AI Features Section
+Highlight AI-powered capabilities:
+Ask AI to create tasks
+Add calendar reminders
+Refine note content
+Generate diagrams
+Build mini apps/templates
+Get productivity insights
+Collaboration Section
+Explain real-time collaboration:
+Shared Kanban boards
+Active user presence
+Task comments
+Liveblocks-powered collaboration
+Team workspace experience
+Use Cases
+Show use cases for:
+Founders
+Students
+Teams
+Creators
+Project managers
+Personal productivity users
+Pricing Section
+Add simple pricing cards:
+Free
+Pro
+Team
+Each plan should include feature lists and CTA buttons.
+Testimonials Section
+Add 3 professional testimonial cards with placeholder names and roles.
+FAQ Section
+Add common questions about:
+AI Assistant
+Collaboration
+Notes
+Whiteboard
+AI Template Builder
+Data privacy
+Final CTA
+Add a strong closing section:
+“Build your entire productivity system in one AI workspace”
+CTA button: “Start for Free”
+Design Requirements:
+Premium SaaS landing page style
+Cozy, clean, modern, and professional
+Soft gradients, glassmorphism cards, rounded corners, subtle shadows
+Smooth hover effects and animations
+Fully responsive for desktop, tablet, and mobile
+Use colorful Lucide icons
+Add sticky navbar with logo, links, and CTA button
+Add footer with product links, resources, legal, and social links
+Tech Requirements:
+Use React, Next.js, TypeScript, Tailwind CSS, ShadCN UI, and Lucide icons.
+Use reusable components.
+Keep layout clean and scalable.
+Suggested Components:
+LandingPage
+Navbar
+HeroSection
+FeatureSection
+ProductShowcase
+AIWorkflowSection
+CollaborationSection
+UseCasesSection
+PricingSection
+TestimonialsSection
+FAQSection
+FinalCTASection
+Footer
+Important:
+Make the landing page look like a polished, enterprise-level AI SaaS product, not a basic template.
+```

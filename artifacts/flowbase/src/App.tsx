@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 
-import Home from "@/pages/home";
+import LandingPage from "@/pages/landing/index";
 import DashboardLayout from "@/pages/dashboard/DashboardLayout";
 import DashboardPage from "@/pages/dashboard/index";
 import AIAssistantPage from "@/pages/dashboard/ai-assistant/index";
@@ -128,14 +128,14 @@ function SignUpPage() {
   );
 }
 
-function HomeRedirect() {
+function HomeRoute() {
   return (
     <>
       <Show when="signed-in">
         <Redirect to="/dashboard" />
       </Show>
       <Show when="signed-out">
-        <Redirect to="/sign-in" />
+        <LandingPage />
       </Show>
     </>
   );
@@ -213,7 +213,7 @@ function Router() {
           <ApiTokenProvider />
           <ClerkQueryClientCacheInvalidator />
           <Switch>
-            <Route path="/" component={HomeRedirect} />
+            <Route path="/" component={HomeRoute} />
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
             <Route path="/dashboard">
