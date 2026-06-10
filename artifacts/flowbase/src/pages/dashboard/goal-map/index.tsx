@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Plus, Trash2, ChevronDown, ChevronRight, Target, Trophy, Zap, Star, CheckCircle2, Circle } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 
 type Status = "not-started" | "in-progress" | "done";
 type GoalLevel = "vision" | "goal" | "milestone" | "habit";
@@ -93,9 +92,7 @@ export default function GoalMapPage() {
   const progressPct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
-    <div style={{ display: "flex", minHeight: "100dvh", background: "hsl(246 80% 6%)" }}>
-      <Sidebar />
-      <main style={{ flex: 1, overflowY: "auto", padding: "32px 24px" }}>
+    <div style={{ flex: 1, overflowY: "auto", padding: "32px 24px" }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
 
           {/* Header */}
@@ -244,7 +241,6 @@ export default function GoalMapPage() {
           </div>
 
         </div>
-      </main>
     </div>
   );
 }

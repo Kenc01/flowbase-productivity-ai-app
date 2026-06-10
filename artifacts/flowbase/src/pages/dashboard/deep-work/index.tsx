@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Play, Pause, RotateCcw, Coffee, Brain, CheckCircle2, Plus, Trash2, Timer } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 
 type Mode = "focus" | "short-break" | "long-break";
 type SessionLog = { label: string; duration: number; completedAt: string };
@@ -106,9 +105,7 @@ export default function DeepWorkPage() {
   const circumference = 2 * Math.PI * 88;
 
   return (
-    <div style={{ display: "flex", minHeight: "100dvh", background: "hsl(246 80% 6%)" }}>
-      <Sidebar />
-      <main style={{ flex: 1, overflowY: "auto", padding: "32px 24px" }}>
+    <div style={{ flex: 1, overflowY: "auto", padding: "32px 24px" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
 
           {/* Header */}
@@ -255,7 +252,6 @@ export default function DeepWorkPage() {
             </div>
           </div>
         </div>
-      </main>
     </div>
   );
 }
