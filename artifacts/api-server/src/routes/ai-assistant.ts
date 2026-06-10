@@ -8,6 +8,7 @@ import {
   calendarEventsTable,
   notesTable,
   chatMessagesTable,
+  dailyScheduleBlocksTable,
 } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
 import Groq from "groq-sdk";
@@ -261,6 +262,64 @@ const TOOLS: any[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_daily_schedule",
+      description:
+        "Read the user's Daily Schedule time blocks for a given date. Use when the user asks about their schedule, daily plan, time blocks, what they have planned, or when you want to analyze their day before giving advice.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: {
+            type: "string",
+            description: "Date in YYYY-MM-DD format. Use today's date if not specified.",
+          },
+        },
+        required: ["date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_schedule_block",
+      description:
+        "Add a time block to the user's Daily Schedule. Use when the user asks you to plan their day, build a schedule, or add a specific block. You can call this multiple times to build a full day. Types: wake, sleep, school, study, gym, free, meal, rest, work, other.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Date in YYYY-MM-DD format" },
+          label: { type: "string", description: "Name/description of the time block (e.g. 'Morning Workout', 'Deep Work Session')" },
+          type: {
+            type: "string",
+            enum: ["wake", "sleep", "school", "study", "gym", "free", "meal", "rest", "work", "other"],
+            description: "Category of block",
+          },
+          startHour: { type: "number", description: "Start hour in 24h format (0-23)" },
+          startMin: { type: "number", description: "Start minute (0, 15, 30, or 45)" },
+          endHour: { type: "number", description: "End hour in 24h format (0-24, use 24 for midnight end)" },
+          endMin: { type: "number", description: "End minute (0, 15, 30, or 45)" },
+        },
+        required: ["date", "label", "type", "startHour", "startMin", "endHour", "endMin"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "clear_daily_schedule",
+      description:
+        "Remove ALL existing time blocks from the user's Daily Schedule for a given date. Use this before building a fresh schedule from scratch, to avoid duplicates.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Date in YYYY-MM-DD format" },
+        },
+        required: ["date"],
+      },
+    },
+  },
 ];
 
 async function executeTool(
@@ -497,6 +556,82 @@ async function executeTool(
           result: { prompt: args.prompt },
           summary: `Open AI Template Builder to generate: "${args.prompt}"`,
           link: "/dashboard/templates",
+        };
+      }
+
+      case "get_daily_schedule": {
+        const rows = await db
+          .select()
+          .from(dailyScheduleBlocksTable)
+          .where(
+            and(
+              eq(dailyScheduleBlocksTable.userId, userId),
+              eq(dailyScheduleBlocksTable.date, args.date)
+            )
+          );
+        const sorted = rows.sort(
+          (a, b) => a.startHour * 60 + a.startMin - (b.startHour * 60 + b.startMin)
+        );
+        const text = sorted.length === 0
+          ? "No schedule set for this date."
+          : sorted.map(b => {
+              const fmt = (h: number, m: number) => {
+                const ampm = h >= 12 ? "PM" : "AM";
+                const hh = h % 12 === 0 ? 12 : h % 12;
+                return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
+              };
+              return `${fmt(b.startHour, b.startMin)} – ${fmt(b.endHour, b.endMin)}: ${b.label} (${b.type})`;
+            }).join("\n");
+        return {
+          success: true,
+          result: { blocks: sorted, text },
+          summary: `Found ${sorted.length} schedule block(s) for ${args.date}`,
+          link: "/dashboard/daily-schedule",
+        };
+      }
+
+      case "create_schedule_block": {
+        const [block] = await db
+          .insert(dailyScheduleBlocksTable)
+          .values({
+            id: uid(),
+            userId,
+            date: args.date,
+            label: args.label,
+            type: args.type ?? "other",
+            startHour: args.startHour ?? 0,
+            startMin: args.startMin ?? 0,
+            endHour: args.endHour ?? 1,
+            endMin: args.endMin ?? 0,
+          })
+          .returning();
+        const fmt = (h: number, m: number) => {
+          const ampm = h >= 12 ? "PM" : "AM";
+          const hh = h % 12 === 0 ? 12 : h % 12;
+          return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
+        };
+        return {
+          success: true,
+          result: block,
+          summary: `Added "${args.label}" to schedule: ${fmt(args.startHour, args.startMin)} – ${fmt(args.endHour, args.endMin)}`,
+          link: "/dashboard/daily-schedule",
+        };
+      }
+
+      case "clear_daily_schedule": {
+        await db
+          .delete(dailyScheduleBlocksTable)
+          .where(
+            and(
+              eq(dailyScheduleBlocksTable.userId, userId),
+              eq(dailyScheduleBlocksTable.date, args.date)
+            )
+          );
+        return {
+          success: true,
+          result: { date: args.date },
+          summary: `Cleared all schedule blocks for ${args.date}`,
+          link: "/dashboard/daily-schedule",
         };
       }
 

@@ -15,6 +15,7 @@ import aiTemplatesRouter from "./ai-templates";
 import settingsRouter from "./settings";
 import aiAssistantRouter from "./ai-assistant";
 import notificationsRouter from "./notifications";
+import dailyScheduleRouter from "./daily-schedule";
 
 const router: IRouter = Router();
 
@@ -34,6 +35,7 @@ router.use("/ai-templates", aiTemplatesRouter);
 router.use("/settings", settingsRouter);
 router.use("/ai-assistant", aiAssistantRouter);
 router.use("/notifications", notificationsRouter);
+router.use("/daily-schedule", dailyScheduleRouter);
 
 export default router;
 
