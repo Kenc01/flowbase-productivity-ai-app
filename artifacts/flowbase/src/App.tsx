@@ -19,6 +19,7 @@ import DeepWorkPage from "@/pages/dashboard/deep-work/index";
 import GoalMapPage from "@/pages/dashboard/goal-map/index";
 import PagesSpacesPage from "@/pages/dashboard/pages/index";
 import SettingsPage from "@/pages/dashboard/settings/index";
+import DailySchedulePage from "@/pages/dashboard/daily-schedule/index";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 
@@ -294,6 +295,11 @@ function Router() {
             <Route path="/dashboard/settings">
               <DashboardRoute>
                 <SettingsPage />
+              </DashboardRoute>
+            </Route>
+            <Route path="/dashboard/daily-schedule">
+              <DashboardRoute>
+                <DailySchedulePage />
               </DashboardRoute>
             </Route>
             <Route component={NotFound} />

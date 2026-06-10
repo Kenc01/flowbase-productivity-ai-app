@@ -22,6 +22,7 @@ import {
   Search,
   Loader2,
   Sparkles,
+  Clock,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { api } from "@/lib/api";
@@ -67,6 +68,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Calendar", href: "/dashboard/calendar", icon: CalendarDays, color: "var(--fb-amber)" },
       { label: "Task / Kanban", href: "/dashboard/kanban", icon: KanbanSquare, color: "var(--fb-emerald)" },
+      { label: "Daily Schedule", href: "/dashboard/daily-schedule", icon: Clock, color: "var(--fb-cyan)" },
     ],
   },
   {
