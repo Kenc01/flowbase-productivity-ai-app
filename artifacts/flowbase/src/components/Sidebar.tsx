@@ -13,9 +13,9 @@ import {
   LayoutDashboard,
   LogOut,
   NotebookPen,
-  PenLine,
   Settings,
-  Wand2,
+  Timer,
+  Trophy,
   Zap,
   X,
   Plus,
@@ -73,9 +73,9 @@ const NAV_GROUPS: NavGroup[] = [
     group: "Create",
     items: [
       { label: "Notes", href: "/dashboard/notes", icon: NotebookPen, color: "var(--fb-rose)" },
-      { label: "Whiteboard", href: "/dashboard/whiteboard", icon: PenLine, color: "var(--fb-indigo)" },
+      { label: "Deep Work Timer", href: "/dashboard/deep-work", icon: Timer, color: "var(--fb-indigo)" },
+      { label: "Goal Map", href: "/dashboard/goal-map", icon: Trophy, color: "var(--fb-amber)" },
       { label: "Pages / Spaces", href: "/dashboard/pages", icon: BookOpen, color: "var(--fb-sky)" },
-      { label: "AI Template Builder", href: "/dashboard/templates", icon: Wand2, color: "var(--fb-purple)" },
     ],
   },
   {
@@ -473,10 +473,10 @@ function AddAppPopover({
           </div>
         ) : available.length === 0 ? (
           <div style={{ textAlign: "center", padding: "22px 12px" }}>
-            <Wand2 size={22} style={{ color: "var(--fb-sidebar-label)", opacity: 0.5, marginBottom: "8px" }} strokeWidth={1.5} />
+            <Sparkles size={22} style={{ color: "var(--fb-sidebar-label)", opacity: 0.5, marginBottom: "8px" }} strokeWidth={1.5} />
             <div style={{ fontSize: "0.72rem", color: "var(--fb-sidebar-label)" }}>
               {templates.length === 0
-                ? "No apps yet — generate one in AI Template Builder"
+                ? "No apps yet"
                 : search
                   ? "No apps match your search"
                   : "All your apps are already pinned"}
@@ -534,7 +534,7 @@ function AddAppPopover({
         padding: "8px 10px",
       }}>
         <Link
-          href="/dashboard/templates"
+          href="/dashboard/goal-map"
           onClick={onClose}
           style={{
             display: "flex", alignItems: "center", gap: "6px",
@@ -542,11 +542,11 @@ function AddAppPopover({
             textDecoration: "none", padding: "4px 4px",
             borderRadius: "5px", transition: "color 0.12s",
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#A855F7"; }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#f59e0b"; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--fb-sidebar-label)"; }}
         >
-          <Wand2 size={11} strokeWidth={2} />
-          Open AI Template Builder
+          <Trophy size={11} strokeWidth={2} />
+          Open Goal Map
         </Link>
       </div>
     </div>

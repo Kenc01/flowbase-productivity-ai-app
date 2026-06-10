@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import {
-  LayoutDashboard, Bot, KanbanSquare, NotebookPen, PenLine, Wand2,
+  LayoutDashboard, Bot, KanbanSquare, NotebookPen, Timer, Trophy,
   CheckCircle2, Clock, Calendar, Plus, ArrowRight, Sparkles, Zap, Bell,
   Search, ChevronDown, Target, TrendingUp, AlertCircle, Loader2,
-  StickyNote, LayoutTemplate, Lightbulb, Activity, ListTodo,
+  StickyNote, Lightbulb, Activity, ListTodo,
   BarChart3, BookOpen, AlarmClock, Star,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -20,14 +20,13 @@ interface KanbanColumn { id: string; boardId: string; name: string; order: numbe
 interface KanbanBoard { id: string; name: string; color: string; }
 interface CalendarEvent { id: string; title: string; date: string; category: string; type: string; notes: string; }
 interface Note { id: string; title: string; content: string; color: string; symbol: string; pinned: boolean; updatedAt: string; }
-interface Whiteboard { id: string; title: string; color: string; updatedAt: string; }
 interface AITemplate { id: string; appName: string; description: string; icon: string; color: string; createdAt: string; }
 interface Space { id: string; name: string; color: string; updatedAt: string; }
 interface Page { id: string; title: string; emoji: string; spaceId: string; updatedAt: string; }
 
 interface DashData {
   boards: KanbanBoard[]; columns: KanbanColumn[]; tasks: KanbanTask[];
-  events: CalendarEvent[]; notes: Note[]; whiteboards: Whiteboard[];
+  events: CalendarEvent[]; notes: Note[];
   templates: AITemplate[]; spaces: Space[]; pages: Page[];
   chatCount: number;
 }
@@ -129,11 +128,10 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [kanban, events, notes, whiteboards, templates, spaces, chatHistory] = await Promise.all([
+      const [kanban, events, notes, templates, spaces, chatHistory] = await Promise.all([
         api.get<{ boards: KanbanBoard[]; columns: KanbanColumn[]; tasks: KanbanTask[] }>("/kanban/boards"),
         api.get<CalendarEvent[]>("/calendar"),
         api.get<Note[]>("/notes"),
-        api.get<Whiteboard[]>("/whiteboards"),
         api.get<AITemplate[]>("/ai-templates"),
         api.get<Space[]>("/spaces"),
         api.get<any[]>("/ai-assistant/history").catch(() => [] as any[]),
@@ -151,7 +149,6 @@ export default function DashboardPage() {
         tasks: kanban.tasks ?? [],
         events: Array.isArray(events) ? events : [],
         notes: Array.isArray(notes) ? notes : [],
-        whiteboards: Array.isArray(whiteboards) ? whiteboards : [],
         templates: Array.isArray(templates) ? templates : [],
         spaces: Array.isArray(spaces) ? spaces : [],
         pages: Array.isArray(pages) ? pages : [],
@@ -186,15 +183,12 @@ export default function DashboardPage() {
   const todayEvents = events.filter(e => e.date === TODAY);
 
   const notes = [...(data?.notes ?? [])].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-  const whiteboards = [...(data?.whiteboards ?? [])].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
   const templates = data?.templates ?? [];
 
   // ── Recent activity feed ────────────────────────────────────────────────────
 
   const recentItems: Array<{ title: string; type: string; color: string; Icon: React.ElementType; updatedAt: string; href: string }> = [
     ...notes.slice(0, 3).map(n => ({ title: n.title || "Untitled Note", type: "Note", color: n.color || "#F43F5E", Icon: StickyNote, updatedAt: n.updatedAt, href: "/dashboard/notes" })),
-    ...whiteboards.slice(0, 2).map(w => ({ title: w.title || "Untitled Whiteboard", type: "Whiteboard", color: w.color || "#6366F1", Icon: PenLine, updatedAt: w.updatedAt, href: "/dashboard/whiteboard" })),
-    ...(data?.templates ?? []).slice(0, 2).map(t => ({ title: t.appName, type: "Template", color: t.color || "#A855F7", Icon: Wand2, updatedAt: t.createdAt, href: "/dashboard/templates" })),
     ...(data?.boards ?? []).slice(0, 2).map(b => ({ title: b.name, type: "Kanban", color: b.color || "#10B981", Icon: KanbanSquare, updatedAt: "", href: "/dashboard/kanban" })),
   ]
     .filter(i => i.title)
@@ -208,7 +202,7 @@ export default function DashboardPage() {
   if (todayEvents.length) insights.push({ text: `${todayEvents.length} event${todayEvents.length !== 1 ? "s" : ""} scheduled for today.`, color: "#06B6D4", Icon: Calendar });
   if (pct >= 70 && tasks.length > 0) insights.push({ text: `Great work! You've completed ${pct}% of your total tasks.`, color: "#10B981", Icon: CheckCircle2 });
   if (tasks.length > 0 && pct < 30) insights.push({ text: `${pendingTasks.length} tasks still pending — consider tackling high-priority ones first.`, color: "#F59E0B", Icon: Lightbulb });
-  if (notes.length > whiteboards.length && notes.length > (data?.boards.length ?? 0)) {
+  if (notes.length > 0 && notes.length > (data?.boards.length ?? 0)) {
     insights.push({ text: `Notes is your most active workspace with ${notes.length} note${notes.length !== 1 ? "s" : ""}.`, color: "#8B5CF6", Icon: Activity });
   }
   if (data?.chatCount && data.chatCount > 0) {
@@ -227,9 +221,9 @@ export default function DashboardPage() {
     { label: "Calendar", Icon: Calendar, color: "#06B6D4", count: events.length, unit: "event", href: "/dashboard/calendar", active: events.length > 0 },
     { label: "Kanban", Icon: KanbanSquare, color: "#7467F0", count: tasks.length, unit: "task", href: "/dashboard/kanban", active: tasks.length > 0 },
     { label: "Notes", Icon: NotebookPen, color: "#F43F5E", count: notes.length, unit: "note", href: "/dashboard/notes", active: notes.length > 0 },
-    { label: "Whiteboard", Icon: PenLine, color: "#6366F1", count: whiteboards.length, unit: "board", href: "/dashboard/whiteboard", active: whiteboards.length > 0 },
+    { label: "Deep Work", Icon: Timer, color: "#6366F1", count: 0, unit: "session", href: "/dashboard/deep-work", active: false },
     { label: "AI Assistant", Icon: Bot, color: "#10B981", count: data?.chatCount ?? 0, unit: "chat msg", href: "/dashboard/ai-assistant", active: (data?.chatCount ?? 0) > 0 },
-    { label: "AI Templates", Icon: LayoutTemplate, color: "#A855F7", count: templates.length, unit: "template", href: "/dashboard/templates", active: templates.length > 0 },
+    { label: "Goal Map", Icon: Trophy, color: "#f59e0b", count: 0, unit: "goal", href: "/dashboard/goal-map", active: false },
   ];
 
   // ── Quick actions ────────────────────────────────────────────────────────────
@@ -238,9 +232,9 @@ export default function DashboardPage() {
     { label: "New Task", Icon: ListTodo, color: "#7467F0", bg: "#7467F012", href: "/dashboard/kanban" },
     { label: "Calendar Event", Icon: AlarmClock, color: "#06B6D4", bg: "#06B6D412", href: "/dashboard/calendar" },
     { label: "New Note", Icon: StickyNote, color: "#F43F5E", bg: "#F43F5E12", href: "/dashboard/notes" },
-    { label: "Whiteboard", Icon: PenLine, color: "#6366F1", bg: "#6366F112", href: "/dashboard/whiteboard" },
-    { label: "Ask AI", Icon: Bot, color: "#10B981", bg: "#10B98112", href: "/dashboard/ai-assistant" },
-    { label: "AI Template", Icon: Wand2, color: "#A855F7", bg: "#A855F712", href: "/dashboard/templates" },
+    { label: "Deep Work", Icon: Timer, color: "#6366F1", bg: "#6366F112", href: "/dashboard/deep-work" },
+    { label: "Ask JARVIS", Icon: Bot, color: "#10B981", bg: "#10B98112", href: "/dashboard/ai-assistant" },
+    { label: "Goal Map", Icon: Trophy, color: "#f59e0b", bg: "#f59e0b12", href: "/dashboard/goal-map" },
   ];
 
   return (

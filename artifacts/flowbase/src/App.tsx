@@ -15,10 +15,9 @@ import AIAssistantPage from "@/pages/dashboard/ai-assistant/index";
 import CalendarPage from "@/pages/dashboard/calendar/index";
 import KanbanPage from "@/pages/dashboard/kanban/index";
 import NotesPage from "@/pages/dashboard/notes/index";
-import WhiteboardPage from "@/pages/dashboard/whiteboard/index";
+import DeepWorkPage from "@/pages/dashboard/deep-work/index";
+import GoalMapPage from "@/pages/dashboard/goal-map/index";
 import PagesSpacesPage from "@/pages/dashboard/pages/index";
-import TemplatesPage from "@/pages/dashboard/templates/index";
-import TemplatePreviewPage from "@/pages/dashboard/templates/preview";
 import SettingsPage from "@/pages/dashboard/settings/index";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
@@ -277,33 +276,20 @@ function Router() {
                 <NotesPage />
               </DashboardRoute>
             </Route>
-            <Route path="/dashboard/whiteboard">
-              <Show when="signed-in">
-                <WhiteboardPage />
-              </Show>
-              <Show when="signed-out">
-                <Redirect to="/sign-in" />
-              </Show>
+            <Route path="/dashboard/deep-work">
+              <DashboardRoute>
+                <DeepWorkPage />
+              </DashboardRoute>
+            </Route>
+            <Route path="/dashboard/goal-map">
+              <DashboardRoute>
+                <GoalMapPage />
+              </DashboardRoute>
             </Route>
             <Route path="/dashboard/pages">
               <DashboardRoute>
                 <PagesSpacesPage />
               </DashboardRoute>
-            </Route>
-            <Route path="/dashboard/templates">
-              <DashboardRoute>
-                <TemplatesPage />
-              </DashboardRoute>
-            </Route>
-            <Route path="/dashboard/templates/:id">
-              <Show when="signed-in">
-                <DashboardLayout>
-                  <TemplatePreviewPage />
-                </DashboardLayout>
-              </Show>
-              <Show when="signed-out">
-                <Redirect to="/sign-in" />
-              </Show>
             </Route>
             <Route path="/dashboard/settings">
               <DashboardRoute>
