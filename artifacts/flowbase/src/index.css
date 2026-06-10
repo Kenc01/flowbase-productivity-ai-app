@@ -7,25 +7,25 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --fb-bg: hsl(214, 36%, 97%);
-  --fb-surface: hsl(0, 0%, 100%);
-  --fb-surface-hover: hsl(210, 34%, 98%);
-  --fb-muted: hsl(214, 30%, 94%);
+  --fb-bg: hsl(231, 30%, 8%);
+  --fb-surface: hsl(231, 30%, 11%);
+  --fb-surface-hover: hsl(231, 28%, 14%);
+  --fb-muted: hsl(231, 25%, 15%);
 
-  --fb-sidebar-bg: hsl(231, 33%, 12%);
-  --fb-sidebar-hover: hsl(231, 28%, 18%);
-  --fb-sidebar-active: hsl(231, 25%, 22%);
+  --fb-sidebar-bg: hsl(231, 33%, 10%);
+  --fb-sidebar-hover: hsl(231, 28%, 16%);
+  --fb-sidebar-active: hsl(231, 25%, 20%);
   --fb-sidebar-text: hsl(221, 18%, 68%);
   --fb-sidebar-text-active: hsl(0, 0%, 97%);
   --fb-sidebar-label: hsl(221, 14%, 48%);
-  --fb-sidebar-border: hsl(231, 22%, 20%);
+  --fb-sidebar-border: hsl(231, 22%, 18%);
   --fb-sidebar-width: 228px;
   --fb-sidebar-width-collapsed: 60px;
 
-  --fb-text: hsl(226, 28%, 12%);
-  --fb-text-muted: hsl(219, 13%, 48%);
-  --fb-border: hsl(216, 20%, 88%);
-  --fb-border-strong: hsl(216, 16%, 78%);
+  --fb-text: hsl(220, 20%, 90%);
+  --fb-text-muted: hsl(221, 14%, 52%);
+  --fb-border: hsl(231, 22%, 20%);
+  --fb-border-strong: hsl(231, 20%, 28%);
 
   --fb-violet: #7467F0;
   --fb-cyan: #06B6D4;
@@ -44,39 +44,39 @@
   --fb-shadow: 0 5px 18px rgba(15, 23, 42, 0.08), 0 1px 4px rgba(15, 23, 42, 0.05);
   --fb-shadow-lg: 0 12px 34px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
 
-  --background: 214 36% 97%;
-  --foreground: 226 28% 12%;
-  --card: 0 0% 100%;
-  --card-foreground: 226 28% 12%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 226 28% 12%;
+  --background: 231 30% 8%;
+  --foreground: 220 20% 90%;
+  --card: 231 30% 11%;
+  --card-foreground: 220 20% 90%;
+  --popover: 231 30% 11%;
+  --popover-foreground: 220 20% 90%;
   --primary: 244 80% 67%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 214 30% 94%;
-  --secondary-foreground: 226 20% 30%;
-  --muted: 214 30% 94%;
-  --muted-foreground: 219 13% 48%;
-  --accent: 244 82% 95%;
-  --accent-foreground: 244 58% 42%;
+  --secondary: 231 25% 16%;
+  --secondary-foreground: 220 18% 80%;
+  --muted: 231 25% 15%;
+  --muted-foreground: 221 14% 52%;
+  --accent: 231 25% 18%;
+  --accent-foreground: 220 20% 90%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --border: 216 20% 88%;
-  --input: 216 20% 88%;
+  --border: 231 22% 20%;
+  --input: 231 22% 20%;
   --ring: 244 80% 67%;
   --radius: 0.625rem;
 
-  --button-outline: rgba(0,0,0,.10);
-  --badge-outline: rgba(0,0,0,.05);
-  --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0,.03);
-  --elevate-2: rgba(0,0,0,.08);
+  --button-outline: rgba(255,255,255,.08);
+  --badge-outline: rgba(255,255,255,.06);
+  --opaque-button-border-intensity: 8;
+  --elevate-1: rgba(255,255,255,.03);
+  --elevate-2: rgba(255,255,255,.06);
 
-  --card-border: 216 20% 88%;
-  --popover-border: 216 20% 88%;
+  --card-border: 231 22% 20%;
+  --popover-border: 231 22% 20%;
   --primary-border: hsl(244 80% 67%);
-  --secondary-border: hsl(214 30% 94%);
-  --muted-border: hsl(214 30% 94%);
-  --accent-border: hsl(244 82% 95%);
+  --secondary-border: hsl(231 25% 20%);
+  --muted-border: hsl(231 25% 20%);
+  --accent-border: hsl(231 25% 22%);
   --destructive-border: hsl(0 84% 60%);
   --sidebar: 231 33% 12%;
   --sidebar-foreground: 221 18% 68%;
@@ -178,6 +178,17 @@
     letter-spacing: 0;
     line-height: 1.2;
   }
+}
+
+/* ── Dark native form elements ──────────────────────────────────────────── */
+
+select, input, textarea {
+  color-scheme: dark;
+}
+
+select option {
+  background: hsl(231, 30%, 11%);
+  color: hsl(220, 20%, 90%);
 }
 
 ::-webkit-scrollbar {
