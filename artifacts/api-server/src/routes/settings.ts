@@ -12,7 +12,10 @@ function uid() {
 function requireUser(req: any, res: any): string | null {
   const auth = getAuth(req);
   const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return null; }
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return null;
+  }
   return userId;
 }
 
@@ -22,7 +25,10 @@ router.get("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
   try {
-    const rows = await db.select().from(userSettingsTable).where(eq(userSettingsTable.userId, userId));
+    const rows = await db
+      .select()
+      .from(userSettingsTable)
+      .where(eq(userSettingsTable.userId, userId));
     if (rows.length === 0) {
       const defaults = {
         userId,
@@ -39,12 +45,12 @@ router.get("/", async (req, res) => {
         autoSave: true,
       };
       await db.insert(userSettingsTable).values(defaults);
-      res.json(defaults);
+      return res.json(defaults);
     } else {
-      res.json(rows[0]);
+      return res.json(rows[0]);
     }
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -53,26 +59,44 @@ router.patch("/", async (req, res) => {
   if (!userId) return;
   try {
     const allowed = [
-      "preferredModel","aiTone","aiRefineEnabled","aiAssistantEnabled",
-      "aiTemplateBuilderEnabled","theme","defaultCalendarView",
-      "defaultTaskPriority","notificationsEnabled","emailNotifications","autoSave",
+      "preferredModel",
+      "aiTone",
+      "aiRefineEnabled",
+      "aiAssistantEnabled",
+      "aiTemplateBuilderEnabled",
+      "theme",
+      "defaultCalendarView",
+      "defaultTaskPriority",
+      "notificationsEnabled",
+      "emailNotifications",
+      "autoSave",
     ];
     const update: Record<string, any> = {};
     for (const k of allowed) {
       if (req.body[k] !== undefined) update[k] = req.body[k];
     }
-    if (Object.keys(update).length === 0) return res.status(400).json({ error: "No valid fields" });
+    if (Object.keys(update).length === 0)
+      return res.status(400).json({ error: "No valid fields" });
 
-    const existing = await db.select().from(userSettingsTable).where(eq(userSettingsTable.userId, userId));
+    const existing = await db
+      .select()
+      .from(userSettingsTable)
+      .where(eq(userSettingsTable.userId, userId));
     if (existing.length === 0) {
       await db.insert(userSettingsTable).values({ userId, ...update });
     } else {
-      await db.update(userSettingsTable).set(update).where(eq(userSettingsTable.userId, userId));
+      await db
+        .update(userSettingsTable)
+        .set(update)
+        .where(eq(userSettingsTable.userId, userId));
     }
-    const rows = await db.select().from(userSettingsTable).where(eq(userSettingsTable.userId, userId));
-    res.json(rows[0]);
+    const rows = await db
+      .select()
+      .from(userSettingsTable)
+      .where(eq(userSettingsTable.userId, userId));
+    return res.json(rows[0]);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -82,10 +106,13 @@ router.get("/categories", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
   try {
-    const rows = await db.select().from(userCategoriesTable).where(eq(userCategoriesTable.userId, userId));
-    res.json(rows);
+    const rows = await db
+      .select()
+      .from(userCategoriesTable)
+      .where(eq(userCategoriesTable.userId, userId));
+    return res.json(rows);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -93,13 +120,21 @@ router.post("/categories", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
   const { type, name, color, icon } = req.body;
-  if (!type || !name) return res.status(400).json({ error: "type and name required" });
+  if (!type || !name)
+    return res.status(400).json({ error: "type and name required" });
   try {
-    const row = { id: uid(), userId, type, name, color: color ?? "#7467F0", icon: icon ?? "Tag" };
+    const row = {
+      id: uid(),
+      userId,
+      type,
+      name,
+      color: color ?? "#7467F0",
+      icon: icon ?? "Tag",
+    };
     await db.insert(userCategoriesTable).values(row);
-    res.status(201).json(row);
+    return res.status(201).json(row);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -110,16 +145,30 @@ router.patch("/categories/:id", async (req, res) => {
   const { name, color, icon } = req.body;
   try {
     const update: Record<string, any> = {};
-    if (name  !== undefined) update.name  = name;
+    if (name !== undefined) update.name = name;
     if (color !== undefined) update.color = color;
-    if (icon  !== undefined) update.icon  = icon;
-    await db.update(userCategoriesTable).set(update)
-      .where(and(eq(userCategoriesTable.id, id), eq(userCategoriesTable.userId, userId)));
-    const rows = await db.select().from(userCategoriesTable)
-      .where(and(eq(userCategoriesTable.id, id), eq(userCategoriesTable.userId, userId)));
-    res.json(rows[0]);
+    if (icon !== undefined) update.icon = icon;
+    await db
+      .update(userCategoriesTable)
+      .set(update)
+      .where(
+        and(
+          eq(userCategoriesTable.id, id),
+          eq(userCategoriesTable.userId, userId),
+        ),
+      );
+    const rows = await db
+      .select()
+      .from(userCategoriesTable)
+      .where(
+        and(
+          eq(userCategoriesTable.id, id),
+          eq(userCategoriesTable.userId, userId),
+        ),
+      );
+    return res.json(rows[0]);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -128,11 +177,17 @@ router.delete("/categories/:id", async (req, res) => {
   if (!userId) return;
   const { id } = req.params;
   try {
-    await db.delete(userCategoriesTable)
-      .where(and(eq(userCategoriesTable.id, id), eq(userCategoriesTable.userId, userId)));
-    res.status(204).send();
+    await db
+      .delete(userCategoriesTable)
+      .where(
+        and(
+          eq(userCategoriesTable.id, id),
+          eq(userCategoriesTable.userId, userId),
+        ),
+      );
+    return res.status(204).send();
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 

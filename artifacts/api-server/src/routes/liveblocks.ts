@@ -10,8 +10,14 @@ const liveblocks = liveblocksSecret
   : null;
 
 const AVATAR_COLORS = [
-  "#7467F0", "#06B6D4", "#10B981", "#F59E0B",
-  "#F43F5E", "#A855F7", "#EC4899", "#14B8A6",
+  "#7467F0",
+  "#06B6D4",
+  "#10B981",
+  "#F59E0B",
+  "#F43F5E",
+  "#A855F7",
+  "#EC4899",
+  "#14B8A6",
 ];
 
 function colorForUser(userId: string): string {
@@ -24,9 +30,10 @@ function colorForUser(userId: string): string {
 
 function initialsAvatar(name: string): string {
   const parts = name.trim().split(/\s+/);
-  const initials = parts.length >= 2
-    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    : (parts[0]?.slice(0, 2) ?? "??").toUpperCase();
+  const initials =
+    parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : (parts[0]?.slice(0, 2) ?? "??").toUpperCase();
   return initials;
 }
 
@@ -48,7 +55,10 @@ router.post("/auth", async (req, res) => {
   const email = (req.body?.email as string) ?? userId;
   const imageUrl = (req.body?.imageUrl as string) ?? "";
 
-  const displayName = [firstName, lastName].filter(Boolean).join(" ") || email.split("@")[0] || "User";
+  const displayName =
+    [firstName, lastName].filter(Boolean).join(" ") ||
+    email.split("@")[0] ||
+    "User";
   const color = colorForUser(userId);
   const avatar = imageUrl || initialsAvatar(displayName);
 
@@ -65,10 +75,10 @@ router.post("/auth", async (req, res) => {
     }
 
     const { body, status } = await session.authorize();
-    res.status(status).send(body);
+    return res.status(status).send(body);
   } catch (err: any) {
     console.error("Liveblocks auth error:", err);
-    res.status(500).json({ error: "Liveblocks auth failed" });
+    return res.status(500).json({ error: "Liveblocks auth failed" });
   }
 });
 

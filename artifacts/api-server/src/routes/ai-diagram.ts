@@ -4,10 +4,7 @@ import Groq from "groq-sdk";
 
 const router = Router();
 
-const GROQ_MODELS = [
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
-];
+const GROQ_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
 
 interface DiagramNode {
   id: string;
@@ -29,8 +26,15 @@ interface DiagramSpec {
   edges: DiagramEdge[];
 }
 
-function uid() { return Math.random().toString(36).slice(2, 11) + Math.random().toString(36).slice(2, 11); }
-function rnd() { return Math.floor(Math.random() * 999999); }
+function uid() {
+  return (
+    Math.random().toString(36).slice(2, 11) +
+    Math.random().toString(36).slice(2, 11)
+  );
+}
+function rnd() {
+  return Math.floor(Math.random() * 999999);
+}
 
 function layoutNodes(nodes: DiagramNode[], diagramType: string): DiagramNode[] {
   const COLS = diagramType === "mindmap" ? 1 : 3;
@@ -77,22 +81,33 @@ function specToElements(spec: DiagramSpec): object[] {
   const NODE_W = 180;
   const NODE_H = 70;
 
-  spec.nodes.forEach(n => nodeMap.set(n.id, n));
+  spec.nodes.forEach((n) => nodeMap.set(n.id, n));
 
-  spec.nodes.forEach(node => {
+  spec.nodes.forEach((node) => {
     const eid = uid();
     const textEid = uid();
     nodeIdMap.set(node.id, eid);
     const x = node.x ?? 200;
     const y = node.y ?? 200;
     const bg = node.color ?? SHAPE_COLORS[node.shape] ?? "#ede9fe";
-    const type = node.shape === "oval" ? "ellipse" : node.shape === "diamond" ? "diamond" : "rectangle";
-    const roundness = type === "rectangle" ? { type: 3 } : type === "ellipse" ? { type: 2 } : null;
+    const type =
+      node.shape === "oval"
+        ? "ellipse"
+        : node.shape === "diamond"
+          ? "diamond"
+          : "rectangle";
+    const roundness =
+      type === "rectangle"
+        ? { type: 3 }
+        : type === "ellipse"
+          ? { type: 2 }
+          : null;
 
     elements.push({
       id: eid,
       type,
-      x, y,
+      x,
+      y,
       width: NODE_W,
       height: NODE_H,
       angle: 0,
@@ -154,7 +169,7 @@ function specToElements(spec: DiagramSpec): object[] {
     });
   });
 
-  spec.edges.forEach(edge => {
+  spec.edges.forEach((edge) => {
     const fromId = nodeIdMap.get(edge.from);
     const toId = nodeIdMap.get(edge.to);
     if (!fromId || !toId) return;
@@ -188,11 +203,16 @@ function specToElements(spec: DiagramSpec): object[] {
       version: 1,
       versionNonce: rnd(),
       isDeleted: false,
-      boundElements: edge.label ? [{ type: "text", id: arrowId + "-lbl" }] : null,
+      boundElements: edge.label
+        ? [{ type: "text", id: arrowId + "-lbl" }]
+        : null,
       updated: Date.now(),
       link: null,
       locked: false,
-      points: [[0, 0], [tx - fx, ty - fy]],
+      points: [
+        [0, 0],
+        [tx - fx, ty - fy],
+      ],
       lastCommittedPoint: null,
       startBinding: { elementId: fromId, focus: 0, gap: 4 },
       endBinding: { elementId: toId, focus: 0, gap: 4 },
@@ -253,7 +273,8 @@ router.post("/", async (req, res) => {
   if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
   const groqKey = process.env.GROQ_API_KEY;
-  if (!groqKey) return res.status(500).json({ error: "GROQ_API_KEY not configured" });
+  if (!groqKey)
+    return res.status(500).json({ error: "GROQ_API_KEY not configured" });
 
   const systemPrompt = `You are a diagram generator. Given a user prompt, output ONLY valid JSON describing a diagram.
 Output format:
@@ -295,30 +316,46 @@ Rules:
         raw = completion.choices[0]?.message?.content?.trim() ?? "";
         if (raw) break;
       } catch (e: any) {
-        if (!e?.message?.includes("rate_limit") && !e?.message?.includes("model_not_available")) throw e;
+        if (
+          !e?.message?.includes("rate_limit") &&
+          !e?.message?.includes("model_not_available")
+        )
+          throw e;
       }
     }
 
     // Strip markdown code fences if present
-    raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+    raw = raw
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
 
     let spec: DiagramSpec;
     try {
       spec = JSON.parse(raw);
     } catch {
-      return res.status(500).json({ error: "AI returned invalid JSON. Please try a different prompt." });
+      return res
+        .status(500)
+        .json({
+          error: "AI returned invalid JSON. Please try a different prompt.",
+        });
     }
 
     if (!spec.nodes || !Array.isArray(spec.nodes)) {
-      return res.status(500).json({ error: "AI returned invalid diagram spec." });
+      return res
+        .status(500)
+        .json({ error: "AI returned invalid diagram spec." });
     }
 
     spec.nodes = layoutNodes(spec.nodes, spec.diagramType ?? "flowchart");
     const elements = specToElements(spec);
-    res.json({ elements, title: spec.title });
+    return res.json({ elements, title: spec.title });
   } catch (err: any) {
     console.error("AI diagram error:", err?.message ?? err);
-    res.status(500).json({ error: err?.message ?? "AI diagram generation failed" });
+    return res
+      .status(500)
+      .json({ error: err?.message ?? "AI diagram generation failed" });
   }
 });
 

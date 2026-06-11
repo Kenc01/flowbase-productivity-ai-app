@@ -28,7 +28,7 @@ const ACTIONS: Record<string, string> = {
 const GROQ_MODELS = [
   "llama-3.3-70b-versatile", // best quality, current
   "llama-3.1-70b-versatile", // fallback
-  "llama-3.1-8b-instant",    // fast fallback
+  "llama-3.1-8b-instant", // fast fallback
 ];
 
 router.post("/", async (req, res) => {
@@ -42,7 +42,9 @@ router.post("/", async (req, res) => {
   const prompt = ACTIONS[action];
   if (!prompt) return res.status(400).json({ error: "Unknown action" });
 
-  const groqKey = (process.env.GROQ_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
+  const groqKey = (process.env.GROQ_API_KEY ?? "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
   if (!groqKey) {
     logger.error("GROQ_API_KEY is not set");
     return res.status(500).json({
@@ -118,7 +120,7 @@ router.post("/", async (req, res) => {
       throw new Error("No response from Groq API");
     }
 
-    res.json({ result });
+    return res.json({ result });
   } catch (err: any) {
     const errMsg = err?.message ?? String(err);
     const status = err?.status || err?.code;
@@ -151,7 +153,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    res.status(500).json({ error: errMsg || "AI request failed" });
+    return res.status(500).json({ error: errMsg || "AI request failed" });
   }
 });
 
