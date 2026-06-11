@@ -1,15 +1,16 @@
 {
-  "name": "workspace",
+  "name": "grind-os",
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently --kill-others-on-fail -n API,WEB -c bgBlue,bgGreen \"pnpm --filter @workspace/api-server run dev\" \"pnpm --filter @workspace/flowbase run dev\"",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "dev": "concurrently --kill-others-on-fail -n API,WEB -c bgBlue,bgGreen \"pnpm --filter @flowbase/server run dev\" \"pnpm --filter @flowbase/web run dev\"",
+    "build": "pnpm run typecheck:libs && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./apps/**\" --filter \"./scripts\" --if-present run typecheck"
   },
   "private": true,
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
   }

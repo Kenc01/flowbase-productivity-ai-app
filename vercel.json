@@ -1,0 +1,15 @@
+{
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "buildCommand": "pnpm --filter @flowbase/server run build && pnpm --filter @flowbase/web run build",
+  "outputDirectory": "apps/web/dist/public",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api" },
+    { "source": "/:path*", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/index.mjs": {
+      "includeFiles": "apps/server/dist/**",
+      "maxDuration": 30
+    }
+  }
+}

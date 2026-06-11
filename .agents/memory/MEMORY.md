@@ -1,7 +1,0 @@
-- [Clerk auth setup](clerk-setup.md) — Clerk provisioned via setupClerkWhitelabelAuth(); proxy middleware wired in api-server/app.ts
-- [FlowBase migration](flowbase-migration.md) — Vite+React app restored from .migration-backup; Clerk + wouter routing pattern confirmed working
-- [FlowBase DB integration](flowbase-db-integration.md) — all 4 features connected to Neon DB via API; key patterns for future work
-- [Liveblocks integration](liveblocks-integration.md) — real-time collab on Kanban; authEndpoint pattern, RoomProvider per-board, component locations
-- [Tiptap v3 BubbleMenu import](tiptap-bubblemenu.md) — In v3, BubbleMenu React component is at @tiptap/react/menus, NOT @tiptap/react or @tiptap/extension-bubble-menu
-- [Neon DDL via pg driver](neon-ddl-pg.md) — CREATE TABLE IF NOT EXISTS silently skips if a stale table exists with wrong columns; always DROP first when schema changed
-- [Migration target DB ordering](migration-db-order.md) — Always set NEON_DATABASE_URL env var BEFORE running migrations; running migrate without it hits Replit's DATABASE_URL instead
