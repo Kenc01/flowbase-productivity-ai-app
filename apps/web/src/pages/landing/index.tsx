@@ -52,9 +52,7 @@ function Navbar() {
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", gap: 32 }}>
         {/* Logo */}
         <a href="#" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: G, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 18px rgba(116,103,240,0.5)" }}>
-            <Zap size={18} color="#fff" strokeWidth={2.5} />
-          </div>
+          <img src="/logo.png" alt="Grind OS" style={{ width: 34, height: 34, borderRadius: 9, objectFit: "cover" }} />
           <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: "1.15rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Grind OS</span>
         </a>
 

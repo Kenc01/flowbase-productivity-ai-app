@@ -23,6 +23,7 @@ import {
   Loader2,
   Sparkles,
   Clock,
+  ExternalLink,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { api } from "@/lib/api";
@@ -641,14 +642,11 @@ export default function Sidebar() {
           gap: "8px", minHeight: "62px", flexShrink: 0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "9px", overflow: "hidden" }}>
-            <div style={{
-              width: "30px", height: "30px", borderRadius: "8px",
-              background: "linear-gradient(135deg, var(--fb-violet), var(--fb-cyan))",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0, boxShadow: "0 3px 10px rgba(116, 103, 240, 0.36)",
-            }}>
-              <Zap size={16} color="#fff" strokeWidth={2.4} />
-            </div>
+            <img
+              src="/logo.png"
+              alt="Grind OS"
+              style={{ width: 30, height: 30, borderRadius: "8px", flexShrink: 0, objectFit: "cover" }}
+            />
             {!collapsed && (
               <div style={{ overflow: "hidden" }}>
                 <div style={{
@@ -814,12 +812,80 @@ export default function Sidebar() {
           <FooterButton icon={LogOut} label="Sign Out" color="var(--fb-rose)" collapsed={collapsed} danger
             onClick={() => signOut({ redirectUrl: basePath || "/" })} />
           {!collapsed && (
-            <div style={{
-              marginTop: "10px", fontSize: "0.57rem", color: "var(--fb-sidebar-label)",
-              letterSpacing: 0, textAlign: "center", opacity: 0.75,
-            }}>
-              FLOWBASE v0.1.0 BETA
-            </div>
+            <a
+              href="https://keithlar.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "7px",
+                marginTop: "8px",
+                padding: "5px 8px",
+                borderRadius: "8px",
+                border: "1px solid transparent",
+                textDecoration: "none",
+                transition: "background 0.18s, border-color 0.18s",
+                cursor: "pointer",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = "rgba(61,213,200,0.06)";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(61,213,200,0.15)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = "transparent";
+                (e.currentTarget as HTMLElement).style.borderColor = "transparent";
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" style={{ width: 22, height: 22, flexShrink: 0 }} fill="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="kl-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#3dd5c8" />
+                    <stop offset="60%" stopColor="#20b2a6" />
+                    <stop offset="100%" stopColor="#0d8a80" />
+                  </linearGradient>
+                  <linearGradient id="kl-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#1a2d2b" />
+                    <stop offset="100%" stopColor="#0f1f1e" />
+                  </linearGradient>
+                  <linearGradient id="kl-border" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#0d8a80" stopOpacity={0.6} />
+                    <stop offset="50%" stopColor="#20b2a6" />
+                    <stop offset="100%" stopColor="#3dd5c8" stopOpacity={0.6} />
+                  </linearGradient>
+                  <filter id="kl-glow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="2.5" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                  </filter>
+                  <filter id="kl-subtle" x="-10%" y="-10%" width="120%" height="120%">
+                    <feGaussianBlur stdDeviation="0.8" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                  </filter>
+                  <clipPath id="kl-clip">
+                    <rect x="1" y="1" width="42" height="42" rx="11" />
+                  </clipPath>
+                </defs>
+                <rect x="1" y="1" width="42" height="42" rx="11" fill="url(#kl-bg)" />
+                <rect x="1" y="1" width="42" height="42" rx="11" fill="none" stroke="#20b2a6" strokeWidth="6" strokeOpacity="0.06" clipPath="url(#kl-clip)" />
+                <rect x="1.5" y="1.5" width="41" height="41" rx="10.5" fill="none" stroke="url(#kl-border)" strokeWidth="1.25" />
+                <rect x="10" y="9" width="4.5" height="26" rx="2.25" fill="url(#kl-grad)" filter="url(#kl-subtle)" />
+                <path d="M13.5 21.5 L30 9.5" stroke="url(#kl-grad)" strokeWidth="4.5" strokeLinecap="round" filter="url(#kl-subtle)" />
+                <path d="M13.5 21.5 L30 34.5" stroke="url(#kl-grad)" strokeWidth="4.5" strokeLinecap="round" filter="url(#kl-subtle)" />
+                <rect x="9.5" y="37" width="10" height="1.5" rx="0.75" fill="#20b2a6" opacity="0.35" />
+                <circle cx="33.5" cy="10" r="2.25" fill="#3dd5c8" opacity="0.75" filter="url(#kl-glow)" />
+              </svg>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "0.52rem", color: "var(--fb-sidebar-label)", fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "1px", opacity: 0.7 }}>
+                  Developed by
+                </div>
+                <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#e0fffe", letterSpacing: "-0.01em", lineHeight: 1, whiteSpace: "nowrap" }}>
+                  K<span style={{ fontWeight: 400, color: "#b0d8d5" }}>enc</span><span style={{ color: "#3dd5c8" }}>01</span><span style={{ color: "#3dd5c8", opacity: 0.6 }}>.</span>
+                </div>
+              </div>
+
+              <ExternalLink size={10} style={{ color: "#3dd5c8", opacity: 0.4, flexShrink: 0 }} strokeWidth={2} />
+            </a>
           )}
         </footer>
       </aside>
