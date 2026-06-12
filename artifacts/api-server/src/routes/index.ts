@@ -16,6 +16,7 @@ import settingsRouter from "./settings";
 import aiAssistantRouter from "./ai-assistant";
 import notificationsRouter from "./notifications";
 import dailyScheduleRouter from "./daily-schedule";
+import goalsRouter from "./goals";
 
 const router: IRouter = Router();
 
@@ -36,6 +37,7 @@ router.use("/settings", settingsRouter);
 router.use("/ai-assistant", aiAssistantRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/daily-schedule", dailyScheduleRouter);
+router.use("/goals", goalsRouter);
 
 export default router;
 
