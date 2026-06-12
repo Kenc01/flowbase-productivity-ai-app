@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useLocation } from "wouter";
 import {
   Clock, Plus, Trash2, Sparkles, Sun, Moon, Dumbbell, BookOpen,
   Coffee, Zap, Utensils, Gamepad2, Music, Loader2, Edit2, Check, X,
   RefreshCw, Play, Square, CheckCircle2, Circle, Save, ChevronDown,
-  ChevronUp, Send, BookmarkPlus, Bookmark, Timer,
+  ChevronUp, Send, BookmarkPlus, Bookmark, Timer, Brain,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -200,7 +201,7 @@ function TimelineBar({ blocks }: { blocks: ScheduleBlock[] }) {
 
 function BlockRow({
   block, isTimerActive, elapsed,
-  onToggleComplete, onStartTimer, onStopTimer, onRemove, onEdit,
+  onToggleComplete, onStartTimer, onStopTimer, onRemove, onEdit, onDeepWork,
 }: {
   block: ScheduleBlock;
   isTimerActive: boolean;
@@ -210,6 +211,7 @@ function BlockRow({
   onStopTimer: () => void;
   onRemove: () => void;
   onEdit: (label: string) => void;
+  onDeepWork: () => void;
 }) {
   const cfg = TYPE_CONFIG[block.type];
   const [editing, setEditing] = useState(false);
@@ -298,6 +300,9 @@ function BlockRow({
               ) : (
                 <button onClick={onStartTimer} title="Start focus timer" style={{ width: 26, height: 26, border: "none", borderRadius: 7, background: cfg.bg, color: cfg.color, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Play size={10} /></button>
               )
+            )}
+            {!block.completed && (
+              <button onClick={onDeepWork} title="Open in Deep Work timer" style={{ width: 26, height: 26, border: "none", borderRadius: 7, background: "rgba(124,58,237,0.15)", color: "#a78bfa", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Brain size={10} /></button>
             )}
             <button onClick={() => setEditing(true)} style={{ width: 26, height: 26, border: "none", borderRadius: 7, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Edit2 size={10} /></button>
             <button onClick={onRemove} style={{ width: 26, height: 26, border: "none", borderRadius: 7, background: "rgba(244,63,94,0.06)", color: "rgba(244,63,94,0.5)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Trash2 size={10} /></button>
@@ -526,6 +531,7 @@ function ProgressHeader({ blocks }: { blocks: ScheduleBlock[] }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DailySchedulePage() {
+  const [, navigate] = useLocation();
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -721,6 +727,7 @@ export default function DailySchedulePage() {
                       onStopTimer={stopTimer}
                       onRemove={() => removeBlock(b.id)}
                       onEdit={(label) => editBlock(b.id, label)}
+                      onDeepWork={() => navigate(`/dashboard/deep-work?blockId=${b.id}&label=${encodeURIComponent(b.label)}`)}
                     />
                   ))}
                 </div>
