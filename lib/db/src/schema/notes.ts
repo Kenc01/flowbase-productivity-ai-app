@@ -10,6 +10,7 @@ export const notesTable = pgTable("notes", {
   color: text("color").notNull().default("#F43F5E"),
   symbol: text("symbol").notNull().default("📝"),
   pinned: boolean("pinned").notNull().default(false),
+  tags: text("tags").notNull().default("[]"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
