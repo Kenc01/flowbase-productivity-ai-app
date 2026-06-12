@@ -28,7 +28,7 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const { id, title, date, category, type, notes, isDraft } = req.body;
+  const { id, title, date, startTime, endTime, category, type, priority, notes, isDraft } = req.body;
   const [event] = await db
     .insert(calendarEventsTable)
     .values({
@@ -36,8 +36,11 @@ router.post("/", async (req, res) => {
       userId,
       title,
       date: date ?? "",
+      startTime: startTime ?? null,
+      endTime: endTime ?? null,
       category: category ?? "work",
       type: type ?? "task",
+      priority: priority ?? "normal",
       notes: notes ?? "",
       isDraft: !!isDraft,
     })
@@ -48,10 +51,10 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const { title, date, category, type, notes, isDraft } = req.body;
+  const { title, date, startTime, endTime, category, type, priority, notes, isDraft } = req.body;
   const [event] = await db
     .update(calendarEventsTable)
-    .set({ title, date, category, type, notes, isDraft })
+    .set({ title, date, startTime: startTime ?? null, endTime: endTime ?? null, category, type, priority: priority ?? "normal", notes, isDraft })
     .where(
       and(
         eq(calendarEventsTable.id, req.params.id),
