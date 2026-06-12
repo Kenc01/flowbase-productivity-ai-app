@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
-import { db, dailyScheduleBlocksTable } from "@workspace/db";
+import { db, dailyScheduleBlocksTable, kanbanTasksTable, kanbanColumnsTable } from "@workspace/db";
 import { eq, and, gte } from "drizzle-orm";
 
 const router = Router();
@@ -15,7 +15,6 @@ function requireUser(req: any, res: any): string | null {
 }
 
 // GET /daily-schedule/stats?days=14
-// Returns per-day completion summary for the last N days
 router.get("/stats", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -27,7 +26,6 @@ router.get("/stats", async (req, res) => {
       .from(dailyScheduleBlocksTable)
       .where(and(eq(dailyScheduleBlocksTable.userId, userId), gte(dailyScheduleBlocksTable.date, cutoff)));
 
-    // Group by date
     const byDate: Record<string, { total: number; completed: number }> = {};
     for (const r of rows) {
       if (!byDate[r.date]) byDate[r.date] = { total: 0, completed: 0 };
@@ -35,7 +33,6 @@ router.get("/stats", async (req, res) => {
       if (r.completed) byDate[r.date].completed++;
     }
 
-    // Build day array for last N days
     const dayList: { date: string; totalBlocks: number; completedBlocks: number; pct: number }[] = [];
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
@@ -48,7 +45,6 @@ router.get("/stats", async (req, res) => {
       });
     }
 
-    // Streak: consecutive days from today backwards with at least 1 completed block
     let streak = 0;
     const today = new Date().toISOString().slice(0, 10);
     for (let i = dayList.length - 1; i >= 0; i--) {
@@ -57,22 +53,16 @@ router.get("/stats", async (req, res) => {
       if (day.completedBlocks > 0) {
         streak++;
       } else {
-        if (day.date < today) break; // don't break on today if no blocks yet
+        if (day.date < today) break;
       }
     }
 
-    // Avg pct over days that had at least 1 block planned
     const trackedDays = dayList.filter(d => d.totalBlocks > 0);
     const avgPct = trackedDays.length > 0
       ? Math.round(trackedDays.reduce((s, d) => s + d.pct, 0) / trackedDays.length)
       : 0;
 
-    return res.json({
-      days: dayList,
-      streak,
-      avgPct,
-      totalDaysTracked: trackedDays.length,
-    });
+    return res.json({ days: dayList, streak, avgPct, totalDaysTracked: trackedDays.length });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -99,12 +89,20 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const { date, label, type, startHour, startMin, endHour, endMin } = req.body;
+  const { date, label, type, startHour, startMin, endHour, endMin, kanbanTaskId, kanbanTaskTitle } = req.body;
   if (!date || !label) return res.status(400).json({ error: "date and label required" });
   try {
     const [row] = await db
       .insert(dailyScheduleBlocksTable)
-      .values({ id: uid(), userId, date, label, type: type ?? "other", startHour: startHour ?? 0, startMin: startMin ?? 0, endHour: endHour ?? 1, endMin: endMin ?? 0, completed: false })
+      .values({
+        id: uid(), userId, date, label,
+        type: type ?? "other",
+        startHour: startHour ?? 0, startMin: startMin ?? 0,
+        endHour: endHour ?? 1, endMin: endMin ?? 0,
+        completed: false,
+        kanbanTaskId: kanbanTaskId ?? null,
+        kanbanTaskTitle: kanbanTaskTitle ?? null,
+      })
       .returning();
     return res.status(201).json(row);
   } catch (err: any) {
@@ -112,7 +110,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PATCH /daily-schedule/:id — toggle completed
+// PATCH /daily-schedule/:id — toggle completed (+ optional auto-sync Kanban task to Done)
 router.patch("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -126,13 +124,42 @@ router.patch("/:id", async (req, res) => {
       .where(and(eq(dailyScheduleBlocksTable.id, id), eq(dailyScheduleBlocksTable.userId, userId)))
       .returning();
     if (!row) return res.status(404).json({ error: "Block not found" });
+
+    // If completing a block that is linked to a Kanban task, auto-move it to Done
+    if (completed && row.kanbanTaskId) {
+      try {
+        const [task] = await db
+          .select()
+          .from(kanbanTasksTable)
+          .where(and(eq(kanbanTasksTable.id, row.kanbanTaskId), eq(kanbanTasksTable.userId, userId)));
+        if (task) {
+          // Find a "Done" column in the same board (case-insensitive)
+          const cols = await db
+            .select()
+            .from(kanbanColumnsTable)
+            .where(eq(kanbanColumnsTable.boardId, task.boardId));
+          const doneCol = cols.find(c => c.name.toLowerCase() === "done")
+            ?? cols.find(c => c.name.toLowerCase().includes("done"))
+            ?? cols.find(c => c.name.toLowerCase().includes("complete"));
+          if (doneCol && task.columnId !== doneCol.id) {
+            await db
+              .update(kanbanTasksTable)
+              .set({ columnId: doneCol.id })
+              .where(eq(kanbanTasksTable.id, task.id));
+          }
+        }
+      } catch {
+        // Non-fatal — block completion still succeeds
+      }
+    }
+
     return res.json(row);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE /daily-schedule/:id — remove single block
+// DELETE /daily-schedule/:id
 router.delete("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;

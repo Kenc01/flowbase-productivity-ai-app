@@ -23,6 +23,8 @@ interface ScheduleBlock {
   endHour: number;
   endMin: number;
   completed: boolean;
+  kanbanTaskId?: string | null;
+  kanbanTaskTitle?: string | null;
 }
 
 interface CustomTemplate {
@@ -261,9 +263,17 @@ function BlockRow({
             onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
             style={{ width: "100%", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 7, padding: "4px 8px", color: "#f8fafc", fontSize: "0.82rem", outline: "none", boxSizing: "border-box" }} />
         ) : (
-          <span style={{ fontSize: "0.86rem", fontWeight: 600, color: block.completed ? "rgba(255,255,255,0.45)" : "#f8fafc", textDecoration: block.completed ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
-            {block.label}
-          </span>
+          <>
+            <span style={{ fontSize: "0.86rem", fontWeight: 600, color: block.completed ? "rgba(255,255,255,0.45)" : "#f8fafc", textDecoration: block.completed ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+              {block.label}
+            </span>
+            {block.kanbanTaskTitle && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 3, padding: "2px 7px", borderRadius: 20, background: "rgba(116,103,240,0.12)", border: "1px solid rgba(116,103,240,0.25)", fontSize: "0.62rem", fontWeight: 600, color: "#a78bfa" }}>
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                {block.kanbanTaskTitle}
+              </span>
+            )}
+          </>
         )}
       </div>
 

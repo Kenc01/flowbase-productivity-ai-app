@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   KanbanSquare, Plus, X, Trash2, Edit2,
   CalendarDays, FileText, Flag,
-  MoreHorizontal,
+  MoreHorizontal, Clock, Check, ChevronDown,
 } from "lucide-react";
 import { api } from "../../../lib/api";
 
@@ -303,10 +303,107 @@ function TaskDialog({ open, onClose, columnId, boardId, editTask, onSave, onDele
   );
 }
 
+// ─── Schedule Today Modal ─────────────────────────────────────────────────────
+
+const SCHEDULE_HOUR_OPTIONS = Array.from({ length: 19 }, (_, i) => i + 6); // 6am–midnight
+
+function ScheduleTodayModal({ task, onClose, onScheduled }: {
+  task: KanbanTask; onClose: () => void; onScheduled: (taskId: string) => void;
+}) {
+  const [startH, setStartH] = useState(9);
+  const [endH, setEndH] = useState(10);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const fmtH = (h: number) => {
+    if (h === 0 || h === 24) return "12:00 AM";
+    if (h === 12) return "12:00 PM";
+    return h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`;
+  };
+
+  const submit = async () => {
+    if (endH <= startH) { setErr("End must be after start."); return; }
+    setSaving(true); setErr("");
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await api.post("/daily-schedule", {
+        date: today,
+        label: task.title,
+        type: "work",
+        startHour: startH, startMin: 0,
+        endHour: endH, endMin: 0,
+        kanbanTaskId: task.id,
+        kanbanTaskTitle: task.title,
+      });
+      onScheduled(task.id);
+      onClose();
+    } catch {
+      setErr("Failed to schedule — try again.");
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(15,23,42,0.5)", backdropFilter: "blur(4px)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-sm rounded-2xl p-5 flex flex-col gap-4 shadow-2xl"
+        style={{ background: "var(--fb-surface)", border: "1px solid var(--fb-border)" }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock size={16} color="#7467F0" />
+            <h2 className="text-sm font-bold" style={{ color: "var(--fb-text)" }}>Schedule for Today</h2>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-gray-100">
+            <X size={13} style={{ color: "var(--fb-text-muted)" }} />
+          </button>
+        </div>
+
+        <div className="px-3 py-2.5 rounded-xl text-sm font-medium"
+          style={{ background: "rgba(116,103,240,0.08)", border: "1px solid rgba(116,103,240,0.2)", color: "var(--fb-text)" }}>
+          {task.title}
+        </div>
+
+        <div className="flex gap-3">
+          {[{ label: "Start", val: startH, set: setStartH }, { label: "End", val: endH, set: setEndH }].map(({ label, val, set }) => (
+            <div key={label} className="flex-1 flex flex-col gap-1.5">
+              <label className="text-xs font-semibold" style={{ color: "var(--fb-text-muted)" }}>{label}</label>
+              <div className="relative">
+                <select value={val} onChange={e => set(Number(e.target.value))}
+                  className="w-full pl-3 pr-7 py-2 rounded-lg text-sm outline-none appearance-none"
+                  style={{ background: "var(--fb-muted)", border: "1px solid var(--fb-border)", color: "var(--fb-text)" }}>
+                  {SCHEDULE_HOUR_OPTIONS.map(h => (
+                    <option key={h} value={h}>{fmtH(h)}</option>
+                  ))}
+                </select>
+                <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--fb-text-muted)" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {err && <p className="text-xs" style={{ color: "#F43F5E" }}>{err}</p>}
+
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm font-medium"
+            style={{ background: "var(--fb-muted)", color: "var(--fb-text-muted)", border: "1px solid var(--fb-border)" }}>
+            Cancel
+          </button>
+          <button onClick={submit} disabled={saving}
+            className="flex-1 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ background: saving ? "rgba(116,103,240,0.5)" : "#7467F0", cursor: saving ? "not-allowed" : "pointer" }}>
+            {saving ? "Scheduling…" : "Add to Schedule"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Task Card ────────────────────────────────────────────────────────────────
 
-function TaskCard({ task, onEdit, onDelete, onDragStart }: {
+function TaskCard({ task, onEdit, onDelete, onDragStart, isScheduledToday, onScheduleToday }: {
   task: KanbanTask; onEdit: () => void; onDelete: () => void; onDragStart: () => void;
+  isScheduledToday: boolean; onScheduleToday: () => void;
 }) {
   const [menu, setMenu] = useState(false);
   const pCfg = PRIORITY_CFG[task.priority];
@@ -327,13 +424,18 @@ function TaskCard({ task, onEdit, onDelete, onDragStart }: {
             <MoreHorizontal size={13} />
           </button>
           {menu && (
-            <div className="absolute right-0 top-7 rounded-xl overflow-hidden shadow-lg py-1 min-w-28"
+            <div className="absolute right-0 top-7 rounded-xl overflow-hidden shadow-lg py-1 min-w-36"
               style={{ background: "var(--fb-surface)", border: "1px solid var(--fb-border)", zIndex: 30 }}
               onMouseLeave={() => setMenu(false)}>
               <button onClick={e => { e.stopPropagation(); setMenu(false); onEdit(); }}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50"
                 style={{ color: "var(--fb-text)" }}>
                 <Edit2 size={11} /> Edit
+              </button>
+              <button onClick={e => { e.stopPropagation(); setMenu(false); onScheduleToday(); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-purple-50"
+                style={{ color: "#7467F0" }}>
+                <Clock size={11} /> Schedule Today
               </button>
               <button onClick={e => { e.stopPropagation(); setMenu(false); onDelete(); }}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-red-50"
@@ -381,6 +483,12 @@ function TaskCard({ task, onEdit, onDelete, onDragStart }: {
             <CalendarDays size={10} /> {fmtDate(task.dueDate)}
           </span>
         )}
+        {isScheduledToday && (
+          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold"
+            style={{ background: "#DCFCEC", color: "#10B981" }}>
+            <Check size={8} /> Today
+          </span>
+        )}
         <div className="flex gap-1 ml-auto">
           {task.syncCalendar && (
             <span title="Synced to Calendar" className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "#FEF6DC" }}>
@@ -392,6 +500,14 @@ function TaskCard({ task, onEdit, onDelete, onDragStart }: {
               <FileText size={10} color="#06B6D4" />
             </span>
           )}
+          {/* Schedule Today quick-button */}
+          <button
+            title={isScheduledToday ? "Already in today's schedule" : "Schedule for Today"}
+            onClick={e => { e.stopPropagation(); if (!isScheduledToday) onScheduleToday(); }}
+            className="w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ background: isScheduledToday ? "#DCFCEC" : "#EEF0FF", color: isScheduledToday ? "#10B981" : "#7467F0" }}>
+            {isScheduledToday ? <Check size={9} /> : <Clock size={9} />}
+          </button>
         </div>
       </div>
     </div>
@@ -401,12 +517,14 @@ function TaskCard({ task, onEdit, onDelete, onDragStart }: {
 // ─── Column View ──────────────────────────────────────────────────────────────
 
 function ColumnView({ col, tasks, board, onAddTask, onEditTask, onDeleteTask,
-  onDragTaskStart, onDropOnColumn, onDeleteColumn, onRenameColumn, isDragOver, setDragOver }: {
+  onDragTaskStart, onDropOnColumn, onDeleteColumn, onRenameColumn, isDragOver, setDragOver,
+  scheduledTaskIds, onScheduleToday }: {
   col: KanbanColumn; tasks: KanbanTask[]; board: KanbanBoard;
   onAddTask: () => void; onEditTask: (t: KanbanTask) => void; onDeleteTask: (id: string) => void;
   onDragTaskStart: (id: string) => void; onDropOnColumn: (colId: string) => void;
   onDeleteColumn: () => void; onRenameColumn: (name: string) => void;
   isDragOver: boolean; setDragOver: (v: boolean) => void;
+  scheduledTaskIds: Set<string>; onScheduleToday: (t: KanbanTask) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(col.name);
@@ -480,7 +598,9 @@ function ColumnView({ col, tasks, board, onAddTask, onEditTask, onDeleteTask,
           <TaskCard key={t.id} task={t}
             onEdit={() => onEditTask(t)}
             onDelete={() => onDeleteTask(t.id)}
-            onDragStart={() => onDragTaskStart(t.id)} />
+            onDragStart={() => onDragTaskStart(t.id)}
+            isScheduledToday={scheduledTaskIds.has(t.id)}
+            onScheduleToday={() => onScheduleToday(t)} />
         ))}
         {tasks.length === 0 && !isDragOver && (
           <div className="flex-1 flex items-center justify-center py-8">
@@ -578,6 +698,8 @@ function KanbanInner() {
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scheduledTaskIds, setScheduledTaskIds] = useState<Set<string>>(new Set());
+  const [scheduleModalTask, setScheduleModalTask] = useState<KanbanTask | null>(null);
 
   const [boardDlg, setBoardDlg] = useState<{ open: boolean; edit?: KanbanBoard | null }>({ open: false });
   const [taskDlg, setTaskDlg] = useState<{ open: boolean; columnId: string; edit?: KanbanTask | null }>({ open: false, columnId: "" });
@@ -585,18 +707,23 @@ function KanbanInner() {
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<{ boards: KanbanBoard[]; columns: KanbanColumn[]; tasks: KanbanTask[] }>("/kanban/boards")
-      .then(data => {
-        setBoards(data.boards);
-        setColumns(data.columns);
-        setTasks(data.tasks);
-        setActiveBoardId(prev => {
-          const saved = localStorage.getItem("fb_kb_active");
-          const savedId = saved ? JSON.parse(saved) : null;
-          if (savedId && data.boards.find((b: KanbanBoard) => b.id === savedId)) return savedId;
-          return data.boards[0]?.id ?? null;
-        });
-      })
+    const today = new Date().toISOString().slice(0, 10);
+    Promise.all([
+      api.get<{ boards: KanbanBoard[]; columns: KanbanColumn[]; tasks: KanbanTask[] }>("/kanban/boards"),
+      api.get<Array<{ kanbanTaskId?: string | null }>>(`/daily-schedule?date=${today}`).catch((): Array<{ kanbanTaskId?: string | null }> => []),
+    ]).then(([data, scheduleBlocks]) => {
+      setBoards(data.boards);
+      setColumns(data.columns);
+      setTasks(data.tasks);
+      setActiveBoardId(() => {
+        const saved = localStorage.getItem("fb_kb_active");
+        const savedId = saved ? JSON.parse(saved) : null;
+        if (savedId && data.boards.find((b: KanbanBoard) => b.id === savedId)) return savedId;
+        return data.boards[0]?.id ?? null;
+      });
+      const ids = new Set(scheduleBlocks.filter(b => b.kanbanTaskId).map(b => b.kanbanTaskId as string));
+      setScheduledTaskIds(ids);
+    })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -796,6 +923,8 @@ function KanbanInner() {
                     onRenameColumn={name => renameColumn(col.id, name)}
                     isDragOver={dragOverCol === col.id}
                     setDragOver={v => setDragOverCol(v ? col.id : null)}
+                    scheduledTaskIds={scheduledTaskIds}
+                    onScheduleToday={t => setScheduleModalTask(t)}
                   />
                 ))}
 
@@ -822,6 +951,13 @@ function KanbanInner() {
       <TaskDialog open={taskDlg.open} onClose={() => setTaskDlg({ open: false, columnId: "" })}
         columnId={taskDlg.columnId} boardId={activeBoardId ?? ""}
         editTask={taskDlg.edit} onSave={saveTask} onDelete={deleteTask} />
+      {scheduleModalTask && (
+        <ScheduleTodayModal
+          task={scheduleModalTask}
+          onClose={() => setScheduleModalTask(null)}
+          onScheduled={taskId => setScheduledTaskIds(prev => new Set([...prev, taskId]))}
+        />
+      )}
 
     </div>
   );
