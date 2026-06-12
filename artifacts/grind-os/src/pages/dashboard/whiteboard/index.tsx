@@ -3,14 +3,10 @@ import React, {
 } from "react";
 import {
   Plus, Trash2, Pencil, Check, X, Download, Sparkles,
-  MoreHorizontal, Loader2, StickyNote, Ellipsis, Users,
+  MoreHorizontal, Loader2, StickyNote, Ellipsis,
 } from "lucide-react";
-import { useUser } from "@clerk/react";
 import { api } from "@/lib/api";
 import Sidebar from "@/components/Sidebar";
-import {
-  RoomProvider, useOthers, useSelf, useMyPresence,
-} from "@/lib/liveblocks";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Whiteboard {
@@ -51,90 +47,6 @@ const STICKY_COLORS = [
   { bg: "#ffffff", stroke: "#ced4da" },
 ];
 
-// ─── Cursor SVG ──────────────────────────────────────────────────────────────
-function CursorSvg({ color }: { color: string }) {
-  return (
-    <svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M1 1L1 17L5.5 12.5L8.5 20L11 19L8 12H14L1 1Z"
-        fill={color} stroke="white" strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// ─── Other Cursors Overlay ───────────────────────────────────────────────────
-function CursorsOverlay() {
-  const others = useOthers();
-  return (
-    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 50, overflow: "hidden" }}>
-      {others.map(({ connectionId, presence, info }) => {
-        const cursor = presence?.cursor;
-        if (!cursor) return null;
-        const color = (info as any)?.color ?? "#7C3AED";
-        const name  = (info as any)?.name  ?? "User";
-        return (
-          <div key={connectionId} style={{
-            position: "absolute",
-            left: cursor.x, top: cursor.y,
-            transform: "translate(-2px, -2px)",
-            transition: "left 60ms linear, top 60ms linear",
-          }}>
-            <CursorSvg color={color} />
-            <div style={{
-              position: "absolute", left: 14, top: 14,
-              background: color, color: "#fff",
-              fontSize: 11, fontWeight: 600,
-              padding: "2px 7px", borderRadius: 20,
-              whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-            }}>
-              {name}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── Collaborator Avatars ─────────────────────────────────────────────────────
-function CollabAvatars() {
-  const others = useOthers();
-  const self   = useSelf();
-  if (others.length === 0) return null;
-  const shown  = others.slice(0, 4);
-  const extra  = others.length - shown.length;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-      <Users size={13} color="var(--fb-muted)" />
-      <div style={{ display: "flex" }}>
-        {shown.map(({ connectionId, info }) => {
-          const color  = (info as any)?.color  ?? "#7C3AED";
-          const name   = (info as any)?.name   ?? "User";
-          const avatar = (info as any)?.avatar ?? "";
-          const isImg  = avatar && avatar.startsWith("http");
-          return (
-            <div key={connectionId} title={name} style={{
-              width: 22, height: 22, borderRadius: "50%",
-              background: color, color: "#fff", fontSize: 9, fontWeight: 700,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              border: "2px solid var(--fb-card)", marginLeft: -4,
-              overflow: "hidden", flexShrink: 0,
-            }}>
-              {isImg ? <img src={avatar} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : avatar.slice(0, 2)}
-            </div>
-          );
-        })}
-        {extra > 0 && (
-          <div style={{
-            width: 22, height: 22, borderRadius: "50%",
-            background: "var(--fb-surface)", color: "var(--fb-muted)",
-            fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
-            border: "2px solid var(--fb-card)", marginLeft: -4,
-          }}>+{extra}</div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Color Swatch ─────────────────────────────────────────────────────────────
 function Swatch({ color, active, onClick }: { color: string; active?: boolean; onClick: () => void }) {
@@ -260,28 +172,6 @@ function WhiteboardCanvas({ board, saveStatus, onSaveStatusChange, onBoardUpdate
   const lastSavedJson = useRef<string>(board.elements ?? "[]");
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
-  // ── Liveblocks presence ──────────────────────────────────────────────────
-  const [, updateMyPresence] = useMyPresence();
-  const { user } = useUser();
-
-  // Broadcast name/color when user loads
-  useEffect(() => {
-    if (!user) return;
-    const name = user.fullName || user.firstName || user.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "You";
-    updateMyPresence({ name, color: "#7C3AED", avatar: user.imageUrl ?? "", cursor: null });
-  }, [user?.id]);
-
-  // Track pointer over canvas
-  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const rect = canvasContainerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    updateMyPresence({ cursor: { x: e.clientX - rect.left, y: e.clientY - rect.top } });
-  }, [updateMyPresence]);
-
-  const handlePointerLeave = useCallback(() => {
-    updateMyPresence({ cursor: null });
-  }, [updateMyPresence]);
-
   // ── Auto-save ────────────────────────────────────────────────────────────
   const scheduleSave = useCallback((elemJson: string, asJson: string) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -379,7 +269,6 @@ function WhiteboardCanvas({ board, saveStatus, onSaveStatusChange, onBoardUpdate
           {saveStatus === "unsaved" && "Unsaved changes"}
         </span>
         <div style={{ flex: 1 }} />
-        <CollabAvatars />
       </div>
 
       {/* Color toolbar */}
@@ -417,9 +306,8 @@ function WhiteboardCanvas({ board, saveStatus, onSaveStatusChange, onBoardUpdate
         </button>
       </div>
 
-      {/* Canvas + cursor overlay */}
-      <div ref={canvasContainerRef} style={{ flex: 1, overflow: "hidden", position: "relative" }}
-        onPointerMove={handlePointerMove} onPointerLeave={handlePointerLeave}>
+      {/* Canvas */}
+      <div ref={canvasContainerRef} style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         <Suspense fallback={
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
             <Loader2 size={28} style={{ animation: "spin 1s linear infinite", color: "#7C3AED" }} />
@@ -448,8 +336,6 @@ function WhiteboardCanvas({ board, saveStatus, onSaveStatusChange, onBoardUpdate
           </div>
         </Suspense>
 
-        {/* Live cursors */}
-        <CursorsOverlay />
       </div>
 
       {showAI && <AIDialog onClose={() => setShowAI(false)} onGenerate={generateDiagram} />}
@@ -627,18 +513,13 @@ export default function WhiteboardPage() {
             </button>
           </div>
         ) : (
-          <RoomProvider
+          <WhiteboardCanvas
             key={activeBoard.id}
-            id={`grind-os-whiteboard-${activeBoard.id}`}
-            initialPresence={{ cursor: null, name: "", color: "#7C3AED", avatar: "" }}
-          >
-            <WhiteboardCanvas
-              board={activeBoard}
-              saveStatus={saveStatus}
-              onSaveStatusChange={setSaveStatus}
-              onBoardUpdate={handleBoardUpdate}
-            />
-          </RoomProvider>
+            board={activeBoard}
+            saveStatus={saveStatus}
+            onSaveStatusChange={setSaveStatus}
+            onBoardUpdate={handleBoardUpdate}
+          />
         )}
       </div>
 
