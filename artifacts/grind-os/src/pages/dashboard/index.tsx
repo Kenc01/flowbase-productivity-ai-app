@@ -6,7 +6,7 @@ import {
   CheckCircle2, Clock, Calendar, Plus, ArrowRight, Sparkles, Zap, Bell,
   Search, ChevronDown, Target, TrendingUp, AlertCircle, Loader2,
   StickyNote, Lightbulb, Activity, ListTodo,
-  BarChart3, BookOpen, AlarmClock, Star,
+  BarChart3, BookOpen, AlarmClock, Star, Flame, TrendingDown,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -23,6 +23,9 @@ interface Note { id: string; title: string; content: string; color: string; symb
 interface AITemplate { id: string; appName: string; description: string; icon: string; color: string; createdAt: string; }
 interface Space { id: string; name: string; color: string; updatedAt: string; }
 interface Page { id: string; title: string; emoji: string; spaceId: string; updatedAt: string; }
+
+interface PerfDay { date: string; totalBlocks: number; completedBlocks: number; pct: number; }
+interface PerfStats { days: PerfDay[]; streak: number; avgPct: number; totalDaysTracked: number; }
 
 interface DashData {
   boards: KanbanBoard[]; columns: KanbanColumn[]; tasks: KanbanTask[];
@@ -112,6 +115,130 @@ function EmptyRow({ msg }: { msg: string }) {
   );
 }
 
+// ── Performance Card ──────────────────────────────────────────────────────────
+
+function PerformanceCard({ perf, navigate }: { perf: PerfStats | null; navigate: (p: string) => void }) {
+  const last14 = perf?.days ?? [];
+  const last7 = last14.slice(-7);
+  const today = new Date().toISOString().slice(0, 10);
+  const todayData = last14.find(d => d.date === today);
+
+  const pctColor = (pct: number) => {
+    if (pct === 0) return "rgba(255,255,255,0.1)";
+    if (pct >= 80) return "#10b981";
+    if (pct >= 50) return "#f59e0b";
+    return "#F43F5E";
+  };
+
+  const weekLabel = (date: string) => {
+    const d = new Date(date + "T12:00:00");
+    return d.toLocaleDateString([], { weekday: "short" });
+  };
+
+  if (!perf) {
+    return (
+      <div style={{ background: "var(--fb-surface)", borderRadius: 12, border: "1px solid var(--fb-border)", padding: "20px 22px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(116,103,240,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <BarChart3 size={18} color="var(--fb-violet)" />
+          </div>
+          <div>
+            <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--fb-text)" }}>Schedule Performance</div>
+            <div style={{ fontSize: "0.72rem", color: "var(--fb-text-muted)" }}>No schedule data yet — start planning your days!</div>
+          </div>
+        </div>
+        <button onClick={() => navigate("/dashboard/daily-schedule")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 8, border: "none", background: "rgba(116,103,240,0.15)", color: "var(--fb-violet)", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer" }}>
+          Plan Today <ArrowRight size={12} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "var(--fb-surface)", borderRadius: 12, border: "1px solid var(--fb-border)", padding: "18px 22px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <BarChart3 size={16} color="var(--fb-violet)" />
+          <span style={{ fontSize: "0.88rem", fontWeight: 700, color: "var(--fb-text)", fontFamily: "'Outfit',sans-serif" }}>Schedule Performance</span>
+        </div>
+        <button onClick={() => navigate("/dashboard/daily-schedule")} style={{ fontSize: "0.72rem", color: "var(--fb-violet)", fontWeight: 500, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
+          Open Schedule <ArrowRight size={10} />
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "auto auto auto 1fr", gap: 16, alignItems: "center", marginBottom: 18 }}>
+        {/* Streak */}
+        <div style={{ textAlign: "center", padding: "10px 16px", background: perf.streak > 0 ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.04)", borderRadius: 10, border: `1px solid ${perf.streak > 0 ? "rgba(245,158,11,0.25)" : "var(--fb-border)"}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center", marginBottom: 3 }}>
+            <Flame size={14} color={perf.streak > 0 ? "#f59e0b" : "rgba(255,255,255,0.2)"} />
+            <span style={{ fontSize: "1.6rem", fontWeight: 800, color: perf.streak > 0 ? "#f59e0b" : "rgba(255,255,255,0.3)", fontVariantNumeric: "tabular-nums" }}>{perf.streak}</span>
+          </div>
+          <div style={{ fontSize: "0.65rem", fontWeight: 600, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>Day Streak</div>
+        </div>
+
+        {/* Avg pct */}
+        <div style={{ textAlign: "center", padding: "10px 16px", background: "rgba(116,103,240,0.08)", borderRadius: 10, border: "1px solid rgba(116,103,240,0.18)" }}>
+          <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--fb-violet)", fontVariantNumeric: "tabular-nums", marginBottom: 3 }}>{perf.avgPct}%</div>
+          <div style={{ fontSize: "0.65rem", fontWeight: 600, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>Avg Completion</div>
+        </div>
+
+        {/* Days tracked */}
+        <div style={{ textAlign: "center", padding: "10px 16px", background: "rgba(16,185,129,0.07)", borderRadius: 10, border: "1px solid rgba(16,185,129,0.18)" }}>
+          <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "#10b981", fontVariantNumeric: "tabular-nums", marginBottom: 3 }}>{perf.totalDaysTracked}</div>
+          <div style={{ fontSize: "0.65rem", fontWeight: 600, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>Days Tracked</div>
+        </div>
+
+        {/* Today's progress */}
+        <div style={{ padding: "10px 16px", background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid var(--fb-border)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--fb-text-muted)" }}>Today</span>
+            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--fb-text)" }}>
+              {todayData ? `${todayData.completedBlocks}/${todayData.totalBlocks}` : "No schedule"}
+            </span>
+          </div>
+          <div style={{ height: 7, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden", marginBottom: 4 }}>
+            <div style={{ height: "100%", width: `${todayData?.pct ?? 0}%`, background: pctColor(todayData?.pct ?? 0), borderRadius: 99, transition: "width 0.4s ease" }} />
+          </div>
+          <div style={{ fontSize: "0.65rem", color: "var(--fb-text-muted)" }}>
+            {todayData?.totalBlocks === 0 ? "Plan your day to start tracking" : `${todayData?.pct ?? 0}% blocks completed`}
+          </div>
+        </div>
+      </div>
+
+      {/* 7-day bar chart */}
+      <div>
+        <div style={{ fontSize: "0.68rem", fontWeight: 600, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Last 7 Days</div>
+        <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 56 }}>
+          {last7.map(day => {
+            const isToday = day.date === today;
+            const barH = day.totalBlocks === 0 ? 4 : Math.max((day.pct / 100) * 48, 4);
+            const col = day.totalBlocks === 0 ? "rgba(255,255,255,0.08)" : pctColor(day.pct);
+            return (
+              <div key={day.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <div title={`${day.date}: ${day.completedBlocks}/${day.totalBlocks} blocks (${day.pct}%)`}
+                  style={{ width: "100%", height: barH, background: col, borderRadius: "4px 4px 2px 2px", transition: "height 0.3s ease", outline: isToday ? `2px solid rgba(116,103,240,0.6)` : "none", outlineOffset: 2, position: "relative" }}>
+                  {isToday && <div style={{ position: "absolute", top: -6, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: "var(--fb-violet)" }} />}
+                </div>
+                <span style={{ fontSize: "0.57rem", color: isToday ? "var(--fb-violet)" : "var(--fb-text-muted)", fontWeight: isToday ? 700 : 400, textTransform: "uppercase" }}>
+                  {weekLabel(day.date)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
+          {[{ color: "#10b981", label: "80–100%" }, { color: "#f59e0b", label: "50–79%" }, { color: "#F43F5E", label: "1–49%" }, { color: "rgba(255,255,255,0.08)", label: "No schedule" }].map(l => (
+            <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: l.color }} />
+              <span style={{ fontSize: "0.6rem", color: "var(--fb-text-muted)" }}>{l.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -121,6 +248,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DashData | null>(null);
+  const [perfData, setPerfData] = useState<PerfStats | null>(null);
 
   const displayName = user?.firstName || user?.username || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "there";
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -128,14 +256,16 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [kanban, events, notes, templates, spaces, chatHistory] = await Promise.all([
+      const [kanban, events, notes, templates, spaces, chatHistory, perfStats] = await Promise.all([
         api.get<{ boards: KanbanBoard[]; columns: KanbanColumn[]; tasks: KanbanTask[] }>("/kanban/boards"),
         api.get<CalendarEvent[]>("/calendar"),
         api.get<Note[]>("/notes"),
         api.get<AITemplate[]>("/ai-templates"),
         api.get<Space[]>("/spaces"),
         api.get<any[]>("/ai-assistant/history").catch(() => [] as any[]),
+        api.get<PerfStats>("/daily-schedule/stats?days=14").catch(() => null),
       ]);
+      setPerfData(perfStats);
 
       // Pages need spaces to exist, load if any
       let pages: Page[] = [];
@@ -369,6 +499,9 @@ export default function DashboardPage() {
               );
             })}
           </div>
+
+          {/* Performance Card */}
+          <PerformanceCard perf={perfData} navigate={navigate} />
 
           {/* Main 2-col grid */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>

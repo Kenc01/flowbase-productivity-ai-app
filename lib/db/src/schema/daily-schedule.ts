@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -12,6 +12,7 @@ export const dailyScheduleBlocksTable = pgTable("daily_schedule_blocks", {
   startMin:  integer("start_min").notNull().default(0),
   endHour:   integer("end_hour").notNull().default(1),
   endMin:    integer("end_min").notNull().default(0),
+  completed: boolean("completed").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
