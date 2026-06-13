@@ -72,7 +72,57 @@ const TEMPLATE_LABELS: Record<string, string> = {
   prd: "PRD",
   research: "Research Notes",
   task: "Task Plan",
+  book_notes: "Book Notes",
+  course_notes: "Course Notes",
+  skill_blueprint: "Skill Blueprint",
+  weekly_reflection: "Weekly Reflection",
+  mental_model: "Mental Model",
+  sop: "System / SOP",
+  insight: "Insight Capture",
+  sprint_90: "90-Day Sprint",
 };
+
+const TEMPLATE_META: Record<string, { emoji: string; color: string; desc: string; category: string }> = {
+  blank:            { emoji: "📄", color: "#6B7280", desc: "Start from scratch",                      category: "general" },
+  project:          { emoji: "🗂️", color: "#0EA5E9", desc: "Plan a project with milestones",           category: "general" },
+  meeting:          { emoji: "📋", color: "#10B981", desc: "Capture meeting notes & actions",          category: "general" },
+  prd:              { emoji: "📐", color: "#7467F0", desc: "Product requirements document",            category: "general" },
+  research:         { emoji: "🔬", color: "#F59E0B", desc: "Research notes & findings",               category: "general" },
+  task:             { emoji: "✅", color: "#F43F5E", desc: "Task breakdown & execution plan",          category: "general" },
+  book_notes:       { emoji: "📖", color: "#7467F0", desc: "Capture key ideas from any book",         category: "mastery" },
+  course_notes:     { emoji: "🎓", color: "#06B6D4", desc: "Structure notes from a course or tutorial", category: "mastery" },
+  skill_blueprint:  { emoji: "🛠️", color: "#10B981", desc: "Map out a skill you're developing",       category: "mastery" },
+  weekly_reflection:{ emoji: "🪞", color: "#8B5CF6", desc: "Review your week — wins, losses, lessons", category: "mastery" },
+  mental_model:     { emoji: "🧠", color: "#F59E0B", desc: "Document a mental model or framework",    category: "mastery" },
+  sop:              { emoji: "📋", color: "#EC4899", desc: "Build a repeatable system or protocol",   category: "mastery" },
+  insight:          { emoji: "💡", color: "#F59E0B", desc: "Capture an insight and how to apply it",  category: "mastery" },
+  sprint_90:        { emoji: "🎯", color: "#F43F5E", desc: "90-day focused sprint with daily tracking", category: "mastery" },
+};
+
+const STARTER_SPACES = [
+  { name: "Second Brain",      color: "#7467F0", emoji: "🧠", desc: "All your knowledge, ideas & insights in one place" },
+  { name: "Learning Library",  color: "#06B6D4", emoji: "📚", desc: "Book notes, course takeaways, resources" },
+  { name: "Skill Mastery",     color: "#10B981", emoji: "🎯", desc: "Deep skill development blueprints" },
+  { name: "Systems & SOPs",    color: "#F59E0B", emoji: "⚙️",  desc: "Repeatable routines, protocols, playbooks" },
+  { name: "Personal Growth",   color: "#F43F5E", emoji: "🌱", desc: "Reflections, mindset journals, growth reviews" },
+];
+
+function getTemplateContent(template: string, title: string): string {
+  const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  switch (template) {
+    case "book_notes": return `<h1>${title}</h1><p><strong>Author:</strong> </p><p><strong>Finished:</strong> ${today}</p><p><strong>Rating:</strong> ⭐⭐⭐⭐⭐</p><h2>📌 Core Idea</h2><p>The book's central thesis in one sentence.</p><h2>🔑 Key Ideas</h2><ul><li></li><li></li><li></li></ul><h2>💬 Best Quotes</h2><blockquote><p></p></blockquote><h2>⚡ How I'll Apply This</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li><li data-type="taskItem" data-checked="false"> </li></ul><h2>🔗 Related Concepts</h2><p></p>`;
+    case "course_notes": return `<h1>${title}</h1><p><strong>Platform:</strong> </p><p><strong>Started:</strong> ${today}</p><h2>🎯 Goal</h2><p>What do I want to be able to do after this course?</p><h2>📝 Module Notes</h2><h3>Module 1 — </h3><p></p><h3>Module 2 — </h3><p></p><h2>🧠 Key Takeaways</h2><ul><li></li><li></li></ul><h2>🛠️ Projects / Practice</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li></ul><h2>📌 Resources & Links</h2><ul><li></li></ul>`;
+    case "skill_blueprint": return `<h1>${title}</h1><p><strong>Target Level:</strong>  Beginner → Intermediate → Advanced</p><p><strong>Timeline:</strong> </p><h2>🎯 Why I'm Learning This</h2><p></p><h2>📊 Current Level Assessment</h2><p>Honest self-assessment of where I am now.</p><h2>🗺️ Learning Path</h2><h3>Phase 1 — Foundation</h3><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li></ul><h3>Phase 2 — Application</h3><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li></ul><h3>Phase 3 — Mastery</h3><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li></ul><h2>📚 Resources</h2><ul><li></li></ul><h2>🔄 Practice Log</h2><p>Track practice sessions, reflections, and breakthroughs.</p>`;
+    case "weekly_reflection": return `<h1>Week of ${today}</h1><h2>🏆 Wins This Week</h2><ul><li></li><li></li><li></li></ul><h2>😤 What Didn't Go Well</h2><ul><li></li></ul><h2>🧠 What I Learned</h2><ul><li></li></ul><h2>📊 Goals Check-in</h2><p>How did I track against my goals this week?</p><h2>⚡ Biggest Insight</h2><p></p><h2>🎯 Focus for Next Week</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li><li data-type="taskItem" data-checked="false"> </li><li data-type="taskItem" data-checked="false"> </li></ul><h2>💬 How I'm Feeling</h2><p>Energy, motivation, mindset going into next week.</p>`;
+    case "mental_model": return `<h1>${title}</h1><p><strong>Source:</strong> </p><p><strong>Category:</strong> </p><h2>🧠 What It Is</h2><p>Define the mental model in plain language.</p><h2>⚙️ How It Works</h2><p>The mechanics, the logic, the underlying principle.</p><h2>📍 When to Use It</h2><ul><li></li><li></li></ul><h2>⚠️ When NOT to Use It</h2><ul><li></li></ul><h2>💡 Real-World Examples</h2><ul><li></li><li></li></ul><h2>🔗 Related Models</h2><p></p>`;
+    case "sop": return `<h1>${title}</h1><p><strong>Owner:</strong> Me</p><p><strong>Last Updated:</strong> ${today}</p><p><strong>Frequency:</strong> </p><h2>🎯 Purpose</h2><p>Why this system exists and what problem it solves.</p><h2>✅ Prerequisites</h2><ul><li></li></ul><h2>📋 Steps</h2><ol><li><p><strong>Step 1 — </strong></p></li><li><p><strong>Step 2 — </strong></p></li><li><p><strong>Step 3 — </strong></p></li></ol><h2>⚡ Quick Reference</h2><p>The 30-second version of this SOP.</p><h2>🔄 Review Notes</h2><p>What's working, what needs improving.</p>`;
+    case "insight": return `<h1>${title}</h1><p><strong>Date:</strong> ${today}</p><p><strong>Source:</strong> </p><h2>💡 The Insight</h2><p>What did I realize? State it clearly in 2-3 sentences.</p><h2>🤔 Why It Matters</h2><p>What does this change? What does it unlock?</p><h2>🔗 What It Connects To</h2><ul><li></li></ul><h2>⚡ How I'll Apply It</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li><li data-type="taskItem" data-checked="false"> </li></ul><h2>📌 Evidence / Examples</h2><p></p>`;
+    case "sprint_90": return `<h1>${title}</h1><p><strong>Start:</strong> ${today}</p><p><strong>End:</strong> </p><h2>🎯 The One Big Goal</h2><p>What will be true in 90 days that isn't true today?</p><h2>💥 Why This Matters</h2><p></p><h2>📊 Success Metrics</h2><ul><li></li><li></li></ul><h2>🗺️ 3 Monthly Milestones</h2><h3>Month 1 (Days 1–30)</h3><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li></ul><h3>Month 2 (Days 31–60)</h3><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li></ul><h3>Month 3 (Days 61–90)</h3><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li></ul><h2>🔄 Weekly Review Ritual</h2><p>Every Sunday: review progress, adjust plan, recommit.</p>`;
+    case "project": return `<h1>${title}</h1><p><strong>Status:</strong> Planning</p><p><strong>Owner:</strong> Me</p><p><strong>Due:</strong> </p><h2>🎯 Goal</h2><p></p><h2>📋 Milestones</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li><li data-type="taskItem" data-checked="false"> </li><li data-type="taskItem" data-checked="false"> </li></ul><h2>📝 Notes</h2><p></p>`;
+    case "meeting": return `<h1>${title}</h1><p><strong>Date:</strong> ${today}</p><p><strong>Attendees:</strong> </p><h2>Agenda</h2><ul><li></li></ul><h2>Discussion</h2><p></p><h2>Action Items</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"> </li></ul>`;
+    default: return "";
+  }
+}
 
 const SORT_OPTIONS = [
   { value: "updated", label: "Recently Updated" },
@@ -344,14 +394,65 @@ function CreatePageModal({
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>
               Template
             </label>
-            <select value={template} onChange={e => setTemplate(e.target.value)} style={selectStyle}>
-              {Object.entries(TEMPLATE_LABELS).map(([val, label]) => (
-                <option key={val} value={val}>{label}</option>
-              ))}
-            </select>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                🎓 Mastery & Growth
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
+                {(["book_notes","course_notes","skill_blueprint","weekly_reflection","mental_model","sop","insight","sprint_90"] as const).map(key => {
+                  const m = TEMPLATE_META[key];
+                  return (
+                    <button
+                      key={key} type="button"
+                      onClick={() => setTemplate(key)}
+                      style={{
+                        display: "flex", alignItems: "flex-start", gap: 8,
+                        padding: "8px 10px", borderRadius: 10, cursor: "pointer",
+                        border: template === key ? `2px solid ${m.color}` : "1.5px solid #e5e7eb",
+                        background: template === key ? m.color + "12" : "white",
+                        textAlign: "left", transition: "all 0.15s",
+                      }}
+                    >
+                      <span style={{ fontSize: 16, lineHeight: 1.2, flexShrink: 0 }}>{m.emoji}</span>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: template === key ? m.color : "#1a1f36" }}>{TEMPLATE_LABELS[key]}</div>
+                        <div style={{ fontSize: 10, color: "#9ca3af", lineHeight: 1.3, marginTop: 1 }}>{m.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                ⚙️ General
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                {(["blank","project","meeting","research","task"] as const).map(key => {
+                  const m = TEMPLATE_META[key];
+                  return (
+                    <button
+                      key={key} type="button"
+                      onClick={() => setTemplate(key)}
+                      style={{
+                        display: "flex", alignItems: "flex-start", gap: 8,
+                        padding: "8px 10px", borderRadius: 10, cursor: "pointer",
+                        border: template === key ? `2px solid ${m.color}` : "1.5px solid #e5e7eb",
+                        background: template === key ? m.color + "12" : "white",
+                        textAlign: "left", transition: "all 0.15s",
+                      }}
+                    >
+                      <span style={{ fontSize: 16, lineHeight: 1.2, flexShrink: 0 }}>{m.emoji}</span>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: template === key ? m.color : "#1a1f36" }}>{TEMPLATE_LABELS[key]}</div>
+                        <div style={{ fontSize: 10, color: "#9ca3af", lineHeight: 1.3, marginTop: 1 }}>{m.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
           <button
             type="submit"
@@ -364,7 +465,7 @@ function CreatePageModal({
               fontSize: 14, fontWeight: 600, transition: "all 0.15s",
             }}
           >
-            Create Page
+            {TEMPLATE_META[template]?.emoji ?? "📄"} Create Page
           </button>
         </form>
       </div>
@@ -1059,7 +1160,7 @@ function SpaceDetailView({
 function AllSpacesView({
   spaces, pages, collaboratorsMap,
   onOpenSpace, onFavoriteSpace, onEditSpace, onDeleteSpace,
-  onNewSpace, onNewPage, onInviteCollaborators, loading,
+  onNewSpace, onNewPage, onInviteCollaborators, onCreateStarterSpace, loading,
 }: {
   spaces: Space[]; pages: Page[];
   collaboratorsMap: Record<string, Collaborator[]>;
@@ -1070,6 +1171,7 @@ function AllSpacesView({
   onNewSpace: () => void;
   onNewPage: () => void;
   onInviteCollaborators: (space: Space) => void;
+  onCreateStarterSpace: (starter: typeof STARTER_SPACES[number]) => void;
   loading: boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -1254,32 +1356,124 @@ function AllSpacesView({
             <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid #EEF0FF", borderTopColor: "#7467F0", animation: "spin 0.8s linear infinite" }} />
           </div>
         ) : filtered.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "64px 0" }}>
-            <div style={{ width: 64, height: 64, borderRadius: 18, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <FolderOpen size={28} color="#7467F0" />
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36", marginBottom: 6 }}>
-                {search ? "No spaces found" : filter === "favorites" ? "No favorite spaces" : filter === "archived" ? "No archived spaces" : "No spaces yet"}
+          search || filter !== "all" ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "64px 0" }}>
+              <div style={{ width: 64, height: 64, borderRadius: 18, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <FolderOpen size={28} color="#7467F0" />
               </div>
-              <div style={{ fontSize: 13, color: "#9ca3af" }}>
-                {search ? "Try a different search term" : "Create your first space to get started"}
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36", marginBottom: 6 }}>
+                  {search ? "No spaces found" : filter === "favorites" ? "No favorite spaces" : "No archived spaces"}
+                </div>
+                <div style={{ fontSize: 13, color: "#9ca3af" }}>
+                  {search ? "Try a different search term" : "Nothing here yet"}
+                </div>
               </div>
             </div>
-            {!search && filter === "all" && (
-              <button
-                onClick={onNewSpace}
-                style={{
-                  display: "flex", alignItems: "center", gap: 7,
-                  padding: "10px 20px", borderRadius: 12,
-                  background: "#7467F0", color: "white",
-                  border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
-                }}
-              >
-                <Plus size={15} /> Create Space
-              </button>
-            )}
-          </div>
+          ) : (
+            <div style={{ maxWidth: 700, margin: "0 auto", padding: "32px 0" }}>
+              {/* Hero */}
+              <div style={{ textAlign: "center", marginBottom: 36 }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🧠</div>
+                <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1a1f36", margin: "0 0 8px" }}>
+                  Build Your Second Brain
+                </h2>
+                <p style={{ fontSize: 14, color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
+                  Spaces are your knowledge vaults. Each one is a focused area of growth —<br />
+                  book notes, skill blueprints, systems, reflections, and more.
+                </p>
+              </div>
+
+              {/* Starter Spaces */}
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
+                  Quick Start — Create a Space
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {STARTER_SPACES.map(starter => (
+                    <button
+                      key={starter.name}
+                      onClick={() => onCreateStarterSpace(starter)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 14,
+                        padding: "16px 18px", borderRadius: 14,
+                        border: `1.5px solid ${starter.color}30`,
+                        background: starter.color + "0A",
+                        cursor: "pointer", textAlign: "left",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.background = starter.color + "18";
+                        (e.currentTarget as HTMLElement).style.borderColor = starter.color + "60";
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.background = starter.color + "0A";
+                        (e.currentTarget as HTMLElement).style.borderColor = starter.color + "30";
+                      }}
+                    >
+                      <div style={{
+                        width: 44, height: 44, borderRadius: 12,
+                        background: starter.color + "20",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 22, flexShrink: 0,
+                      }}>
+                        {starter.emoji}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1f36", marginBottom: 2 }}>{starter.name}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.4 }}>{starter.desc}</div>
+                      </div>
+                      <div style={{ marginLeft: "auto", color: starter.color, flexShrink: 0 }}>
+                        <Plus size={16} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>or</span>
+                <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
+              </div>
+
+              {/* Custom create */}
+              <div style={{ textAlign: "center" }}>
+                <button
+                  onClick={onNewSpace}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 7,
+                    padding: "10px 22px", borderRadius: 12,
+                    background: "white", color: "#374151",
+                    border: "1.5px solid #e5e7eb", cursor: "pointer",
+                    fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  <Plus size={14} /> Create Custom Space
+                </button>
+              </div>
+
+              {/* What goes in each */}
+              <div style={{ marginTop: 36, padding: "20px 24px", background: "#f9fafb", borderRadius: 14, border: "1px solid #e5e7eb" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 12 }}>📌 What to Put in Each Space</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px" }}>
+                  {[
+                    ["🧠 Second Brain", "Insights, ideas, mental models, book notes"],
+                    ["📚 Learning Library", "Course notes, tutorials, skill blueprints"],
+                    ["🎯 Skill Mastery", "Deep practice logs, progress tracking"],
+                    ["⚙️ Systems & SOPs", "Daily routines, protocols, playbooks"],
+                    ["🌱 Personal Growth", "Weekly reflections, 90-day sprints, goals"],
+                  ].map(([title, desc]) => (
+                    <div key={title} style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>{title}</div>
+                      <div style={{ fontSize: 11, color: "#9ca3af" }}>{desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
         ) : viewMode === "grid" ? (
           <div style={{
             display: "grid",
@@ -1730,6 +1924,14 @@ export default function PagesSpacesPage() {
     setShowCreateSpace(false);
   };
 
+  const handleCreateStarterSpace = async (starter: typeof STARTER_SPACES[number]) => {
+    const space = { id: uid(), name: starter.name, description: starter.desc, color: starter.color, isFavorite: false, isArchived: false };
+    let created: Space = space as Space;
+    try { created = await api.post<Space>("/spaces", space); } catch { /* optimistic */ }
+    setSpaces(prev => [created, ...prev]);
+    openSpace(created.id);
+  };
+
   const handleEditSpace = async (data: { name: string; description: string; color: string }) => {
     if (!editingSpace) return;
     const updated = { ...editingSpace, ...data };
@@ -1753,7 +1955,9 @@ export default function PagesSpacesPage() {
   };
 
   const handleCreatePage = async (data: { title: string; spaceId: string; template: string }) => {
-    const page = { id: uid(), title: data.title, spaceId: data.spaceId, template: data.template, content: "", emoji: "📄", parentId: null, isFavorite: false };
+    const meta = TEMPLATE_META[data.template];
+    const content = getTemplateContent(data.template, data.title);
+    const page = { id: uid(), title: data.title, spaceId: data.spaceId, template: data.template, content, emoji: meta?.emoji ?? "📄", parentId: null, isFavorite: false };
     let created: Page = page as Page;
     try {
       created = await api.post<Page>("/pages", page);
@@ -1845,6 +2049,7 @@ export default function PagesSpacesPage() {
             onNewSpace={() => setShowCreateSpace(true)}
             onNewPage={() => { if (spaces.length > 0) setShowCreatePage(true); else setShowCreateSpace(true); }}
             onInviteCollaborators={setInvitingSpace}
+            onCreateStarterSpace={handleCreateStarterSpace}
           />
         ) : view === "page-editor" && selectedSpace && editingPage ? (
           <PageEditorView
