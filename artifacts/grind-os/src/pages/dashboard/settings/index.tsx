@@ -24,6 +24,8 @@ interface UserSettings {
   notificationsEnabled: boolean;
   emailNotifications: boolean;
   autoSave: boolean;
+  masterName: string;
+  voiceAgentVoice: string;
 }
 
 interface Category {
@@ -89,7 +91,19 @@ const DEFAULT_SETTINGS: UserSettings = {
   notificationsEnabled: true,
   emailNotifications: false,
   autoSave: true,
+  masterName: "",
+  voiceAgentVoice: "Brian",
 };
+
+const JARVIS_VOICES = [
+  { value: "Brian",       label: "Brian",       desc: "Male · Deep & authoritative" },
+  { value: "Ava",         label: "Ava",         desc: "Female · Clear & professional" },
+  { value: "Aria",        label: "Aria",        desc: "Female · Warm & natural" },
+  { value: "Christopher", label: "Christopher", desc: "Male · Calm & measured" },
+  { value: "Eric",        label: "Eric",        desc: "Male · Confident & direct" },
+  { value: "Liam",        label: "Liam",        desc: "Male · Crisp & precise" },
+  { value: "Emma",        label: "Emma",        desc: "Female · Energetic & clear" },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -365,6 +379,59 @@ function AISection({ settings, onChange }: {
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+
+      {/* JARVIS Persona */}
+      <Card>
+        <SectionTitle icon={Bot} label="JARVIS Persona" color="#7467F0" />
+        <div style={{ padding: "4px 0 8px", borderBottom: "1px solid var(--fb-border)", marginBottom: "4px" }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: "10px",
+            padding: "12px 14px", borderRadius: "10px",
+            background: "linear-gradient(135deg, rgba(116,103,240,0.07), rgba(6,182,212,0.05))",
+            border: "1px solid rgba(116,103,240,0.15)", marginBottom: "12px",
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: "10px", background: "linear-gradient(135deg, #7467F0, #06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Bot size={18} color="#fff" strokeWidth={2} />
+            </div>
+            <div>
+              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--fb-text)" }}>
+                {settings.masterName.trim()
+                  ? `JARVIS will call you "Master ${settings.masterName.trim()}"`
+                  : "Set your name for JARVIS to call you by"}
+              </div>
+              <div style={{ fontSize: "0.7rem", color: "var(--fb-text-muted)", marginTop: "2px" }}>
+                Like Tony Stark's AI — personalized, direct, and loyal.
+              </div>
+            </div>
+          </div>
+        </div>
+        <SettingRow label="Your Name" description={`JARVIS will address you as "Master [Name]" in voice mode`}>
+          <input
+            type="text"
+            value={settings.masterName}
+            onChange={e => onChange("masterName", e.target.value)}
+            placeholder="e.g. Alex, Jordan, Sam…"
+            maxLength={40}
+            style={{
+              padding: "7px 12px", borderRadius: "8px",
+              border: "1px solid var(--fb-border)",
+              background: "var(--fb-surface2)", color: "var(--fb-text)",
+              fontSize: "0.8rem", fontFamily: "inherit", outline: "none",
+              width: "180px", transition: "border-color 0.15s",
+            }}
+            onFocus={e => { e.target.style.borderColor = "#7467F0"; }}
+            onBlur={e => { e.target.style.borderColor = "var(--fb-border)"; }}
+          />
+        </SettingRow>
+        <SettingRow label="JARVIS Voice" description="The voice used in real-time voice conversations" last>
+          <SelectField
+            value={settings.voiceAgentVoice}
+            onChange={v => onChange("voiceAgentVoice", v)}
+            options={JARVIS_VOICES.map(v => ({ value: v.value, label: `${v.label} — ${v.desc}` }))}
+          />
+        </SettingRow>
+      </Card>
+
       <Card>
         <SectionTitle icon={Brain} label="AI Model" color="#06B6D4" />
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>

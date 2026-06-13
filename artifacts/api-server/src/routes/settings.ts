@@ -70,6 +70,8 @@ router.patch("/", async (req, res) => {
       "notificationsEnabled",
       "emailNotifications",
       "autoSave",
+      "masterName",
+      "voiceAgentVoice",
     ];
     const update: Record<string, any> = {};
     for (const k of allowed) {

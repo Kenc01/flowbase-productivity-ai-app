@@ -13,6 +13,8 @@ export const userSettingsTable = pgTable("user_settings", {
   notificationsEnabled:       boolean("notifications_enabled").notNull().default(true),
   emailNotifications:         boolean("email_notifications").notNull().default(false),
   autoSave:                   boolean("auto_save").notNull().default(true),
+  masterName:                 text("master_name").notNull().default(""),
+  voiceAgentVoice:            text("voice_agent_voice").notNull().default("Brian"),
   updatedAt:                  timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

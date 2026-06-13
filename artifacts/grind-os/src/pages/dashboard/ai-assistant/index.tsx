@@ -4,10 +4,10 @@ import {
   Bot, Send, Mic, Square, Loader2, CheckCircle2,
   AlertCircle, ArrowRight, Sparkles, Calendar, StickyNote,
   Kanban, LayoutTemplate, Trash2, Brain, MicOff, Volume2,
-  PhoneOff, Radio,
+  PhoneOff, Radio, User,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { useVoiceConversation, type VoiceConvMessage, type VoiceConvStatus } from "@/hooks/useVoiceConversation";
+import { useVoiceAgent, type VoiceAgentMessage, type VoiceAgentStatus } from "@/hooks/useVoiceAgent";
 
 interface Action {
   tool: string;
@@ -25,12 +25,12 @@ interface Message {
 }
 
 const SUGGESTIONS = [
-  { icon: Calendar, label: "What's my schedule today?", color: "#06B6D4" },
-  { icon: Kanban, label: "What tasks do I have?", color: "#7467F0" },
-  { icon: StickyNote, label: "Show me my notes", color: "#F59E0B" },
-  { icon: Kanban, label: "Create a task for tomorrow", color: "#10B981" },
+  { icon: Calendar,       label: "What's my schedule today?",        color: "#06B6D4" },
+  { icon: Kanban,         label: "What tasks do I have?",             color: "#7467F0" },
+  { icon: StickyNote,     label: "Show me my notes",                  color: "#F59E0B" },
+  { icon: Kanban,         label: "Create a task for tomorrow",        color: "#10B981" },
   { icon: LayoutTemplate, label: "Generate a habit tracker template", color: "#F43F5E" },
-  { icon: Sparkles, label: "Plan my week", color: "#8B5CF6" },
+  { icon: Sparkles,       label: "Plan my week",                      color: "#8B5CF6" },
 ];
 
 const TOOL_LABELS: Record<string, string> = {
@@ -101,35 +101,50 @@ function TypingIndicator() {
 
 function VoiceModeOverlay({
   status,
-  partial,
+  lastText,
+  lastRole,
+  masterName,
   onStop,
 }: {
-  status: VoiceConvStatus;
-  partial: string;
+  status: VoiceAgentStatus;
+  lastText: string;
+  lastRole: "user" | "agent";
+  masterName: string;
   onStop: () => void;
 }) {
-  const statusConfig: Record<VoiceConvStatus, { label: string; color: string; pulse: boolean }> = {
+  const statusConfig: Record<VoiceAgentStatus, { label: string; color: string; pulse: boolean }> = {
     idle:       { label: "Voice mode",    color: "#7467F0", pulse: false },
     connecting: { label: "Connecting…",   color: "#F59E0B", pulse: false },
     listening:  { label: "Listening…",    color: "#10B981", pulse: true  },
     thinking:   { label: "Thinking…",     color: "#7467F0", pulse: false },
     speaking:   { label: "Speaking…",     color: "#06B6D4", pulse: true  },
     stopping:   { label: "Stopping…",     color: "#6B7280", pulse: false },
+    error:      { label: "Error",         color: "#F43F5E", pulse: false },
   };
 
-  const cfg = statusConfig[status];
+  const cfg = statusConfig[status] ?? statusConfig.idle;
+  const displayName = masterName.trim() || "sir";
 
   return (
     <div style={{
       position: "absolute", inset: 0, zIndex: 50,
-      background: "rgba(15, 10, 35, 0.97)",
+      background: "rgba(8, 6, 22, 0.97)",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       gap: 0,
     }}>
+      {/* JARVIS branding */}
+      <div style={{ marginBottom: 32, textAlign: "center" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: "#4a5568", textTransform: "uppercase", marginBottom: 4 }}>
+          JARVIS VOICE
+        </div>
+        <div style={{ fontSize: 13, color: "#6b7280" }}>
+          Master {displayName}
+        </div>
+      </div>
+
       {/* Animated orb */}
       <div style={{ position: "relative", marginBottom: 36 }}>
-        {/* Outer glow rings */}
         {cfg.pulse && [1, 2, 3].map((i) => (
           <div key={i} style={{
             position: "absolute",
@@ -138,14 +153,13 @@ function VoiceModeOverlay({
             width: 80 + i * 50, height: 80 + i * 50,
             borderRadius: "50%",
             border: `1.5px solid ${cfg.color}`,
-            opacity: 0.15 / i,
+            opacity: 0.18 / i,
             animation: `vc-ring 2s ease-out ${i * 0.3}s infinite`,
           }} />
         ))}
-        {/* Center orb */}
         <div style={{
           width: 96, height: 96, borderRadius: "50%",
-          background: `radial-gradient(circle at 35% 35%, ${cfg.color}cc, ${cfg.color}66)`,
+          background: `radial-gradient(circle at 35% 35%, ${cfg.color}cc, ${cfg.color}55)`,
           display: "flex", alignItems: "center", justifyContent: "center",
           boxShadow: `0 0 40px ${cfg.color}55, 0 0 80px ${cfg.color}22`,
           animation: cfg.pulse ? `vc-breathe 1.8s ease-in-out infinite` : "none",
@@ -154,10 +168,9 @@ function VoiceModeOverlay({
           {status === "thinking" && <Brain size={36} color="#fff" strokeWidth={1.8} style={{ animation: "fb-spin 2s linear infinite" }} />}
           {status === "speaking" && <Volume2 size={36} color="#fff" strokeWidth={1.8} />}
           {status === "connecting" && <Radio size={36} color="#fff" strokeWidth={1.8} />}
-          {(status === "idle" || status === "stopping") && <Mic size={36} color="#fff" strokeWidth={1.8} />}
+          {(status === "idle" || status === "stopping" || status === "error") && <Mic size={36} color="#fff" strokeWidth={1.8} />}
         </div>
 
-        {/* Sound wave bars (listening / speaking) */}
         {(status === "listening" || status === "speaking") && (
           <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "center", marginTop: 16 }}>
             {[0, 1, 2, 3, 4, 5, 6].map((i) => (
@@ -178,14 +191,26 @@ function VoiceModeOverlay({
       </p>
 
       {/* Live transcript */}
-      <div style={{ minHeight: 48, maxWidth: 480, width: "90%", textAlign: "center", marginBottom: 40 }}>
-        {partial ? (
-          <p style={{ fontSize: 15, color: "#a0aec0", margin: 0, fontStyle: "italic", lineHeight: 1.6 }}>
-            "{partial}"
-          </p>
+      <div style={{ minHeight: 60, maxWidth: 500, width: "90%", textAlign: "center", marginBottom: 40 }}>
+        {lastText ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
+            {lastRole === "user" && (
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "#4a5568", textTransform: "uppercase" }}>You said</span>
+            )}
+            {lastRole === "agent" && (
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "#4a5568", textTransform: "uppercase" }}>JARVIS</span>
+            )}
+            <p style={{ fontSize: 15, color: lastRole === "agent" ? "#06B6D4" : "#a0aec0", margin: 0, fontStyle: "italic", lineHeight: 1.6 }}>
+              "{lastText}"
+            </p>
+          </div>
         ) : (
           <p style={{ fontSize: 14, color: "#4a5568", margin: 0 }}>
-            {status === "listening" ? "Speak now — I'm listening." : status === "thinking" ? "Processing your message…" : status === "speaking" ? "Playing response…" : ""}
+            {status === "connecting" ? "Establishing secure voice link…"
+              : status === "listening" ? "Speak now — JARVIS is listening."
+              : status === "thinking" ? "Processing…"
+              : status === "speaking" ? "JARVIS is responding…"
+              : ""}
           </p>
         )}
       </div>
@@ -210,11 +235,11 @@ function VoiceModeOverlay({
       </button>
 
       <p style={{ fontSize: 11, color: "#4a5568", marginTop: 16 }}>
-        Speak naturally — responses are automatic
+        Speak naturally — JARVIS responds automatically
       </p>
 
       <style>{`
-        @keyframes vc-ring { 0%{opacity:0.15;transform:translate(-50%,-50%) scale(0.9)} 70%{opacity:0;transform:translate(-50%,-50%) scale(1.3)} 100%{opacity:0} }
+        @keyframes vc-ring { 0%{opacity:0.18;transform:translate(-50%,-50%) scale(0.9)} 70%{opacity:0;transform:translate(-50%,-50%) scale(1.3)} 100%{opacity:0} }
         @keyframes vc-breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
         @keyframes vc-wave { 0%,100%{transform:scaleY(0.4);opacity:0.5} 50%{transform:scaleY(1.4);opacity:1} }
       `}</style>
@@ -236,10 +261,13 @@ export default function AIAssistantPage() {
   const [recSeconds, setRecSeconds] = useState(0);
   const [voiceError, setVoiceError] = useState<string | null>(null);
 
-  // ── Voice conversation state ──────────────────────────────────────────────
   const [voiceMode, setVoiceMode] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<VoiceConvStatus>("idle");
-  const [voicePartial, setVoicePartial] = useState("");
+  const [voiceStatus, setVoiceStatus] = useState<VoiceAgentStatus>("idle");
+  const [lastVoiceText, setLastVoiceText] = useState("");
+  const [lastVoiceRole, setLastVoiceRole] = useState<"user" | "agent">("agent");
+
+  const [masterName, setMasterName] = useState("");
+  const [voiceAgentVoice, setVoiceAgentVoice] = useState("Brian");
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -249,6 +277,16 @@ export default function AIAssistantPage() {
   const messagesRef = useRef<Message[]>([]);
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // Fetch settings to get masterName and voice
+  useEffect(() => {
+    api.get<any>("/settings").then((s) => {
+      if (s && !s.error) {
+        setMasterName(s.masterName ?? "");
+        setVoiceAgentVoice(s.voiceAgentVoice ?? "Brian");
+      }
+    }).catch(() => {});
+  }, []);
 
   // Load chat history
   useEffect(() => {
@@ -356,43 +394,55 @@ export default function AIAssistantPage() {
   const formatTime = (s: number) =>
     `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
-  // ── Voice conversation ─────────────────────────────────────────────────────
+  // ── Voice Agent ────────────────────────────────────────────────────────────
 
-  const handleVoiceMessage = useCallback((msg: VoiceConvMessage) => {
+  const handleVoiceMessage = useCallback((msg: VoiceAgentMessage) => {
+    setLastVoiceText(msg.text);
+    setLastVoiceRole(msg.role);
     setMessages(prev => [...prev, {
       id: msg.id,
-      role: msg.role,
-      content: msg.content,
+      role: msg.role === "agent" ? "assistant" : "user",
+      content: msg.text,
       actions: [],
       timestamp: msg.timestamp,
     }]);
   }, []);
 
-  const getHistory = useCallback(() => {
-    return messagesRef.current.map(m => ({ role: m.role, content: m.content }));
+  const handleVoiceStatusChange = useCallback((s: VoiceAgentStatus) => {
+    setVoiceStatus(s);
+    if (s === "idle" || s === "stopping") {
+      // overlay will be closed by handleStopVoiceMode
+    }
   }, []);
 
-  const { startVoiceMode, stopVoiceMode } = useVoiceConversation({
+  const handleVoiceError = useCallback((msg: string) => {
+    setVoiceError(msg);
+    setVoiceMode(false);
+  }, []);
+
+  const { connect, disconnect } = useVoiceAgent({
+    masterName,
+    voice: voiceAgentVoice,
     onMessage: handleVoiceMessage,
-    onStatusChange: setVoiceStatus,
-    onPartialTranscript: setVoicePartial,
-    onError: (msg) => { setVoiceError(msg); setVoiceMode(false); },
-    getHistory,
+    onStatusChange: handleVoiceStatusChange,
+    onError: handleVoiceError,
   });
 
   const handleStartVoiceMode = useCallback(() => {
     setVoiceError(null);
+    setLastVoiceText("");
     setVoiceMode(true);
-    startVoiceMode();
-  }, [startVoiceMode]);
+    connect();
+  }, [connect]);
 
   const handleStopVoiceMode = useCallback(() => {
-    stopVoiceMode();
+    disconnect();
     setVoiceMode(false);
-    setVoicePartial("");
-  }, [stopVoiceMode]);
+    setLastVoiceText("");
+  }, [disconnect]);
 
   const isEmpty = messages.length === 0 && !historyLoading;
+  const displayName = masterName.trim() || "there";
 
   return (
     <>
@@ -401,7 +451,7 @@ export default function AIAssistantPage() {
         @keyframes fb-fadein { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes fb-spin { to { transform: rotate(360deg); } }
         @keyframes fb-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.3)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)} }
-        @keyframes vc-glow { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.4)}50%{box-shadow:0 0 0 10px rgba(16,185,129,0)} }
+        @keyframes vc-glow { 0%,100%{box-shadow:0 2px 8px rgba(16,185,129,0.3)}50%{box-shadow:0 2px 20px rgba(16,185,129,0.6),0 0 0 6px rgba(16,185,129,0.12)} }
         .fb-msg { animation: fb-fadein 0.25s ease; }
         .fb-suggest:hover { transform:translateY(-2px);box-shadow:0 6px 20px rgba(116,103,240,0.15)!important; }
         .fb-send-btn:hover:not(:disabled) { background:#5b50d6!important; }
@@ -417,7 +467,9 @@ export default function AIAssistantPage() {
         {voiceMode && (
           <VoiceModeOverlay
             status={voiceStatus}
-            partial={voicePartial}
+            lastText={lastVoiceText}
+            lastRole={lastVoiceRole}
+            masterName={masterName}
             onStop={handleStopVoiceMode}
           />
         )}
@@ -428,8 +480,10 @@ export default function AIAssistantPage() {
             <Bot size={20} color="#fff" strokeWidth={2} />
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1f36" }}>AI Assistant</div>
-            <div style={{ fontSize: 12, color: "#6b7280" }}>Powered by Groq · Llama 3.3</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1f36" }}>JARVIS</div>
+            <div style={{ fontSize: 12, color: "#6b7280" }}>
+              {masterName ? `Master ${masterName}'s personal AI` : "AI Assistant · Powered by Groq"}
+            </div>
           </div>
 
           {messages.length > 0 && (
@@ -468,9 +522,11 @@ export default function AIAssistantPage() {
               <div style={{ width: 72, height: 72, borderRadius: 20, background: "linear-gradient(135deg, #7467F0 0%, #06B6D4 100%)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, boxShadow: "0 8px 32px rgba(116,103,240,0.3)" }}>
                 <Bot size={34} color="#fff" strokeWidth={1.8} />
               </div>
-              <h2 style={{ fontSize: 24, fontWeight: 700, color: "#1a1f36", margin: 0, marginBottom: 8 }}>Hi, I'm Grind OS AI</h2>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: "#1a1f36", margin: 0, marginBottom: 8 }}>
+                {masterName ? `Ready, Master ${masterName}.` : "Hi, I'm JARVIS"}
+              </h2>
               <p style={{ fontSize: 14, color: "#6b7280", margin: 0, marginBottom: 32, textAlign: "center", maxWidth: 420 }}>
-                Your smart workspace assistant. Ask me about your schedule, tasks, and notes — or hold a full voice conversation with me.
+                Your personal AI system. Ask about your schedule, tasks, and notes — or start a full voice conversation.
               </p>
 
               {/* Voice mode CTA */}
@@ -567,7 +623,7 @@ export default function AIAssistantPage() {
           )}
 
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end", background: "#f8f9ff", border: "1.5px solid #e0e0f0", borderRadius: 16, padding: "10px 12px" }}>
-            {/* Legacy push-to-talk mic */}
+            {/* Push-to-talk mic */}
             <button
               onClick={recording ? stopRecording : startRecording}
               disabled={transcribing}
@@ -584,16 +640,16 @@ export default function AIAssistantPage() {
               value={input}
               onChange={(e) => { setInput(e.target.value); autoResize(); }}
               onKeyDown={handleKeyDown}
-              placeholder={recording ? "Recording…" : "Ask anything, or try Voice Mode for hands-free conversation…"}
+              placeholder={recording ? "Recording…" : masterName ? `Ask JARVIS anything, Master ${masterName}…` : "Ask JARVIS anything, or start Voice Mode for hands-free AI…"}
               rows={1}
               disabled={loading || recording || transcribing}
               style={{ flex: 1, resize: "none", border: "none", background: "transparent", fontSize: 14, color: "#1a1f36", outline: "none", lineHeight: 1.6, maxHeight: 160, overflowY: "auto", padding: "4px 0", fontFamily: "inherit" }}
             />
 
-            {/* Voice Mode button */}
+            {/* JARVIS Voice Mode button */}
             <button
               onClick={handleStartVoiceMode}
-              title="Voice conversation mode"
+              title="Start JARVIS voice conversation"
               style={{
                 display: "flex", alignItems: "center", gap: 6,
                 padding: "0 14px", height: 36, borderRadius: 10, border: "none",
@@ -624,7 +680,7 @@ export default function AIAssistantPage() {
           </div>
 
           <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 8, textAlign: "center" }}>
-            <strong style={{ color: "#7467F0" }}>Voice Mode</strong> — speak naturally, JARVIS listens and talks back. Push-to-talk mic sends text to the box first.
+            <strong style={{ color: "#10B981" }}>Voice Mode</strong> — real-time speech AI (JARVIS listens and talks back). Push-to-talk mic sends voice to text.
           </p>
         </div>
       </div>

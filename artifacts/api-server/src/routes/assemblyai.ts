@@ -1,11 +1,18 @@
 import { Router, Request, Response } from "express";
+import { getAuth } from "@clerk/express";
 
 const router = Router();
 
-/**
- * Handler for creating a short‑lived AssemblyAI token.
- * Both GET and POST on /token are supported for backward compatibility.
- */
+function requireUser(req: any, res: any): string | null {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return null;
+  }
+  return userId;
+}
+
 const tokenHandler = async (req: Request, res: Response) => {
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey || apiKey === "your_assemblyai_api_key_here") {
@@ -47,5 +54,22 @@ const tokenHandler = async (req: Request, res: Response) => {
 
 router.get("/token", tokenHandler);
 router.post("/token", tokenHandler);
+
+router.get("/voice-agent-token", async (req: Request, res: Response) => {
+  const auth = getAuth(req);
+  if (!auth?.userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const apiKey = process.env.ASSEMBLYAI_API_KEY;
+  if (!apiKey || apiKey === "your_assemblyai_api_key_here") {
+    return res.status(500).json({
+      error:
+        "ASSEMBLYAI_API_KEY not configured. Get one free at https://www.assemblyai.com/app/api-keys",
+    });
+  }
+
+  return res.json({ token: apiKey });
+});
 
 export default router;

@@ -870,4 +870,23 @@ router.post("/transcribe", async (req: Request, res: Response) => {
   }
 });
 
+// ── Voice Agent Tool Execution ─────────────────────────────────────────────────
+// Called by the frontend voice agent hook when the AI requests a tool call.
+
+router.post("/voice-tools", async (req: Request, res: Response) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+
+  const { tool, args } = req.body as { tool: string; args: any };
+  if (!tool) return res.status(400).json({ error: "tool name required" });
+
+  try {
+    const result = await executeTool(tool, args ?? {}, userId);
+    return res.json(result);
+  } catch (err: any) {
+    console.error("Voice tool execution error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

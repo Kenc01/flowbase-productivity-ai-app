@@ -1,0 +1,3 @@
+- [Voice Agent Architecture](voice-agent-arch.md) — AssemblyAI Voice Agent uses wss://agents.assemblyai.com/v1/ws?token=API_KEY; token endpoint returns API key directly (protected by Clerk auth server-side)
+- [DB env var priority](db-env.md) — Always use NEON_DATABASE_URL first; Replit's DATABASE_URL points to internal PG, not Neon
+- [Vite proxy fix](vite-proxy.md) — Frontend must proxy /api → http://localhost:8080 or all API calls return HTML
