@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useUser } from "@clerk/react";
 import {
   User, CreditCard, Tag, Bot, SlidersHorizontal,
   ChevronRight, Plus, Pencil, Trash2, Check, X,
@@ -611,11 +612,11 @@ function PreferencesSection({ settings, onChange }: {
 
 // ─── Profile Section ──────────────────────────────────────────────────────────
 
-function ProfileSection() {
-  const fullName  = document.querySelector<HTMLMetaElement>('meta[name="replit-user-name"]')?.content ?? "—";
-  const avatarUrl = document.querySelector<HTMLMetaElement>('meta[name="replit-user-profile-image"]')?.content ?? "";
-  const userId    = document.querySelector<HTMLMetaElement>('meta[name="replit-user-id"]')?.content ?? "";
-  const initials  = fullName.slice(0, 2).toUpperCase();
+function ProfileSection({ user }: { user: ReturnType<typeof useUser>["user"] }) {
+  const fullName  = user?.fullName ?? "—";
+  const email     = user?.primaryEmailAddress?.emailAddress ?? "—";
+  const avatarUrl = user?.imageUrl;
+  const initials  = (fullName !== "—" ? fullName : email).slice(0, 2).toUpperCase();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -634,7 +635,16 @@ function ProfileSection() {
           </div>
           <div>
             <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--fb-text)" }}>{fullName}</div>
-            <div style={{ fontSize: "0.78rem", color: "var(--fb-text-muted)", marginTop: "2px" }}>Replit Account</div>
+            <div style={{ fontSize: "0.78rem", color: "var(--fb-text-muted)", marginTop: "2px" }}>{email}</div>
+            <a href="https://accounts.clerk.dev/user" target="_blank" rel="noreferrer" style={{
+              display: "inline-flex", alignItems: "center", gap: "5px",
+              marginTop: "10px", padding: "5px 12px", borderRadius: "7px",
+              border: "1px solid var(--fb-border)", background: "transparent",
+              color: "var(--fb-text-muted)", fontSize: "0.72rem", fontWeight: 600,
+              textDecoration: "none",
+            }}>
+              <Pencil size={11} strokeWidth={2} /> Edit Profile
+            </a>
           </div>
         </div>
         <SettingRow label="Account ID" description="Your unique Grind OS user ID">
@@ -642,7 +652,7 @@ function ProfileSection() {
             fontFamily: "monospace", fontSize: "0.7rem", color: "var(--fb-text-muted)",
             background: "var(--fb-surface2)", padding: "3px 8px", borderRadius: "5px",
           }}>
-            {userId.slice(0, 22)}{userId.length > 22 ? "…" : ""}
+            {user?.id?.slice(0, 22)}…
           </span>
         </SettingRow>
         <SettingRow label="Account Status">
@@ -651,7 +661,11 @@ function ProfileSection() {
           </span>
         </SettingRow>
         <SettingRow label="Sign-In Methods" description="How you sign in to Grind OS" last>
-          <span style={{ fontSize: "0.78rem", color: "var(--fb-text-muted)" }}>Replit</span>
+          <span style={{ fontSize: "0.78rem", color: "var(--fb-text-muted)" }}>
+            {user?.externalAccounts?.length
+              ? user.externalAccounts.map(a => a.provider).join(", ")
+              : "Email / Password"}
+          </span>
         </SettingRow>
       </Card>
     </div>
@@ -717,6 +731,7 @@ function SubscriptionSection() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const { user }                        = useUser();
   const [activeTab, setActiveTab]       = useState("profile");
   const [settings,  setSettings]        = useState<UserSettings>(DEFAULT_SETTINGS);
   const [categories, setCategories]     = useState<Category[]>([]);
@@ -859,7 +874,7 @@ export default function SettingsPage() {
               </div>
             ) : (
               <>
-                {activeTab === "profile"      && <ProfileSection />}
+                {activeTab === "profile"      && <ProfileSection user={user} />}
                 {activeTab === "subscription" && <SubscriptionSection />}
                 {activeTab === "categories"   && (
                   <CategoriesSection

@@ -2,6 +2,8 @@ import 'dotenv/config';
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import { clerkMiddleware } from "@clerk/express";
+import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
 import { replitAuthMiddleware } from "./middlewares/replitAuth";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -22,12 +24,27 @@ app.use(
   })
 );
 
+// Clerk proxy — must be BEFORE express.json()
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+
 app.use(cors({ credentials: true, origin: true }));
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+
+// Clerk auth middleware
+app.use(
+  clerkMiddleware({
+    proxyUrl: (req: express.Request) => {
+      if (process.env.NODE_ENV !== "production") return undefined;
+      const host = getClerkProxyHost(req);
+      return host ? `https://${host}${CLERK_PROXY_PATH}` : undefined;
+    },
+  } as any)
+);
+
 app.use(replitAuthMiddleware);
 
-// All API routes (includes /assemblyai, /ai-assistant, etc.)
+// All API routes
 app.use("/api", router);
 
 export default app;

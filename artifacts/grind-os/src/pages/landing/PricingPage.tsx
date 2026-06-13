@@ -29,7 +29,7 @@ const plans = [
       "Community support",
     ],
     cta: "Start Free",
-    ctaHref: "/__replauthlogin",
+    ctaHref: "/sign-up",
   },
   {
     name: "Pro",
@@ -51,7 +51,7 @@ const plans = [
       "Priority support",
     ],
     cta: "Get Pro",
-    ctaHref: "/__replauthlogin",
+    ctaHref: "/sign-up",
   },
   {
     name: "Team",
@@ -71,7 +71,7 @@ const plans = [
       "Priority + dedicated support",
     ],
     cta: "Start Team Trial",
-    ctaHref: "/__replauthlogin",
+    ctaHref: "/sign-up",
   },
 ];
 
@@ -269,7 +269,7 @@ function PricingCTA() {
           No commitment. All features available from day one. Meet your JARVIS.
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <a href={"/__replauthlogin"}
+          <a href={navHref("/sign-up")}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 32px", borderRadius: 10, background: G, color: "#fff", fontSize: "0.95rem", fontWeight: 700, textDecoration: "none", boxShadow: "0 8px 24px rgba(116,103,240,0.45)", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(116,103,240,0.6)"; }}
             onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(116,103,240,0.45)"; }}>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { ClerkProvider, SignedIn, SignedOut, RedirectToSignIn, useUser, SignIn, SignUp } from "@clerk/react";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -22,48 +22,28 @@ import SettingsPage from "@/pages/dashboard/settings/index";
 import DailySchedulePage from "@/pages/dashboard/daily-schedule/index";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 
 const queryClient = new QueryClient();
 
-export interface ReplitUser {
-  id: string;
-  name: string;
-  profileImage: string;
-}
-
-function useReplitUser() {
-  const [user, setUser] = useState<ReplitUser | null | undefined>(undefined);
-
-  useEffect(() => {
-    const userId = document.querySelector<HTMLMetaElement>('meta[name="replit-user-id"]')?.content;
-    const userName = document.querySelector<HTMLMetaElement>('meta[name="replit-user-name"]')?.content;
-    const userImage = document.querySelector<HTMLMetaElement>('meta[name="replit-user-profile-image"]')?.content;
-
-    if (userId && userName) {
-      setUser({ id: userId, name: userName, profileImage: userImage ?? "" });
-    } else {
-      setUser(null);
-    }
-  }, []);
-
-  return user;
-}
-
 function HomeRoute() {
-  const user = useReplitUser();
-  if (user === undefined) return null;
-  if (user) return <Redirect to="/dashboard" />;
+  const { isSignedIn, isLoaded } = useUser();
+  if (!isLoaded) return null;
+  if (isSignedIn) return <Redirect to="/dashboard" />;
   return <LandingPage />;
 }
 
-function DashboardRoute({ children }: { children: React.ReactNode }) {
-  const user = useReplitUser();
-  if (user === undefined) return null;
-  if (!user) {
-    window.location.href = "/__replauthlogin?redirect=" + encodeURIComponent(window.location.pathname);
-    return null;
-  }
-  return <DashboardLayout>{children}</DashboardLayout>;
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <SignedIn>
+        <DashboardLayout>{children}</DashboardLayout>
+      </SignedIn>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+    </>
+  );
 }
 
 function Router() {
@@ -75,55 +55,45 @@ function Router() {
           <Route path="/features" component={FeaturesPage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/faq" component={FaqPage} />
+          <Route path="/sign-in">
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#08051c" }}>
+              <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+            </div>
+          </Route>
+          <Route path="/sign-up">
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#08051c" }}>
+              <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+            </div>
+          </Route>
           <Route path="/dashboard">
-            <DashboardRoute>
-              <DashboardPage />
-            </DashboardRoute>
+            <ProtectedRoute><DashboardPage /></ProtectedRoute>
           </Route>
           <Route path="/dashboard/ai-assistant">
-            <DashboardRoute>
-              <AIAssistantPage />
-            </DashboardRoute>
+            <ProtectedRoute><AIAssistantPage /></ProtectedRoute>
           </Route>
           <Route path="/dashboard/calendar">
-            <DashboardRoute>
-              <CalendarPage />
-            </DashboardRoute>
+            <ProtectedRoute><CalendarPage /></ProtectedRoute>
           </Route>
           <Route path="/dashboard/kanban">
-            <DashboardRoute>
-              <KanbanPage />
-            </DashboardRoute>
+            <ProtectedRoute><KanbanPage /></ProtectedRoute>
           </Route>
           <Route path="/dashboard/notes">
-            <DashboardRoute>
-              <NotesPage />
-            </DashboardRoute>
+            <ProtectedRoute><NotesPage /></ProtectedRoute>
           </Route>
           <Route path="/dashboard/deep-work">
-            <DashboardRoute>
-              <DeepWorkPage />
-            </DashboardRoute>
+            <ProtectedRoute><DeepWorkPage /></ProtectedRoute>
           </Route>
           <Route path="/dashboard/goal-map">
-            <DashboardRoute>
-              <GoalMapPage />
-            </DashboardRoute>
+            <ProtectedRoute><GoalMapPage /></ProtectedRoute>
           </Route>
           <Route path="/dashboard/pages">
-            <DashboardRoute>
-              <PagesSpacesPage />
-            </DashboardRoute>
+            <ProtectedRoute><PagesSpacesPage /></ProtectedRoute>
           </Route>
           <Route path="/dashboard/settings">
-            <DashboardRoute>
-              <SettingsPage />
-            </DashboardRoute>
+            <ProtectedRoute><SettingsPage /></ProtectedRoute>
           </Route>
           <Route path="/dashboard/daily-schedule">
-            <DashboardRoute>
-              <DailySchedulePage />
-            </DashboardRoute>
+            <ProtectedRoute><DailySchedulePage /></ProtectedRoute>
           </Route>
           <Route component={NotFound} />
         </Switch>
@@ -135,9 +105,11 @@ function Router() {
 
 function App() {
   return (
-    <WouterRouter base={basePath}>
-      <Router />
-    </WouterRouter>
+    <ClerkProvider publishableKey={clerkPubKey}>
+      <WouterRouter base={basePath}>
+        <Router />
+      </WouterRouter>
+    </ClerkProvider>
   );
 }
 

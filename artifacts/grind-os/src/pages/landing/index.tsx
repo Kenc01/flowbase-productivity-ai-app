@@ -59,7 +59,7 @@ function Hero() {
 
       {/* CTAs */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 52 }}>
-        <a href={"/__replauthlogin"}
+        <a href={navHref("/sign-up")}
           style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "14px 32px", borderRadius: 11, background: G, color: "#fff", fontSize: "0.95rem", fontWeight: 700, textDecoration: "none", boxShadow: "0 8px 28px rgba(116,103,240,0.5)", transition: "all 0.2s" }}
           onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 36px rgba(116,103,240,0.65)"; }}
           onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(116,103,240,0.5)"; }}>
@@ -287,7 +287,7 @@ function JarvisSpotlight() {
               </div>
             ))}
           </div>
-          <a href={"/__replauthlogin"}
+          <a href={navHref("/sign-up")}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 32, padding: "12px 26px", borderRadius: 10, background: "linear-gradient(135deg, #EC4899, #7467F0)", color: "#fff", fontSize: "0.9rem", fontWeight: 700, textDecoration: "none", boxShadow: "0 8px 24px rgba(236,72,153,0.35)", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(236,72,153,0.5)"; }}
             onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(236,72,153,0.35)"; }}>
@@ -385,7 +385,7 @@ function CTA() {
           Join Grind OS and get access to every tool, JARVIS voice agent, and live collaboration — all in one place.
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <a href={"/__replauthlogin"}
+          <a href={navHref("/sign-up")}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 36px", borderRadius: 11, background: G, color: "#fff", fontSize: "1rem", fontWeight: 700, textDecoration: "none", boxShadow: "0 8px 28px rgba(116,103,240,0.5)", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 14px 36px rgba(116,103,240,0.65)"; }}
             onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(116,103,240,0.5)"; }}>

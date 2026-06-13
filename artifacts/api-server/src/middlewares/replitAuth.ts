@@ -1,3 +1,4 @@
+import { getAuth } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 
 declare module "express-serve-static-core" {
@@ -7,7 +8,7 @@ declare module "express-serve-static-core" {
 }
 
 export function requireUser(req: Request, res: Response): string | null {
-  const userId = req.headers["x-replit-user-id"] as string | undefined;
+  const { userId } = getAuth(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return null;
@@ -20,6 +21,7 @@ export function replitAuthMiddleware(
   _res: Response,
   next: NextFunction,
 ): void {
-  req.userId = (req.headers["x-replit-user-id"] as string) || undefined;
+  const { userId } = getAuth(req);
+  req.userId = userId ?? undefined;
   next();
 }
