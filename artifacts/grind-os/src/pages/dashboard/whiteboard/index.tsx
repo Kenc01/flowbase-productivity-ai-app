@@ -140,7 +140,7 @@ function AIDialog({ onClose, onGenerate }: { onClose: () => void; onGenerate: (p
               </button>
             ))}
           </div>
-          {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, padding: "8px 12px", fontSize: 12.5, color: "#dc2626", marginBottom: 12 }}>{error}</div>}
+          {error && <div style={{ background: "rgba(244,63,94,.1)", border: "1px solid rgba(244,63,94,.3)", borderRadius: 7, padding: "8px 12px", fontSize: 12.5, color: "#f87171", marginBottom: 12 }}>{error}</div>}
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" onClick={onClose} style={{ flex: 1, padding: "9px 14px", borderRadius: 9, background: "var(--fb-surface)", border: "1px solid var(--fb-border)", color: "var(--fb-text)", fontSize: 13.5, cursor: "pointer", fontWeight: 500 }}>Cancel</button>
             <button type="submit" disabled={loading || !prompt.trim()}

@@ -174,7 +174,7 @@ function Avatar({ initials, color = "#7467F0", size = 22 }: { initials: string; 
     <div style={{
       width: size, height: size, borderRadius: "50%",
       background: colorLight(color),
-      border: `2px solid white`,
+      border: "2px solid var(--fb-border)",
       display: "flex", alignItems: "center", justifyContent: "center",
       fontSize: size * 0.38, fontWeight: 600, color, flexShrink: 0,
     }}>
@@ -225,27 +225,27 @@ function CreateSpaceModal({
       padding: 24,
     }} onClick={onClose}>
       <div style={{
-        background: "white", borderRadius: 20, padding: 32, width: "100%", maxWidth: 460,
+        background: "var(--fb-surface)", borderRadius: 20, padding: 32, width: "100%", maxWidth: 460,
         boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
           <SpaceFolderIcon color={color} size={36} />
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fb-text)" }}>
               {initial?.name ? "Edit Space" : "Create New Space"}
             </div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: "var(--fb-text-muted)", marginTop: 2 }}>
               Organize your pages and documents
             </div>
           </div>
-          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, borderRadius: 6 }}>
+          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--fb-text-muted)", padding: 4, borderRadius: 6 }}>
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--fb-text)", display: "block", marginBottom: 6 }}>
               Space Name *
             </label>
             <input
@@ -255,13 +255,13 @@ function CreateSpaceModal({
               placeholder="e.g. Work Projects"
               style={{
                 width: "100%", padding: "10px 14px", borderRadius: 10,
-                border: "1.5px solid #e5e7eb", fontSize: 14, color: "#1a1f36",
+                border: "1.5px solid var(--fb-border)", fontSize: 14, color: "var(--fb-text)",
                 outline: "none", boxSizing: "border-box",
               }}
             />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--fb-text)", display: "block", marginBottom: 6 }}>
               Description
             </label>
             <textarea
@@ -271,14 +271,14 @@ function CreateSpaceModal({
               rows={3}
               style={{
                 width: "100%", padding: "10px 14px", borderRadius: 10,
-                border: "1.5px solid #e5e7eb", fontSize: 14, color: "#1a1f36",
+                border: "1.5px solid var(--fb-border)", fontSize: 14, color: "var(--fb-text)",
                 outline: "none", resize: "none", boxSizing: "border-box",
                 fontFamily: "inherit",
               }}
             />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--fb-text)", display: "block", marginBottom: 8 }}>
               Color
             </label>
             <div style={{ display: "flex", gap: 8 }}>
@@ -301,8 +301,8 @@ function CreateSpaceModal({
             disabled={!name.trim()}
             style={{
               marginTop: 8, padding: "11px 0", borderRadius: 12,
-              background: name.trim() ? "#7467F0" : "#e5e7eb",
-              color: name.trim() ? "white" : "#9ca3af",
+              background: name.trim() ? "#7467F0" : "var(--fb-muted)",
+              color: name.trim() ? "#fff" : "var(--fb-text-muted)",
               border: "none", cursor: name.trim() ? "pointer" : "not-allowed",
               fontSize: 14, fontWeight: 600, transition: "all 0.15s",
             }}
@@ -337,8 +337,8 @@ function CreatePageModal({
 
   const selectStyle: React.CSSProperties = {
     width: "100%", padding: "10px 14px", borderRadius: 10,
-    border: "1.5px solid #e5e7eb", fontSize: 14, color: "#1a1f36",
-    outline: "none", background: "white", boxSizing: "border-box",
+    border: "1.5px solid var(--fb-border)", fontSize: 14, color: "var(--fb-text)",
+    outline: "none", background: "var(--fb-surface)", boxSizing: "border-box",
     appearance: "none", cursor: "pointer",
   };
 
@@ -350,7 +350,7 @@ function CreatePageModal({
       padding: 24,
     }} onClick={onClose}>
       <div style={{
-        background: "white", borderRadius: 20, width: "100%", maxWidth: 520,
+        background: "var(--fb-surface)", borderRadius: 20, width: "100%", maxWidth: 520,
         boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
         display: "flex", flexDirection: "column", maxHeight: "90vh",
         overflow: "hidden",
@@ -358,14 +358,14 @@ function CreatePageModal({
         {/* Fixed header */}
         <div style={{ padding: "24px 28px 0", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(116,103,240,.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <FileText size={18} color="#7467F0" />
             </div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36" }}>Create New Page</div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>Choose a template to get started</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fb-text)" }}>Create New Page</div>
+              <div style={{ fontSize: 12, color: "var(--fb-text-muted)", marginTop: 2 }}>Choose a template to get started</div>
             </div>
-            <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, borderRadius: 6 }}>
+            <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--fb-text-muted)", padding: 4, borderRadius: 6 }}>
               <X size={18} />
             </button>
           </div>
@@ -375,7 +375,7 @@ function CreatePageModal({
         <div style={{ overflowY: "auto", flex: 1, padding: "0 28px 24px" }}>
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--fb-text)", display: "block", marginBottom: 6 }}>
               Page Name *
             </label>
             <input
@@ -385,13 +385,13 @@ function CreatePageModal({
               placeholder="e.g. Q4 Roadmap"
               style={{
                 width: "100%", padding: "10px 14px", borderRadius: 10,
-                border: "1.5px solid #e5e7eb", fontSize: 14, color: "#1a1f36",
+                border: "1.5px solid var(--fb-border)", fontSize: 14, color: "var(--fb-text)",
                 outline: "none", boxSizing: "border-box",
               }}
             />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--fb-text)", display: "block", marginBottom: 6 }}>
               Add to Space *
             </label>
             <select value={spaceId} onChange={e => setSpaceId(e.target.value)} style={selectStyle}>
@@ -401,11 +401,11 @@ function CreatePageModal({
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--fb-text)", display: "block", marginBottom: 8 }}>
               Template
             </label>
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
                 🎓 Mastery & Growth
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
@@ -419,20 +419,20 @@ function CreatePageModal({
                         display: "flex", alignItems: "flex-start", gap: 8,
                         padding: "8px 10px", borderRadius: 10, cursor: "pointer",
                         border: template === key ? `2px solid ${m.color}` : "1.5px solid #e5e7eb",
-                        background: template === key ? m.color + "12" : "white",
+                        background: template === key ? m.color + "12" : "var(--fb-text-muted)",
                         textAlign: "left", transition: "all 0.15s",
                       }}
                     >
                       <span style={{ fontSize: 16, lineHeight: 1.2, flexShrink: 0 }}>{m.emoji}</span>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: template === key ? m.color : "#1a1f36" }}>{TEMPLATE_LABELS[key]}</div>
-                        <div style={{ fontSize: 10, color: "#9ca3af", lineHeight: 1.3, marginTop: 1 }}>{m.desc}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: template === key ? m.color : "var(--fb-text)" }}>{TEMPLATE_LABELS[key]}</div>
+                        <div style={{ fontSize: 10, color: "var(--fb-text-muted)", lineHeight: 1.3, marginTop: 1 }}>{m.desc}</div>
                       </div>
                     </button>
                   );
                 })}
               </div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
                 ⚙️ General
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
@@ -446,14 +446,14 @@ function CreatePageModal({
                         display: "flex", alignItems: "flex-start", gap: 8,
                         padding: "8px 10px", borderRadius: 10, cursor: "pointer",
                         border: template === key ? `2px solid ${m.color}` : "1.5px solid #e5e7eb",
-                        background: template === key ? m.color + "12" : "white",
+                        background: template === key ? m.color + "12" : "var(--fb-text-muted)",
                         textAlign: "left", transition: "all 0.15s",
                       }}
                     >
                       <span style={{ fontSize: 16, lineHeight: 1.2, flexShrink: 0 }}>{m.emoji}</span>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: template === key ? m.color : "#1a1f36" }}>{TEMPLATE_LABELS[key]}</div>
-                        <div style={{ fontSize: 10, color: "#9ca3af", lineHeight: 1.3, marginTop: 1 }}>{m.desc}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: template === key ? m.color : "var(--fb-text)" }}>{TEMPLATE_LABELS[key]}</div>
+                        <div style={{ fontSize: 10, color: "var(--fb-text-muted)", lineHeight: 1.3, marginTop: 1 }}>{m.desc}</div>
                       </div>
                     </button>
                   );
@@ -466,8 +466,8 @@ function CreatePageModal({
             disabled={!title.trim() || !spaceId}
             style={{
               marginTop: 8, padding: "11px 0", borderRadius: 12,
-              background: title.trim() && spaceId ? "#7467F0" : "#e5e7eb",
-              color: title.trim() && spaceId ? "white" : "#9ca3af",
+              background: title.trim() && spaceId ? "#7467F0" : "var(--fb-muted)",
+              color: title.trim() && spaceId ? "#fff" : "var(--fb-text-muted)",
               border: "none", cursor: title.trim() && spaceId ? "pointer" : "not-allowed",
               fontSize: 14, fontWeight: 600, transition: "all 0.15s",
             }}
@@ -493,7 +493,7 @@ function PagePreviewPanel({
 }) {
   const templateColor: Record<string, string> = {
     project: "#0EA5E9", meeting: "#10B981", prd: "#7467F0",
-    research: "#F59E0B", task: "#F43F5E", blank: "#6b7280",
+    research: "#F59E0B", task: "#F43F5E", blank: "var(--fb-text-muted)",
     book_notes: "#7467F0", course_notes: "#06B6D4", skill_blueprint: "#10B981",
     weekly_reflection: "#8B5CF6", mental_model: "#F59E0B", sop: "#EC4899",
     insight: "#F59E0B", sprint_90: "#F43F5E",
@@ -501,71 +501,71 @@ function PagePreviewPanel({
   const tc = templateColor[page.template] ?? "#6b7280";
 
   const actions = [
-    { icon: Edit3, label: "Rename", color: "#374151" },
-    { icon: Move, label: "Move", color: "#374151" },
-    { icon: Copy, label: "Duplicate", color: "#374151" },
-    { icon: Share2, label: "Share", color: "#374151" },
-    { icon: Download, label: "Export", color: "#374151" },
+    { icon: Edit3, label: "Rename", color: "var(--fb-text)" },
+    { icon: Move, label: "Move", color: "var(--fb-text)" },
+    { icon: Copy, label: "Duplicate", color: "var(--fb-text)" },
+    { icon: Share2, label: "Share", color: "var(--fb-text)" },
+    { icon: Download, label: "Export", color: "var(--fb-text)" },
     { icon: Archive, label: "Archive", color: "#F59E0B" },
     { icon: Trash2, label: "Delete", color: "#F43F5E", action: () => onDelete(page.id) },
   ];
 
   return (
     <div style={{
-      width: 300, flexShrink: 0, borderLeft: "1px solid #e5e7eb",
-      background: "white", display: "flex", flexDirection: "column",
+      width: 300, flexShrink: 0, borderLeft: "1px solid var(--fb-border)",
+      background: "var(--fb-surface)", display: "flex", flexDirection: "column",
       overflow: "hidden",
     }}>
       {/* Header */}
-      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "flex-start", gap: 10 }}>
+      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid var(--fb-border)", display: "flex", alignItems: "flex-start", gap: 10 }}>
         <span style={{ fontSize: 24 }}>{page.emoji}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1f36", lineHeight: 1.3, wordBreak: "break-word" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--fb-text)", lineHeight: 1.3, wordBreak: "break-word" }}>
             {page.title || "Untitled"}
           </div>
           <Badge label={TEMPLATE_LABELS[page.template] ?? page.template} color={tc} />
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 2, borderRadius: 6, flexShrink: 0 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--fb-text-muted)", padding: 2, borderRadius: 6, flexShrink: 0 }}>
           <X size={16} />
         </button>
       </div>
 
       {/* Meta */}
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid #f3f4f6", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--fb-border)", display: "flex", flexDirection: "column", gap: 10 }}>
         {space && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <SpaceFolderIcon color={space.color} size={18} />
-            <span style={{ fontSize: 12, color: "#6b7280" }}>{space.name}</span>
+            <span style={{ fontSize: 12, color: "var(--fb-text-muted)" }}>{space.name}</span>
           </div>
         )}
         {page.content && (
-          <p style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5, margin: 0 }}>
+          <p style={{ fontSize: 12, color: "var(--fb-text-muted)", lineHeight: 1.5, margin: 0 }}>
             {page.content.slice(0, 120)}{page.content.length > 120 ? "…" : ""}
           </p>
         )}
         <div style={{ display: "flex", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#9ca3af", fontSize: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--fb-text-muted)", fontSize: 12 }}>
             <MessageSquare size={13} />
             <span>0 comments</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#9ca3af", fontSize: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--fb-text-muted)", fontSize: 12 }}>
             <Link2 size={13} />
             <span>0 tasks</span>
           </div>
         </div>
-        <div style={{ fontSize: 12, color: "#9ca3af" }}>
+        <div style={{ fontSize: 12, color: "var(--fb-text-muted)" }}>
           Edited {formatRelativeTime(page.updatedAt)}
         </div>
       </div>
 
       {/* Favorite */}
-      <div style={{ padding: "10px 16px", borderBottom: "1px solid #f3f4f6" }}>
+      <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--fb-border)" }}>
         <button
           onClick={() => onFavorite(page.id)}
           style={{
             display: "flex", alignItems: "center", gap: 8,
             background: "none", border: "none", cursor: "pointer",
-            color: page.isFavorite ? "#F59E0B" : "#6b7280", fontSize: 13, fontWeight: 500,
+            color: page.isFavorite ? "#F59E0B" : "var(--fb-text-muted)", fontSize: 13, fontWeight: 500,
             padding: "6px 10px", borderRadius: 8,
             width: "100%",
           }}
@@ -577,7 +577,7 @@ function PagePreviewPanel({
 
       {/* Actions */}
       <div style={{ padding: "10px 16px", flex: 1, overflowY: "auto" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
           Page Actions
         </div>
         {actions.map(({ icon: Icon, label, color, action }) => (
@@ -591,7 +591,7 @@ function PagePreviewPanel({
               color, fontSize: 13, fontWeight: 500, textAlign: "left",
               transition: "background 0.1s",
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+            onMouseEnter={e => (e.currentTarget.style.background = "var(--fb-surface-hover)")}
             onMouseLeave={e => (e.currentTarget.style.background = "none")}
           >
             <Icon size={14} />
@@ -650,7 +650,7 @@ function InviteCollaboratorsModal({
     return email.slice(0, 2).toUpperCase();
   };
 
-  const roleColor: Record<string, string> = { viewer: "#6b7280", editor: "#0EA5E9", admin: "#7467F0" };
+  const roleColor: Record<string, string> = { viewer: "var(--fb-text-muted)", editor: "#0EA5E9", admin: "#7467F0" };
 
   return (
     <div style={{
@@ -660,36 +660,36 @@ function InviteCollaboratorsModal({
       padding: 24,
     }} onClick={onClose}>
       <div style={{
-        background: "white", borderRadius: 20, width: "100%", maxWidth: 520,
+        background: "var(--fb-surface)", borderRadius: 20, width: "100%", maxWidth: 520,
         boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
         display: "flex", flexDirection: "column", maxHeight: "85vh",
       }} onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div style={{ padding: "24px 24px 20px", borderBottom: "1px solid #f3f4f6", flexShrink: 0 }}>
+        <div style={{ padding: "24px 24px 20px", borderBottom: "1px solid var(--fb-border)", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(116,103,240,.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Users size={18} color="#7467F0" />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36" }}>Invite Collaborators</div>
-              <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fb-text)" }}>Invite Collaborators</div>
+              <div style={{ fontSize: 12, color: "var(--fb-text-muted)", marginTop: 1, display: "flex", alignItems: "center", gap: 6 }}>
                 <SpaceFolderIcon color={space.color} size={14} />
                 {space.name}
               </div>
             </div>
-            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, borderRadius: 6, flexShrink: 0 }}>
+            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--fb-text-muted)", padding: 4, borderRadius: 6, flexShrink: 0 }}>
               <X size={18} />
             </button>
           </div>
         </div>
 
         {/* Invite form */}
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f3f4f6", flexShrink: 0 }}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--fb-border)", flexShrink: 0 }}>
           <form onSubmit={handleInvite}>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <div style={{ position: "relative", flex: 1 }}>
-                <Mail size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+                <Mail size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--fb-text-muted)" }} />
                 <input
                   type="email"
                   value={email}
@@ -698,9 +698,9 @@ function InviteCollaboratorsModal({
                   autoFocus
                   style={{
                     width: "100%", padding: "9px 11px 9px 30px", borderRadius: 10,
-                    border: `1.5px solid ${error ? "#F43F5E" : "#e5e7eb"}`,
-                    fontSize: 13, color: "#1a1f36", outline: "none",
-                    boxSizing: "border-box", background: "#f9fafb",
+                    border: `1.5px solid ${error ? "#F43F5E" : "var(--fb-muted)"}`,
+                    fontSize: 13, color: "var(--fb-text)", outline: "none",
+                    boxSizing: "border-box", background: "var(--fb-surface-hover)",
                   }}
                 />
               </div>
@@ -710,8 +710,8 @@ function InviteCollaboratorsModal({
                 placeholder="Name (optional)"
                 style={{
                   width: 130, padding: "9px 11px", borderRadius: 10,
-                  border: "1.5px solid #e5e7eb", fontSize: 13, color: "#1a1f36",
-                  outline: "none", background: "#f9fafb",
+                  border: "1.5px solid var(--fb-border)", fontSize: 13, color: "var(--fb-text)",
+                  outline: "none", background: "var(--fb-surface-hover)",
                 }}
               />
             </div>
@@ -724,14 +724,14 @@ function InviteCollaboratorsModal({
                   onClick={() => setRole(value)}
                   style={{
                     flex: 1, padding: "8px 10px", borderRadius: 10,
-                    border: `1.5px solid ${role === value ? "#7467F0" : "#e5e7eb"}`,
-                    background: role === value ? "#EEF0FF" : "white",
+                    border: `1.5px solid ${role === value ? "#7467F0" : "var(--fb-muted)"}`,
+                    background: role === value ? "rgba(116,103,240,.12)" : "var(--fb-text-muted)",
                     cursor: "pointer", textAlign: "center", transition: "all 0.15s",
                   }}
                 >
                   <Icon size={14} color={role === value ? "#7467F0" : "#9ca3af"} style={{ marginBottom: 3 }} />
-                  <div style={{ fontSize: 12, fontWeight: 600, color: role === value ? "#7467F0" : "#374151" }}>{label}</div>
-                  <div style={{ fontSize: 10, color: "#9ca3af" }}>{desc}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: role === value ? "#7467F0" : "var(--fb-text)" }}>{label}</div>
+                  <div style={{ fontSize: 10, color: "var(--fb-text-muted)" }}>{desc}</div>
                 </button>
               ))}
             </div>
@@ -743,8 +743,8 @@ function InviteCollaboratorsModal({
               disabled={!email.trim() || sending}
               style={{
                 width: "100%", padding: "10px 0", borderRadius: 10,
-                background: email.trim() && !sending ? "#7467F0" : "#e5e7eb",
-                color: email.trim() && !sending ? "white" : "#9ca3af",
+                background: email.trim() && !sending ? "#7467F0" : "var(--fb-muted)",
+                color: email.trim() && !sending ? "#fff" : "var(--fb-text-muted)",
                 border: "none", cursor: email.trim() && !sending ? "pointer" : "not-allowed",
                 fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center",
                 justifyContent: "center", gap: 7, transition: "all 0.15s",
@@ -763,16 +763,16 @@ function InviteCollaboratorsModal({
 
         {/* Current collaborators */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 24px" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>
             {collaborators.length === 0 ? "No collaborators yet" : `${collaborators.length} collaborator${collaborators.length !== 1 ? "s" : ""}`}
           </div>
 
           {/* Owner row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--fb-border)" }}>
             <Avatar initials="Me" color={space.color} size={32} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1f36" }}>You (Owner)</div>
-              <div style={{ fontSize: 11, color: "#9ca3af" }}>Workspace owner</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fb-text)" }}>You (Owner)</div>
+              <div style={{ fontSize: 11, color: "var(--fb-text-muted)" }}>Workspace owner</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#7467F0" }}>
               <Crown size={13} /> Owner
@@ -782,10 +782,10 @@ function InviteCollaboratorsModal({
           {collaborators.map(collab => {
             const rc = roleColor[collab.role] ?? "#6b7280";
             return (
-              <div key={collab.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
+              <div key={collab.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--fb-border)" }}>
                 <Avatar initials={getInitials(collab.email, collab.name)} color={rc} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1f36", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fb-text)", display: "flex", alignItems: "center", gap: 6 }}>
                     {collab.name || collab.email}
                     {collab.status === "pending" && (
                       <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: "#FEF3C7", color: "#D97706", fontWeight: 500 }}>
@@ -793,7 +793,7 @@ function InviteCollaboratorsModal({
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{collab.email}</div>
+                  <div style={{ fontSize: 11, color: "var(--fb-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{collab.email}</div>
                 </div>
 
                 {/* Role selector */}
@@ -802,8 +802,8 @@ function InviteCollaboratorsModal({
                   onChange={e => onChangeRole(collab.id, e.target.value)}
                   style={{
                     padding: "4px 8px", borderRadius: 8,
-                    border: "1.5px solid #e5e7eb", fontSize: 12,
-                    color: rc, fontWeight: 600, background: "white",
+                    border: "1.5px solid var(--fb-border)", fontSize: 12,
+                    color: rc, fontWeight: 600, background: "var(--fb-surface)",
                     cursor: "pointer", outline: "none",
                   }}
                 >
@@ -825,7 +825,7 @@ function InviteCollaboratorsModal({
           })}
 
           {collaborators.length === 0 && (
-            <div style={{ textAlign: "center", padding: "24px 0", color: "#9ca3af", fontSize: 13 }}>
+            <div style={{ textAlign: "center", padding: "24px 0", color: "var(--fb-text-muted)", fontSize: 13 }}>
               <UserPlus size={28} style={{ marginBottom: 8, opacity: 0.4 }} />
               <div>Invite teammates to collaborate on this space.</div>
             </div>
@@ -861,7 +861,7 @@ function SpaceCard({
         style={{
           display: "flex", alignItems: "center", gap: 14,
           padding: "12px 16px", borderRadius: 12,
-          border: "1px solid #e5e7eb", background: "white",
+          border: "1px solid var(--fb-border)", background: "var(--fb-surface)",
           cursor: "pointer", transition: "box-shadow 0.15s",
         }}
         onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)")}
@@ -870,11 +870,11 @@ function SpaceCard({
       >
         <SpaceFolderIcon color={space.color} size={36} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1f36", marginBottom: 2 }}>{space.name}</div>
-          <div style={{ fontSize: 12, color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{space.description || "No description"}</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fb-text)", marginBottom: 2 }}>{space.name}</div>
+          <div style={{ fontSize: 12, color: "var(--fb-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{space.description || "No description"}</div>
         </div>
-        <div style={{ fontSize: 12, color: "#6b7280", whiteSpace: "nowrap" }}>{pageCount} {pageCount === 1 ? "page" : "pages"}</div>
-        <div style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}>{formatRelativeTime(space.updatedAt)}</div>
+        <div style={{ fontSize: 12, color: "var(--fb-text-muted)", whiteSpace: "nowrap" }}>{pageCount} {pageCount === 1 ? "page" : "pages"}</div>
+        <div style={{ fontSize: 12, color: "var(--fb-text-muted)", whiteSpace: "nowrap" }}>{formatRelativeTime(space.updatedAt)}</div>
         <button onClick={e => { e.stopPropagation(); onFavorite(); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: space.isFavorite ? "#F59E0B" : "#d1d5db" }}>
           <Star size={16} fill={space.isFavorite ? "#F59E0B" : "none"} />
         </button>
@@ -887,12 +887,12 @@ function SpaceCard({
       <div
         onClick={onOpen}
         style={{
-          borderRadius: 16, border: "1px solid #e5e7eb", background: "white",
+          borderRadius: 16, border: "1px solid var(--fb-border)", background: "var(--fb-surface)",
           padding: 20, cursor: "pointer", transition: "all 0.15s",
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
         }}
         onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.1)"; e.currentTarget.style.borderColor = "#d1d5db"; }}
-        onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)"; e.currentTarget.style.borderColor = "#e5e7eb"; }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)"; e.currentTarget.style.borderColor = "var(--fb-border)"; }}
       >
         {/* Top row */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
@@ -906,7 +906,7 @@ function SpaceCard({
             </button>
             <button
               onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#9ca3af", borderRadius: 6 }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--fb-text-muted)", borderRadius: 6 }}
             >
               <MoreHorizontal size={16} />
             </button>
@@ -914,8 +914,8 @@ function SpaceCard({
         </div>
 
         {/* Name & description */}
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1f36", marginBottom: 5, lineHeight: 1.3 }}>{space.name}</div>
-        <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5, marginBottom: 14, minHeight: 36 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--fb-text)", marginBottom: 5, lineHeight: 1.3 }}>{space.name}</div>
+        <div style={{ fontSize: 12, color: "var(--fb-text-muted)", lineHeight: 1.5, marginBottom: 14, minHeight: 36 }}>
           {space.description || "No description"}
         </div>
 
@@ -929,7 +929,7 @@ function SpaceCard({
               const initials = c.name
                 ? c.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
                 : c.email.slice(0, 2).toUpperCase();
-              const roleColor: Record<string, string> = { viewer: "#6b7280", editor: "#0EA5E9", admin: "#7467F0" };
+              const roleColor: Record<string, string> = { viewer: "var(--fb-text-muted)", editor: "#0EA5E9", admin: "#7467F0" };
               return (
                 <div key={c.id} style={{ marginLeft: -6 }} title={c.name || c.email}>
                   <Avatar initials={initials} color={roleColor[c.role] ?? "#6b7280"} size={22} />
@@ -939,20 +939,20 @@ function SpaceCard({
             {collaborators.length > 3 && (
               <div style={{
                 marginLeft: -6, width: 22, height: 22, borderRadius: "50%",
-                background: "#f3f4f6", border: "2px solid white",
+                background: "var(--fb-surface-hover)", border: "2px solid var(--fb-border)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 9, fontWeight: 700, color: "#6b7280",
+                fontSize: 9, fontWeight: 700, color: "var(--fb-text-muted)",
               }}>
                 +{collaborators.length - 3}
               </div>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#6b7280", fontSize: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--fb-text-muted)", fontSize: 12 }}>
               <FileText size={12} />
               <span>{pageCount} {pageCount === 1 ? "page" : "pages"}</span>
             </div>
-            <div style={{ fontSize: 11, color: "#9ca3af" }}>
+            <div style={{ fontSize: 11, color: "var(--fb-text-muted)" }}>
               {formatRelativeTime(space.updatedAt)}
             </div>
           </div>
@@ -965,8 +965,8 @@ function SpaceCard({
           <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setMenuOpen(false)} />
           <div style={{
             position: "absolute", top: 52, right: 8, zIndex: 100,
-            background: "white", borderRadius: 12, padding: "6px",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb",
+            background: "var(--fb-surface)", borderRadius: 12, padding: "6px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.12)", border: "1px solid var(--fb-border)",
             minWidth: 160,
           }}>
             {menuItems.map(({ icon: Icon, label, action, danger, highlight }: any) => (
@@ -977,10 +977,10 @@ function SpaceCard({
                   display: "flex", alignItems: "center", gap: 9,
                   width: "100%", padding: "8px 12px", borderRadius: 8,
                   background: "none", border: "none", cursor: "pointer",
-                  color: danger ? "#F43F5E" : highlight ? "#7467F0" : "#374151",
+                  color: danger ? "#F43F5E" : highlight ? "#7467F0" : "var(--fb-text)",
                   fontSize: 13, fontWeight: highlight ? 600 : 500, textAlign: "left",
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = highlight ? "#EEF0FF" : "#f9fafb")}
+                onMouseEnter={e => (e.currentTarget.style.background = highlight ? "rgba(116,103,240,.12)" : "#f9fafb")}
                 onMouseLeave={e => (e.currentTarget.style.background = "none")}
               >
                 <Icon size={14} />
@@ -1011,7 +1011,7 @@ function SpaceDetailView({
 
   const templateColor: Record<string, string> = {
     project: "#0EA5E9", meeting: "#10B981", prd: "#7467F0",
-    research: "#F59E0B", task: "#F43F5E", blank: "#6b7280",
+    research: "#F59E0B", task: "#F43F5E", blank: "var(--fb-text-muted)",
     book_notes: "#7467F0", course_notes: "#06B6D4", skill_blueprint: "#10B981",
     weekly_reflection: "#8B5CF6", mental_model: "#F59E0B", sop: "#EC4899",
     insight: "#F59E0B", sprint_90: "#F43F5E",
@@ -1024,9 +1024,9 @@ function SpaceDetailView({
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "20px 28px 0", borderBottom: "1px solid #e5e7eb", background: "white", flexShrink: 0 }}>
+      <div style={{ padding: "20px 28px 0", borderBottom: "1px solid var(--fb-border)", background: "var(--fb-surface)", flexShrink: 0 }}>
         {/* Breadcrumb */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, fontSize: 12, color: "#9ca3af" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, fontSize: 12, color: "var(--fb-text-muted)" }}>
           <button
             onClick={onBack}
             style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", color: "#7467F0", fontWeight: 500, fontSize: 12, padding: 0 }}
@@ -1035,20 +1035,20 @@ function SpaceDetailView({
             Knowledge Hub
           </button>
           <ChevronRight size={12} />
-          <span style={{ color: "#1a1f36", fontWeight: 600 }}>{space.name}</span>
+          <span style={{ color: "var(--fb-text)", fontWeight: 600 }}>{space.name}</span>
         </div>
 
         {/* Title row */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
           <SpaceFolderIcon color={space.color} size={42} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#1a1f36" }}>{space.name}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "var(--fb-text)" }}>{space.name}</div>
             {space.description && (
-              <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 3 }}>{space.description}</div>
+              <div style={{ fontSize: 13, color: "var(--fb-text-muted)", marginTop: 3 }}>{space.description}</div>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontSize: 12, color: "#9ca3af", marginRight: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--fb-text-muted)", marginRight: 8 }}>
               {pages.length} {pages.length === 1 ? "page" : "pages"}
             </div>
             <button
@@ -1056,7 +1056,7 @@ function SpaceDetailView({
               style={{
                 display: "flex", alignItems: "center", gap: 7,
                 padding: "9px 16px", borderRadius: 10,
-                background: "#7467F0", color: "white",
+                background: "#7467F0", color: "var(--fb-text-muted)",
                 border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
               }}
             >
@@ -1068,15 +1068,15 @@ function SpaceDetailView({
 
         {/* Search */}
         <div style={{ position: "relative", marginBottom: 20, maxWidth: 340 }}>
-          <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+          <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--fb-text-muted)" }} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search pages…"
             style={{
               width: "100%", padding: "8px 12px 8px 34px", borderRadius: 10,
-              border: "1.5px solid #e5e7eb", fontSize: 13, color: "#1a1f36",
-              outline: "none", background: "#f9fafb", boxSizing: "border-box",
+              border: "1.5px solid var(--fb-border)", fontSize: 13, color: "var(--fb-text)",
+              outline: "none", background: "var(--fb-surface-hover)", boxSizing: "border-box",
             }}
           />
         </div>
@@ -1086,14 +1086,14 @@ function SpaceDetailView({
       <div style={{ flex: 1, overflow: "auto", padding: "0 28px 24px" }}>
         {filtered.length === 0 ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "64px 0" }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(116,103,240,.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <FileText size={24} color="#7467F0" />
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1f36", marginBottom: 4 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--fb-text)", marginBottom: 4 }}>
                 {search ? "No pages found" : "No pages yet"}
               </div>
-              <div style={{ fontSize: 13, color: "#9ca3af" }}>
+              <div style={{ fontSize: 13, color: "var(--fb-text-muted)" }}>
                 {search ? "Try a different search" : "Create your first page in this space"}
               </div>
             </div>
@@ -1103,7 +1103,7 @@ function SpaceDetailView({
                 style={{
                   display: "flex", alignItems: "center", gap: 7,
                   padding: "9px 18px", borderRadius: 10,
-                  background: "#7467F0", color: "white",
+                  background: "#7467F0", color: "var(--fb-text-muted)",
                   border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
                 }}
               >
@@ -1114,9 +1114,9 @@ function SpaceDetailView({
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
+              <tr style={{ borderBottom: "1px solid var(--fb-border)" }}>
                 {["Page Name", "Template", "Last Updated", "Favorite"].map(h => (
-                  <th key={h} style={{ padding: "12px 12px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+                  <th key={h} style={{ padding: "12px 12px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
                     {h}
                   </th>
                 ))}
@@ -1131,24 +1131,24 @@ function SpaceDetailView({
                     key={page.id}
                     onClick={() => onPageClick(page.id)}
                     style={{
-                      borderBottom: "1px solid #f3f4f6", cursor: "pointer",
-                      background: isSelected ? "#fafafa" : "transparent",
+                      borderBottom: "1px solid var(--fb-border)", cursor: "pointer",
+                      background: isSelected ? "var(--fb-surface-hover)" : "transparent",
                       transition: "background 0.1s",
                     }}
-                    onMouseEnter={e => !isSelected && (e.currentTarget.style.background = "#f9fafb")}
+                    onMouseEnter={e => !isSelected && (e.currentTarget.style.background = "var(--fb-surface-hover)")}
                     onMouseLeave={e => !isSelected && (e.currentTarget.style.background = "transparent")}
                   >
                     <td style={{ padding: "14px 12px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ fontSize: 18 }}>{page.emoji}</span>
-                        <span style={{ fontSize: 14, fontWeight: 500, color: "#1a1f36" }}>{page.title || "Untitled"}</span>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--fb-text)" }}>{page.title || "Untitled"}</span>
                       </div>
                     </td>
                     <td style={{ padding: "14px 12px" }}>
                       <Badge label={TEMPLATE_LABELS[page.template] ?? page.template} color={tc} />
                     </td>
                     <td style={{ padding: "14px 12px" }}>
-                      <span style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}>{formatRelativeTime(page.updatedAt)}</span>
+                      <span style={{ fontSize: 12, color: "var(--fb-text-muted)", whiteSpace: "nowrap" }}>{formatRelativeTime(page.updatedAt)}</span>
                     </td>
                     <td style={{ padding: "14px 12px" }}>
                       <button
@@ -1224,11 +1224,11 @@ function AllSpacesView({
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "24px 28px 0", background: "white", flexShrink: 0 }}>
+      <div style={{ padding: "24px 28px 0", background: "var(--fb-surface)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1a1f36", margin: 0 }}>Knowledge Hub</h1>
-            <p style={{ fontSize: 13, color: "#9ca3af", margin: "4px 0 0" }}>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--fb-text)", margin: 0 }}>Knowledge Hub</h1>
+            <p style={{ fontSize: 13, color: "var(--fb-text-muted)", margin: "4px 0 0" }}>
               {spaces.filter(s => !s.isArchived).length === 0
                 ? "Your second brain starts here"
                 : `${spaces.filter(s => !s.isArchived).length} space${spaces.filter(s => !s.isArchived).length !== 1 ? "s" : ""}`}
@@ -1240,8 +1240,8 @@ function AllSpacesView({
               style={{
                 display: "flex", alignItems: "center", gap: 7,
                 padding: "9px 14px", borderRadius: 10,
-                border: "1.5px solid #e5e7eb", background: "white",
-                color: "#374151", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                border: "1.5px solid var(--fb-border)", background: "var(--fb-surface)",
+                color: "var(--fb-text)", cursor: "pointer", fontSize: 13, fontWeight: 600,
               }}
             >
               <FileText size={14} />
@@ -1252,7 +1252,7 @@ function AllSpacesView({
               style={{
                 display: "flex", alignItems: "center", gap: 7,
                 padding: "9px 16px", borderRadius: 10,
-                background: "#7467F0", color: "white",
+                background: "#7467F0", color: "var(--fb-text-muted)",
                 border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
               }}
             >
@@ -1265,28 +1265,28 @@ function AllSpacesView({
         {/* Search + controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 0 }}>
           <div style={{ position: "relative", flex: 1, maxWidth: 380 }}>
-            <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+            <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--fb-text-muted)" }} />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search spaces or pages…"
               style={{
                 width: "100%", padding: "9px 12px 9px 34px", borderRadius: 10,
-                border: "1.5px solid #e5e7eb", fontSize: 13, color: "#1a1f36",
-                outline: "none", background: "#f9fafb", boxSizing: "border-box",
+                border: "1.5px solid var(--fb-border)", fontSize: 13, color: "var(--fb-text)",
+                outline: "none", background: "var(--fb-surface-hover)", boxSizing: "border-box",
               }}
             />
           </div>
 
           {/* View toggle */}
-          <div style={{ display: "flex", border: "1.5px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ display: "flex", border: "1.5px solid var(--fb-border)", borderRadius: 10, overflow: "hidden" }}>
             {(["grid", "list"] as const).map(mode => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
                 style={{
-                  padding: "8px 12px", background: viewMode === mode ? "#7467F0" : "white",
-                  color: viewMode === mode ? "white" : "#6b7280",
+                  padding: "8px 12px", background: viewMode === mode ? "#7467F0" : "var(--fb-text-muted)",
+                  color: viewMode === mode ? "white" : "var(--fb-text-muted)",
                   border: "none", cursor: "pointer", display: "flex", alignItems: "center",
                   transition: "all 0.15s",
                 }}
@@ -1303,8 +1303,8 @@ function AllSpacesView({
               style={{
                 display: "flex", alignItems: "center", gap: 6,
                 padding: "8px 12px", borderRadius: 10,
-                border: "1.5px solid #e5e7eb", background: "white",
-                color: "#374151", cursor: "pointer", fontSize: 13,
+                border: "1.5px solid var(--fb-border)", background: "var(--fb-surface)",
+                color: "var(--fb-text)", cursor: "pointer", fontSize: 13,
               }}
             >
               {SORT_OPTIONS.find(o => o.value === sort)?.label}
@@ -1315,8 +1315,8 @@ function AllSpacesView({
                 <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setSortOpen(false)} />
                 <div style={{
                   position: "absolute", top: 44, right: 0, zIndex: 100,
-                  background: "white", borderRadius: 12, padding: 6,
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb",
+                  background: "var(--fb-surface)", borderRadius: 12, padding: 6,
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.12)", border: "1px solid var(--fb-border)",
                   minWidth: 180,
                 }}>
                   {SORT_OPTIONS.map(opt => (
@@ -1327,10 +1327,10 @@ function AllSpacesView({
                         display: "flex", alignItems: "center", justifyContent: "space-between",
                         width: "100%", padding: "8px 12px", borderRadius: 8,
                         background: "none", border: "none", cursor: "pointer",
-                        color: sort === opt.value ? "#7467F0" : "#374151",
+                        color: sort === opt.value ? "#7467F0" : "var(--fb-text)",
                         fontSize: 13, fontWeight: sort === opt.value ? 600 : 400,
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+                      onMouseEnter={e => (e.currentTarget.style.background = "var(--fb-surface-hover)")}
                       onMouseLeave={e => (e.currentTarget.style.background = "none")}
                     >
                       {opt.label}
@@ -1344,7 +1344,7 @@ function AllSpacesView({
         </div>
 
         {/* Filter tabs */}
-        <div style={{ display: "flex", gap: 0, marginTop: 16, borderBottom: "1px solid #e5e7eb" }}>
+        <div style={{ display: "flex", gap: 0, marginTop: 16, borderBottom: "1px solid var(--fb-border)" }}>
           {tabs.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -1353,7 +1353,7 @@ function AllSpacesView({
                 display: "flex", alignItems: "center", gap: 6,
                 padding: "10px 16px", background: "none", border: "none",
                 cursor: "pointer", fontSize: 13, fontWeight: filter === key ? 600 : 400,
-                color: filter === key ? "#7467F0" : "#6b7280",
+                color: filter === key ? "#7467F0" : "var(--fb-text-muted)",
                 borderBottom: `2px solid ${filter === key ? "#7467F0" : "transparent"}`,
                 marginBottom: -1, transition: "all 0.15s", whiteSpace: "nowrap",
               }}
@@ -1374,14 +1374,14 @@ function AllSpacesView({
         ) : filtered.length === 0 ? (
           search || filter !== "all" ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "64px 0" }}>
-              <div style={{ width: 64, height: 64, borderRadius: 18, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 64, height: 64, borderRadius: 18, background: "rgba(116,103,240,.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <FolderOpen size={28} color="#7467F0" />
               </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36", marginBottom: 6 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fb-text)", marginBottom: 6 }}>
                   {search ? "No spaces found" : filter === "favorites" ? "No favorite spaces" : "No archived spaces"}
                 </div>
-                <div style={{ fontSize: 13, color: "#9ca3af" }}>
+                <div style={{ fontSize: 13, color: "var(--fb-text-muted)" }}>
                   {search ? "Try a different search term" : "Nothing here yet"}
                 </div>
               </div>
@@ -1391,10 +1391,10 @@ function AllSpacesView({
               {/* Hero */}
               <div style={{ textAlign: "center", marginBottom: 36 }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>🧠</div>
-                <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1a1f36", margin: "0 0 8px" }}>
+                <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--fb-text)", margin: "0 0 8px" }}>
                   Build Your Second Brain
                 </h2>
-                <p style={{ fontSize: 14, color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
+                <p style={{ fontSize: 14, color: "var(--fb-text-muted)", margin: 0, lineHeight: 1.6 }}>
                   Spaces are your knowledge vaults. Each one is a focused area of growth —<br />
                   book notes, skill blueprints, systems, reflections, and more.
                 </p>
@@ -1402,7 +1402,7 @@ function AllSpacesView({
 
               {/* Starter Spaces */}
               <div style={{ marginBottom: 28 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fb-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
                   Quick Start — Create a Space
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
@@ -1436,8 +1436,8 @@ function AllSpacesView({
                         {starter.emoji}
                       </div>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1f36", marginBottom: 2 }}>{starter.name}</div>
-                        <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.4 }}>{starter.desc}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--fb-text)", marginBottom: 2 }}>{starter.name}</div>
+                        <div style={{ fontSize: 12, color: "var(--fb-text-muted)", lineHeight: 1.4 }}>{starter.desc}</div>
                       </div>
                       <div style={{ marginLeft: "auto", color: starter.color, flexShrink: 0 }}>
                         <Plus size={16} />
@@ -1449,9 +1449,9 @@ function AllSpacesView({
 
               {/* Divider */}
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
-                <span style={{ fontSize: 12, color: "#9ca3af" }}>or</span>
-                <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
+                <div style={{ flex: 1, height: 1, background: "var(--fb-muted)" }} />
+                <span style={{ fontSize: 12, color: "var(--fb-text-muted)" }}>or</span>
+                <div style={{ flex: 1, height: 1, background: "var(--fb-muted)" }} />
               </div>
 
               {/* Custom create */}
@@ -1461,8 +1461,8 @@ function AllSpacesView({
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 7,
                     padding: "10px 22px", borderRadius: 12,
-                    background: "white", color: "#374151",
-                    border: "1.5px solid #e5e7eb", cursor: "pointer",
+                    background: "var(--fb-surface)", color: "var(--fb-text)",
+                    border: "1.5px solid var(--fb-border)", cursor: "pointer",
                     fontSize: 13, fontWeight: 600,
                   }}
                 >
@@ -1471,8 +1471,8 @@ function AllSpacesView({
               </div>
 
               {/* What goes in each */}
-              <div style={{ marginTop: 36, padding: "20px 24px", background: "#f9fafb", borderRadius: 14, border: "1px solid #e5e7eb" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 12 }}>📌 What to Put in Each Space</div>
+              <div style={{ marginTop: 36, padding: "20px 24px", background: "var(--fb-surface-hover)", borderRadius: 14, border: "1px solid var(--fb-border)" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fb-text)", marginBottom: 12 }}>📌 What to Put in Each Space</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {[
                     ["🧠 Second Brain", "Insights, ideas, mental models, book notes"],
@@ -1482,8 +1482,8 @@ function AllSpacesView({
                     ["🌱 Personal Growth", "Weekly reflections, 90-day sprints, goals"],
                   ].map(([title, desc]) => (
                     <div key={title} style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", flexShrink: 0 }}>{title}</div>
-                      <div style={{ fontSize: 11, color: "#9ca3af" }}>— {desc}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--fb-text)", flexShrink: 0 }}>{title}</div>
+                      <div style={{ fontSize: 11, color: "var(--fb-text-muted)" }}>— {desc}</div>
                     </div>
                   ))}
                 </div>
@@ -1546,7 +1546,7 @@ function EditorToolBtn({ onClick, active, title, children }: {
       style={{
         width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center",
         justifyContent: "center", border: "none", cursor: "pointer",
-        background: active ? "#EEF0FF" : "transparent",
+        background: active ? "rgba(116,103,240,.12)" : "transparent",
         color: active ? "#7467F0" : "#6B7280",
         transition: "background 0.15s",
       }}
@@ -1641,7 +1641,7 @@ function PageEditorView({
       {/* ── Top nav bar ── */}
       <div style={{
         display: "flex", alignItems: "center", padding: "10px 20px",
-        background: "white", borderBottom: "1px solid #E5E7EB", flexShrink: 0, gap: 6,
+        background: "var(--fb-surface)", borderBottom: "1px solid #E5E7EB", flexShrink: 0, gap: 6,
       }}>
         <button
           onClick={onBack}
@@ -1676,7 +1676,7 @@ function PageEditorView({
           <button
             onClick={onNewPage}
             style={{
-              display: "flex", alignItems: "center", gap: 6, background: "#7467F0", color: "white",
+              display: "flex", alignItems: "center", gap: 6, background: "#7467F0", color: "var(--fb-text-muted)",
               border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 500,
               cursor: "pointer",
             }}
@@ -1685,7 +1685,7 @@ function PageEditorView({
           </button>
           <button style={{
             width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center",
-            justifyContent: "center", background: "white", border: "1px solid #E5E7EB", cursor: "pointer",
+            justifyContent: "center", background: "var(--fb-surface)", border: "1px solid #E5E7EB", cursor: "pointer",
             color: "#6B7280",
           }}>
             <MoreHorizontal size={16} />
@@ -1696,7 +1696,7 @@ function PageEditorView({
       {/* ── Space header ── */}
       <div style={{
         display: "flex", alignItems: "center", gap: 10, padding: "12px 24px",
-        background: "white", borderBottom: "1px solid #E5E7EB", flexShrink: 0,
+        background: "var(--fb-surface)", borderBottom: "1px solid #E5E7EB", flexShrink: 0,
       }}>
         <div style={{
           width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center",
@@ -1706,7 +1706,7 @@ function PageEditorView({
           {spaceEmoji}
         </div>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 15, color: "#111827" }}>{space.name}</div>
+          <div style={{ fontWeight: 600, fontSize: 15, color: "var(--fb-text)" }}>{space.name}</div>
           <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 1 }}>{spacePageCount} pages</div>
         </div>
       </div>
@@ -1722,7 +1722,7 @@ function PageEditorView({
             placeholder="Untitled"
             style={{
               width: "100%", fontSize: 30, fontWeight: 700, border: "none", outline: "none",
-              background: "transparent", color: "#111827", fontFamily: "inherit",
+              background: "transparent", color: "var(--fb-text)", fontFamily: "inherit",
               padding: 0, marginBottom: 8,
             }}
           />
@@ -1734,7 +1734,7 @@ function PageEditorView({
             <span>Updated {timeSince((page as any).updatedAt)}</span>
             <span>·</span>
             <span style={{
-              background: "#EEF0FF", color: "#7467F0", borderRadius: 4,
+              background: "rgba(116,103,240,.15)", color: "#7467F0", borderRadius: 4,
               padding: "1px 6px", fontSize: 11, fontWeight: 700, letterSpacing: "0.03em",
             }}>SA</span>
           </div>
@@ -1742,7 +1742,7 @@ function PageEditorView({
           {/* ── Toolbar ── */}
           <div style={{
             display: "flex", alignItems: "center", gap: 2,
-            padding: "6px 12px", background: "white",
+            padding: "6px 12px", background: "var(--fb-surface)",
             border: "1px solid #E5E7EB", borderBottom: "none",
             borderRadius: "10px 10px 0 0", flexWrap: "wrap",
           }}>
@@ -1820,7 +1820,7 @@ function PageEditorView({
 
           {/* ── Editor card ── */}
           <div style={{
-            background: "white", border: "1px solid #E5E7EB",
+            background: "var(--fb-surface)", border: "1px solid #E5E7EB",
             borderRadius: "0 0 10px 10px", minHeight: 360,
             padding: "20px 28px",
           }}>
@@ -1831,7 +1831,7 @@ function PageEditorView({
               }}>
                 <div style={{
                   display: "flex", alignItems: "center", gap: 2, padding: "6px 8px",
-                  background: "white", border: "1px solid #E5E7EB", borderRadius: 10,
+                  background: "var(--fb-surface)", border: "1px solid #E5E7EB", borderRadius: 10,
                   boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
                 }}>
                   <EditorToolBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold">
@@ -2050,7 +2050,7 @@ export default function PagesSpacesPage() {
   return (
     <>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={{ display: "flex", height: "100%", overflow: "hidden", background: "#f8fafc" }}>
+      <div style={{ display: "flex", height: "100%", overflow: "hidden", background: "var(--fb-bg)" }}>
         {/* Main content */}
         {view === "spaces" ? (
           <AllSpacesView
