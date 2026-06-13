@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { requireUser } from "../middlewares/replitAuth";
 import { Liveblocks } from "@liveblocks/node";
 
 const router = Router();
@@ -10,14 +10,8 @@ const liveblocks = liveblocksSecret
   : null;
 
 const AVATAR_COLORS = [
-  "#7467F0",
-  "#06B6D4",
-  "#10B981",
-  "#F59E0B",
-  "#F43F5E",
-  "#A855F7",
-  "#EC4899",
-  "#14B8A6",
+  "#7467F0", "#06B6D4", "#10B981", "#F59E0B",
+  "#F43F5E", "#A855F7", "#EC4899", "#14B8A6",
 ];
 
 function colorForUser(userId: string): string {
@@ -42,12 +36,8 @@ router.post("/auth", async (req, res) => {
     return res.status(503).json({ error: "Liveblocks not configured" });
   }
 
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-
-  if (!userId) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const userId = requireUser(req, res);
+  if (!userId) return;
 
   const room = (req.body?.room as string) ?? "";
   const firstName = (req.body?.firstName as string) ?? "";

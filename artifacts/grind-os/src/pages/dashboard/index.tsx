@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { useUser } from "@clerk/react";
 import {
   LayoutDashboard, Bot, KanbanSquare, NotebookPen, Timer, Trophy,
   CheckCircle2, Clock, Calendar, Plus, ArrowRight, Sparkles, Zap, Bell,
@@ -243,14 +242,13 @@ function PerformanceCard({ perf, navigate }: { perf: PerfStats | null; navigate:
 
 export default function DashboardPage() {
   const [, navigate] = useLocation();
-  const { user } = useUser();
   const [searchFocused, setSearchFocused] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DashData | null>(null);
   const [perfData, setPerfData] = useState<PerfStats | null>(null);
 
-  const displayName = user?.firstName || user?.username || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "there";
+  const displayName = (document.querySelector<HTMLMetaElement>('meta[name="replit-user-name"]')?.content) || "there";
   const initials = displayName.slice(0, 2).toUpperCase();
 
   const load = useCallback(async () => {

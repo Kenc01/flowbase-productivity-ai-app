@@ -1,20 +1,12 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { requireUser } from "../middlewares/replitAuth";
 import { db, goalsTable, kanbanBoardsTable, kanbanColumnsTable, kanbanTasksTable, calendarEventsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
 const router = Router();
 
-function requireUser(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return null; }
-  return userId;
-}
-
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
-// GET all goals for user
 router.get("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -22,7 +14,6 @@ router.get("/", async (req, res) => {
   return res.json(goals);
 });
 
-// POST create goal
 router.post("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -36,7 +27,6 @@ router.post("/", async (req, res) => {
   return res.status(201).json(goal);
 });
 
-// PUT update goal
 router.put("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -49,7 +39,6 @@ router.put("/:id", async (req, res) => {
   return res.json(goal);
 });
 
-// DELETE goal
 router.delete("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -57,7 +46,6 @@ router.delete("/:id", async (req, res) => {
   res.status(204).end();
 });
 
-// POST /goals/:id/send-to-kanban — create a Kanban task from a milestone
 router.post("/:id/send-to-kanban", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -66,7 +54,6 @@ router.post("/:id/send-to-kanban", async (req, res) => {
     .where(and(eq(goalsTable.id, req.params.id), eq(goalsTable.userId, userId)));
   if (!goal) return res.status(404).json({ error: "Goal not found" });
 
-  // Find or create a "Goals" board
   let board = (await db.select().from(kanbanBoardsTable)
     .where(and(eq(kanbanBoardsTable.userId, userId)))).find(b => b.name === "Goals");
 
@@ -75,20 +62,17 @@ router.post("/:id/send-to-kanban", async (req, res) => {
       id: uid(), userId, name: "Goals", emoji: "🎯",
     }).returning();
     board = newBoard;
-    // Create default columns
     for (const [i, name] of ["To Do", "In Progress", "Done"].entries()) {
       await db.insert(kanbanColumnsTable).values({ id: uid(), boardId: board.id, name, order: i });
     }
   }
 
-  // Get the first column (To Do)
   const columns = await db.select().from(kanbanColumnsTable)
     .where(eq(kanbanColumnsTable.boardId, board.id));
   columns.sort((a, b) => a.order - b.order);
   const firstCol = columns[0];
   if (!firstCol) return res.status(500).json({ error: "Board has no columns" });
 
-  // Get task count for ordering
   const existing = await db.select().from(kanbanTasksTable)
     .where(eq(kanbanTasksTable.columnId, firstCol.id));
 
@@ -103,7 +87,6 @@ router.post("/:id/send-to-kanban", async (req, res) => {
     labels: JSON.stringify(["goal-map"]),
   }).returning();
 
-  // Link back to goal
   await db.update(goalsTable)
     .set({ linkedKanbanTaskId: taskId })
     .where(eq(goalsTable.id, goal.id));
@@ -111,7 +94,6 @@ router.post("/:id/send-to-kanban", async (req, res) => {
   return res.json({ task, boardName: board.name });
 });
 
-// POST /goals/:id/send-to-calendar — create a Calendar event from a goal/milestone
 router.post("/:id/send-to-calendar", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;

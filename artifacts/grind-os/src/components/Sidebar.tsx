@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useClerk } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import {
   Bell,
@@ -570,7 +569,6 @@ export default function Sidebar() {
   const [notifCount, setNotifCount] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
   const addBtnRef = useRef<HTMLButtonElement>(null);
-  const { signOut } = useClerk();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   useEffect(() => {
@@ -810,7 +808,7 @@ export default function Sidebar() {
           <FooterButton icon={Bell} label="Notifications" color="var(--fb-amber)" collapsed={collapsed} badge={notifCount > 0 ? notifCount : undefined} onClick={() => setShowNotifs(v => !v)} />
           <FooterButton icon={HelpCircle} label="Help & Support" color="var(--fb-sky)" collapsed={collapsed} onClick={() => setShowHelp(v => !v)} />
           <FooterButton icon={LogOut} label="Sign Out" color="var(--fb-rose)" collapsed={collapsed} danger
-            onClick={() => signOut({ redirectUrl: basePath || "/" })} />
+            onClick={() => { window.location.href = "/__replauthlogout?redirect=" + encodeURIComponent(basePath || "/"); }} />
           {!collapsed && (
             <a
               href="https://keithlar.vercel.app/"

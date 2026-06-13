@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { requireUser } from "../middlewares/replitAuth";
 import { db, userSettingsTable, userCategoriesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
@@ -8,18 +8,6 @@ const router = Router();
 function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
-
-function requireUser(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return null;
-  }
-  return userId;
-}
-
-// ── Settings ──────────────────────────────────────────────────────────────────
 
 router.get("/", async (req, res) => {
   const userId = requireUser(req, res);
@@ -101,8 +89,6 @@ router.patch("/", async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
-
-// ── Categories ────────────────────────────────────────────────────────────────
 
 router.get("/categories", async (req, res) => {
   const userId = requireUser(req, res);

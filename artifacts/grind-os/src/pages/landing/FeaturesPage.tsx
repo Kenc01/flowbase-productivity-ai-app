@@ -313,7 +313,7 @@ function FeatureCTA() {
         </h2>
         <p style={{ fontSize: "0.95rem", color: "#6b7280", margin: "0 0 32px", lineHeight: 1.7 }}>No credit card required. Every feature available from day one.</p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <a href={navHref("/sign-up")}
+          <a href={"/__replauthlogin"}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 30px", borderRadius: 10, background: G, color: "#fff", fontSize: "0.95rem", fontWeight: 700, textDecoration: "none", boxShadow: "0 8px 24px rgba(116,103,240,0.4)", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(116,103,240,0.55)"; }}
             onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(116,103,240,0.4)"; }}>

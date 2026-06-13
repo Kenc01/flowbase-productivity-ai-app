@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getAuth } from "@clerk/express";
+import { requireUser } from "../middlewares/replitAuth";
 import {
   db,
   kanbanBoardsTable,

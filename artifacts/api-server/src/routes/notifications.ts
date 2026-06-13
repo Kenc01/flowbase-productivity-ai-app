@@ -1,16 +1,9 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { requireUser } from "../middlewares/replitAuth";
 import { db, kanbanTasksTable, kanbanColumnsTable, calendarEventsTable, notesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const router = Router();
-
-function requireUser(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return null; }
-  return userId;
-}
 
 export type NotifType =
   | "overdue"
@@ -47,127 +40,48 @@ router.get("/", async (req, res) => {
       db.select().from(notesTable).where(eq(notesTable.userId, userId)),
     ]);
 
-    // Map columns to know which are "done"
     const doneColIds = new Set(
       columns.filter(c => c.name.toLowerCase().includes("done")).map(c => c.id)
     );
 
     const activeTasks = tasks.filter(t => !doneColIds.has(t.columnId));
-
     const notifs: Notification[] = [];
 
-    // ── Overdue tasks ──
     for (const t of activeTasks) {
       if (t.dueDate && t.dueDate < today) {
-        notifs.push({
-          id: `overdue-${t.id}`,
-          type: "overdue",
-          title: "Overdue task",
-          body: t.title,
-          color: "#F43F5E",
-          icon: "AlertCircle",
-          link: "/dashboard/kanban",
-          ts: t.dueDate,
-        });
+        notifs.push({ id: `overdue-${t.id}`, type: "overdue", title: "Overdue task", body: t.title, color: "#F43F5E", icon: "AlertCircle", link: "/dashboard/kanban", ts: t.dueDate });
       }
     }
-
-    // ── Due today ──
     for (const t of activeTasks) {
       if (t.dueDate === today) {
-        notifs.push({
-          id: `due-today-${t.id}`,
-          type: "due_today",
-          title: "Due today",
-          body: t.title,
-          color: "#F59E0B",
-          icon: "Clock",
-          link: "/dashboard/kanban",
-          ts: today,
-        });
+        notifs.push({ id: `due-today-${t.id}`, type: "due_today", title: "Due today", body: t.title, color: "#F59E0B", icon: "Clock", link: "/dashboard/kanban", ts: today });
       }
     }
-
-    // ── Due tomorrow ──
     for (const t of activeTasks) {
       if (t.dueDate === tomorrow) {
-        notifs.push({
-          id: `due-tomorrow-${t.id}`,
-          type: "due_tomorrow",
-          title: "Due tomorrow",
-          body: t.title,
-          color: "#06B6D4",
-          icon: "CalendarClock",
-          link: "/dashboard/kanban",
-          ts: tomorrow,
-        });
+        notifs.push({ id: `due-tomorrow-${t.id}`, type: "due_tomorrow", title: "Due tomorrow", body: t.title, color: "#06B6D4", icon: "CalendarClock", link: "/dashboard/kanban", ts: tomorrow });
       }
     }
-
-    // ── High priority tasks with no due date ──
     for (const t of activeTasks) {
       if (t.priority === "high" && !t.dueDate) {
-        notifs.push({
-          id: `highpri-${t.id}`,
-          type: "high_priority",
-          title: "High priority task",
-          body: t.title,
-          color: "#a855f7",
-          icon: "Zap",
-          link: "/dashboard/kanban",
-          ts: today,
-        });
+        notifs.push({ id: `highpri-${t.id}`, type: "high_priority", title: "High priority task", body: t.title, color: "#a855f7", icon: "Zap", link: "/dashboard/kanban", ts: today });
       }
     }
-
-    // ── Calendar events today ──
     for (const e of events) {
       if (e.date === today) {
-        notifs.push({
-          id: `event-today-${e.id}`,
-          type: "event_today",
-          title: "Today's event",
-          body: e.title,
-          color: "#10B981",
-          icon: "CalendarDays",
-          link: "/dashboard/calendar",
-          ts: today,
-        });
+        notifs.push({ id: `event-today-${e.id}`, type: "event_today", title: "Today's event", body: e.title, color: "#10B981", icon: "CalendarDays", link: "/dashboard/calendar", ts: today });
       }
     }
-
-    // ── Calendar events tomorrow ──
     for (const e of events) {
       if (e.date === tomorrow) {
-        notifs.push({
-          id: `event-tomorrow-${e.id}`,
-          type: "event_tomorrow",
-          title: "Upcoming tomorrow",
-          body: e.title,
-          color: "#0EA5E9",
-          icon: "CalendarDays",
-          link: "/dashboard/calendar",
-          ts: tomorrow,
-        });
+        notifs.push({ id: `event-tomorrow-${e.id}`, type: "event_tomorrow", title: "Upcoming tomorrow", body: e.title, color: "#0EA5E9", icon: "CalendarDays", link: "/dashboard/calendar", ts: tomorrow });
       }
     }
-
-    // ── Pinned notes ──
     const pinned = notes.filter(n => n.pinned).slice(0, 2);
     for (const n of pinned) {
-      notifs.push({
-        id: `pinned-${n.id}`,
-        type: "pinned_note",
-        title: "Pinned note",
-        body: n.title,
-        color: n.color ?? "#7467F0",
-        icon: "StickyNote",
-        link: "/dashboard/notes",
-        ts: n.updatedAt ? String(n.updatedAt) : today,
-      });
+      notifs.push({ id: `pinned-${n.id}`, type: "pinned_note", title: "Pinned note", body: n.title, color: n.color ?? "#7467F0", icon: "StickyNote", link: "/dashboard/notes", ts: n.updatedAt ? String(n.updatedAt) : today });
     }
 
-    // Sort: overdue first, then due_today, then rest. Cap at 30.
     const ORDER: NotifType[] = ["overdue", "due_today", "high_priority", "due_tomorrow", "event_today", "event_tomorrow", "pinned_note"];
     notifs.sort((a, b) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type));
 

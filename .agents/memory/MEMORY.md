@@ -1,3 +1,4 @@
-- [Voice Agent Architecture](voice-agent-arch.md) — AssemblyAI Voice Agent uses wss://agents.assemblyai.com/v1/ws?token=API_KEY; token endpoint returns API key directly (protected by Clerk auth server-side)
-- [DB env var priority](db-env.md) — Always use NEON_DATABASE_URL first; Replit's DATABASE_URL points to internal PG, not Neon
+- [Voice Agent Architecture](voice-agent-arch.md) — AssemblyAI Voice Agent uses wss://agents.assemblyai.com/v1/ws?token=API_KEY; token endpoint returns API key directly (protected by auth server-side)
+- [Replit Auth migration](replit-auth-migration.md) — Clerk replaced with Replit Auth; backend reads x-replit-user-id header, frontend reads meta tags; login via /__replauthlogin, logout via /__replauthlogout
+- [DB setup](db-setup.md) — Replit's DATABASE_URL is the active DB; drizzle-kit push run from lib/db/ creates all 16 tables; must be run on first deploy or after schema changes
 - [Vite proxy fix](vite-proxy.md) — Frontend must proxy /api → http://localhost:8080 or all API calls return HTML

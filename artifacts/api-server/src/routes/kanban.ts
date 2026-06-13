@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { requireUser } from "../middlewares/replitAuth";
 import {
   db,
   kanbanBoardsTable,
@@ -9,16 +9,6 @@ import {
 import { eq, and } from "drizzle-orm";
 
 const router = Router();
-
-function requireUser(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return null;
-  }
-  return userId;
-}
 
 router.get("/boards", async (req, res) => {
   const userId = requireUser(req, res);

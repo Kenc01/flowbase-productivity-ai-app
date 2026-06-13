@@ -70,13 +70,13 @@ export function LandingNav() {
 
         {/* CTAs */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }} className="fb-nav-cta">
-          <a href={navHref("/sign-in")}
+          <a href="/__replauthlogin"
             style={{ padding: "7px 16px", borderRadius: 8, fontSize: "0.85rem", fontWeight: 600, color: "rgba(255,255,255,0.7)", textDecoration: "none", transition: "color 0.15s" }}
             onMouseEnter={e => { e.currentTarget.style.color = "#fff"; }}
             onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}>
             Sign in
           </a>
-          <a href={navHref("/sign-up")}
+          <a href="/__replauthlogin"
             style={{ padding: "8px 20px", borderRadius: 8, background: G, fontSize: "0.85rem", fontWeight: 700, color: "#fff", textDecoration: "none", boxShadow: "0 4px 18px rgba(116,103,240,0.5)", display: "flex", alignItems: "center", gap: 5, transition: "all 0.18s" }}
             onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 24px rgba(116,103,240,0.7)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 4px 18px rgba(116,103,240,0.5)"; e.currentTarget.style.transform = "translateY(0)"; }}>
@@ -102,8 +102,8 @@ export function LandingNav() {
             </a>
           ))}
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-            <a href={navHref("/sign-in")} style={{ flex: 1, textAlign: "center", padding: "11px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.18)", color: "#fff", fontSize: "0.9rem", fontWeight: 600, textDecoration: "none" }}>Sign In</a>
-            <a href={navHref("/sign-up")} style={{ flex: 1, textAlign: "center", padding: "11px", borderRadius: 9, background: G, color: "#fff", fontSize: "0.9rem", fontWeight: 700, textDecoration: "none" }}>Get Started</a>
+            <a href="/__replauthlogin" style={{ flex: 1, textAlign: "center", padding: "11px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.18)", color: "#fff", fontSize: "0.9rem", fontWeight: 600, textDecoration: "none" }}>Sign In</a>
+            <a href="/__replauthlogin" style={{ flex: 1, textAlign: "center", padding: "11px", borderRadius: 9, background: G, color: "#fff", fontSize: "0.9rem", fontWeight: 700, textDecoration: "none" }}>Get Started</a>
           </div>
         </div>
       )}

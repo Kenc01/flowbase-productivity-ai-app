@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { requireUser } from "../middlewares/replitAuth";
 import { db, dailyScheduleBlocksTable, kanbanTasksTable, kanbanColumnsTable } from "@workspace/db";
 import { eq, and, gte } from "drizzle-orm";
 
@@ -7,14 +7,6 @@ const router = Router();
 
 function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 
-function requireUser(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return null; }
-  return userId;
-}
-
-// GET /daily-schedule/stats?days=14
 router.get("/stats", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -37,12 +29,7 @@ router.get("/stats", async (req, res) => {
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
       const entry = byDate[d] ?? { total: 0, completed: 0 };
-      dayList.push({
-        date: d,
-        totalBlocks: entry.total,
-        completedBlocks: entry.completed,
-        pct: entry.total > 0 ? Math.round((entry.completed / entry.total) * 100) : 0,
-      });
+      dayList.push({ date: d, totalBlocks: entry.total, completedBlocks: entry.completed, pct: entry.total > 0 ? Math.round((entry.completed / entry.total) * 100) : 0 });
     }
 
     let streak = 0;
@@ -50,17 +37,11 @@ router.get("/stats", async (req, res) => {
     for (let i = dayList.length - 1; i >= 0; i--) {
       const day = dayList[i];
       if (day.date > today) continue;
-      if (day.completedBlocks > 0) {
-        streak++;
-      } else {
-        if (day.date < today) break;
-      }
+      if (day.completedBlocks > 0) { streak++; } else { if (day.date < today) break; }
     }
 
     const trackedDays = dayList.filter(d => d.totalBlocks > 0);
-    const avgPct = trackedDays.length > 0
-      ? Math.round(trackedDays.reduce((s, d) => s + d.pct, 0) / trackedDays.length)
-      : 0;
+    const avgPct = trackedDays.length > 0 ? Math.round(trackedDays.reduce((s, d) => s + d.pct, 0) / trackedDays.length) : 0;
 
     return res.json({ days: dayList, streak, avgPct, totalDaysTracked: trackedDays.length });
   } catch (err: any) {
@@ -68,7 +49,6 @@ router.get("/stats", async (req, res) => {
   }
 });
 
-// GET /daily-schedule?date=YYYY-MM-DD
 router.get("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -85,7 +65,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /daily-schedule
 router.post("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -110,7 +89,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PATCH /daily-schedule/:id — toggle completed (+ optional auto-sync Kanban task to Done)
 router.patch("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -125,32 +103,20 @@ router.patch("/:id", async (req, res) => {
       .returning();
     if (!row) return res.status(404).json({ error: "Block not found" });
 
-    // If completing a block that is linked to a Kanban task, auto-move it to Done
     if (completed && row.kanbanTaskId) {
       try {
-        const [task] = await db
-          .select()
-          .from(kanbanTasksTable)
+        const [task] = await db.select().from(kanbanTasksTable)
           .where(and(eq(kanbanTasksTable.id, row.kanbanTaskId), eq(kanbanTasksTable.userId, userId)));
         if (task) {
-          // Find a "Done" column in the same board (case-insensitive)
-          const cols = await db
-            .select()
-            .from(kanbanColumnsTable)
-            .where(eq(kanbanColumnsTable.boardId, task.boardId));
+          const cols = await db.select().from(kanbanColumnsTable).where(eq(kanbanColumnsTable.boardId, task.boardId));
           const doneCol = cols.find(c => c.name.toLowerCase() === "done")
             ?? cols.find(c => c.name.toLowerCase().includes("done"))
             ?? cols.find(c => c.name.toLowerCase().includes("complete"));
           if (doneCol && task.columnId !== doneCol.id) {
-            await db
-              .update(kanbanTasksTable)
-              .set({ columnId: doneCol.id })
-              .where(eq(kanbanTasksTable.id, task.id));
+            await db.update(kanbanTasksTable).set({ columnId: doneCol.id }).where(eq(kanbanTasksTable.id, task.id));
           }
         }
-      } catch {
-        // Non-fatal — block completion still succeeds
-      }
+      } catch { }
     }
 
     return res.json(row);
@@ -159,7 +125,6 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
-// DELETE /daily-schedule/:id
 router.delete("/:id", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
@@ -173,7 +138,6 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// DELETE /daily-schedule?date=YYYY-MM-DD — clear all blocks for a date
 router.delete("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;

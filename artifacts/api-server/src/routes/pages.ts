@@ -1,25 +1,14 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { requireUser } from "../middlewares/replitAuth";
 import { db, pagesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
 const router = Router();
 
-function requireUser(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return null;
-  }
-  return userId;
-}
-
 router.get("/", async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return;
   const { spaceId } = req.query as { spaceId?: string };
-  let query = db.select().from(pagesTable).where(eq(pagesTable.userId, userId));
   const pages = await db
     .select()
     .from(pagesTable)
