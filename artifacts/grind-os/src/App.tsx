@@ -1,4 +1,4 @@
-import { ClerkProvider, SignedIn, SignedOut, RedirectToSignIn, useUser, SignIn, SignUp } from "@clerk/react";
+import { ClerkProvider, useUser, RedirectToSignIn, SignIn, SignUp } from "@clerk/react";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -34,16 +34,10 @@ function HomeRoute() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <SignedIn>
-        <DashboardLayout>{children}</DashboardLayout>
-      </SignedIn>
-      <SignedOut>
-        <RedirectToSignIn />
-      </SignedOut>
-    </>
-  );
+  const { isSignedIn, isLoaded } = useUser();
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <RedirectToSignIn />;
+  return <DashboardLayout>{children}</DashboardLayout>;
 }
 
 function Router() {
