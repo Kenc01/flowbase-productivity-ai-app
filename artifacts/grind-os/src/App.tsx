@@ -9,6 +9,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 
 import LandingPage from "@/pages/landing/index";
+import FeaturesPage from "@/pages/landing/FeaturesPage";
+import PricingPage from "@/pages/landing/PricingPage";
+import FaqPage from "@/pages/landing/FaqPage";
 import DashboardLayout from "@/pages/dashboard/DashboardLayout";
 import DashboardPage from "@/pages/dashboard/index";
 import AIAssistantPage from "@/pages/dashboard/ai-assistant/index";
@@ -250,6 +253,9 @@ function Router() {
           <ClerkQueryClientCacheInvalidator />
           <Switch>
             <Route path="/" component={HomeRoute} />
+            <Route path="/features" component={FeaturesPage} />
+            <Route path="/pricing" component={PricingPage} />
+            <Route path="/faq" component={FaqPage} />
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
             <Route path="/dashboard">
