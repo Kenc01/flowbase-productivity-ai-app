@@ -5,7 +5,6 @@ import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
-import assemblyaiRouter from "./routes/assemblyai";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
@@ -26,9 +25,6 @@ app.use(
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-// Public AssemblyAI token endpoint
-app.use("/api/assemblyai", assemblyaiRouter);
-
 app.use(cors({ credentials: true, origin: true }));
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
@@ -40,7 +36,7 @@ app.use(
   })
 );
 
-// Protected API routes
+// All API routes (includes /assemblyai, /ai-assistant, etc.)
 app.use("/api", router);
 
 export default app;
