@@ -350,22 +350,29 @@ function CreatePageModal({
       padding: 24,
     }} onClick={onClose}>
       <div style={{
-        background: "white", borderRadius: 20, padding: 32, width: "100%", maxWidth: 440,
+        background: "white", borderRadius: 20, width: "100%", maxWidth: 520,
         boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+        display: "flex", flexDirection: "column", maxHeight: "90vh",
+        overflow: "hidden",
       }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <FileText size={18} color="#7467F0" />
+        {/* Fixed header */}
+        <div style={{ padding: "24px 28px 0", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "#EEF0FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <FileText size={18} color="#7467F0" />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36" }}>Create New Page</div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>Choose a template to get started</div>
+            </div>
+            <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, borderRadius: 6 }}>
+              <X size={18} />
+            </button>
           </div>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f36" }}>Create New Page</div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>Add a page to a space</div>
-          </div>
-          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, borderRadius: 6 }}>
-            <X size={18} />
-          </button>
         </div>
 
+        {/* Scrollable form body */}
+        <div style={{ overflowY: "auto", flex: 1, padding: "0 28px 24px" }}>
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
@@ -468,6 +475,7 @@ function CreatePageModal({
             {TEMPLATE_META[template]?.emoji ?? "📄"} Create Page
           </button>
         </form>
+        </div>
       </div>
     </div>
   );
@@ -486,6 +494,9 @@ function PagePreviewPanel({
   const templateColor: Record<string, string> = {
     project: "#0EA5E9", meeting: "#10B981", prd: "#7467F0",
     research: "#F59E0B", task: "#F43F5E", blank: "#6b7280",
+    book_notes: "#7467F0", course_notes: "#06B6D4", skill_blueprint: "#10B981",
+    weekly_reflection: "#8B5CF6", mental_model: "#F59E0B", sop: "#EC4899",
+    insight: "#F59E0B", sprint_90: "#F43F5E",
   };
   const tc = templateColor[page.template] ?? "#6b7280";
 
@@ -1001,6 +1012,9 @@ function SpaceDetailView({
   const templateColor: Record<string, string> = {
     project: "#0EA5E9", meeting: "#10B981", prd: "#7467F0",
     research: "#F59E0B", task: "#F43F5E", blank: "#6b7280",
+    book_notes: "#7467F0", course_notes: "#06B6D4", skill_blueprint: "#10B981",
+    weekly_reflection: "#8B5CF6", mental_model: "#F59E0B", sop: "#EC4899",
+    insight: "#F59E0B", sprint_90: "#F43F5E",
   };
 
   const filtered = pages.filter(p =>
@@ -1018,7 +1032,7 @@ function SpaceDetailView({
             style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", color: "#7467F0", fontWeight: 500, fontSize: 12, padding: 0 }}
           >
             <ArrowLeft size={13} />
-            All Spaces
+            Knowledge Hub
           </button>
           <ChevronRight size={12} />
           <span style={{ color: "#1a1f36", fontWeight: 600 }}>{space.name}</span>
@@ -1201,7 +1215,7 @@ function AllSpacesView({
     });
 
   const tabs: { key: typeof filter; label: string; icon: React.ElementType }[] = [
-    { key: "all", label: "All Spaces", icon: FolderOpen },
+    { key: "all", label: "All", icon: FolderOpen },
     { key: "favorites", label: "Favorites", icon: Star },
     { key: "recent", label: "Recently Opened", icon: Clock },
     { key: "archived", label: "Archived", icon: Archive },
@@ -1213,9 +1227,11 @@ function AllSpacesView({
       <div style={{ padding: "24px 28px 0", background: "white", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1a1f36", margin: 0 }}>All Spaces</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1a1f36", margin: 0 }}>Knowledge Hub</h1>
             <p style={{ fontSize: 13, color: "#9ca3af", margin: "4px 0 0" }}>
-              {spaces.filter(s => !s.isArchived).length} space{spaces.filter(s => !s.isArchived).length !== 1 ? "s" : ""}
+              {spaces.filter(s => !s.isArchived).length === 0
+                ? "Your second brain starts here"
+                : `${spaces.filter(s => !s.isArchived).length} space${spaces.filter(s => !s.isArchived).length !== 1 ? "s" : ""}`}
             </p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
@@ -1389,7 +1405,7 @@ function AllSpacesView({
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
                   Quick Start — Create a Space
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
                   {STARTER_SPACES.map(starter => (
                     <button
                       key={starter.name}
@@ -1457,7 +1473,7 @@ function AllSpacesView({
               {/* What goes in each */}
               <div style={{ marginTop: 36, padding: "20px 24px", background: "#f9fafb", borderRadius: 14, border: "1px solid #e5e7eb" }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 12 }}>📌 What to Put in Each Space</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {[
                     ["🧠 Second Brain", "Insights, ideas, mental models, book notes"],
                     ["📚 Learning Library", "Course notes, tutorials, skill blueprints"],
@@ -1465,9 +1481,9 @@ function AllSpacesView({
                     ["⚙️ Systems & SOPs", "Daily routines, protocols, playbooks"],
                     ["🌱 Personal Growth", "Weekly reflections, 90-day sprints, goals"],
                   ].map(([title, desc]) => (
-                    <div key={title} style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>{title}</div>
-                      <div style={{ fontSize: 11, color: "#9ca3af" }}>{desc}</div>
+                    <div key={title} style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", flexShrink: 0 }}>{title}</div>
+                      <div style={{ fontSize: 11, color: "#9ca3af" }}>— {desc}</div>
                     </div>
                   ))}
                 </div>
