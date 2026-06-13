@@ -1,0 +1,673 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://assemblyai.com/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Voice Agent API
+
+> Build real-time voice AI agents with a single WebSocket connection. Speech in, speech out.
+
+A complete browser-based demo. Enter your API key, pick a voice, and start talking. Echo cancellation is enabled automatically so you don't need headphones.
+
+<Warning>
+  This quickstart passes your API key directly to the WebSocket for simplicity. For production apps, never expose your API key in client-side code. Generate [temporary tokens](/voice-agents/voice-agent-api/browser-integration) on your server instead.
+</Warning>
+
+<Steps>
+  <Step title="Get your API key">
+    Grab your API key from your [AssemblyAI dashboard](https://www.assemblyai.com/app).
+  </Step>
+
+  <Step title="Create the file">
+    Save the following as `voice-agent.html`:
+
+    ```html expandable theme={null}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Voice Agent Quickstart | AssemblyAI</title>
+      <style>
+        :root {
+          --brand: #364DEA; --brand-dark: #2B3EC4; --brand-bg: #EEF1FE;
+          --green: #12B886; --red: #FA5252;
+          --s50: #F8FAFC; --s100: #F1F5F9; --s200: #E2E8F0;
+          --s300: #CBD5E1; --s400: #94A3B8; --s500: #64748B;
+          --s600: #475569; --s700: #334155; --s800: #1E293B; --s900: #0F172A;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+          font-family: system-ui, -apple-system, sans-serif;
+          color: var(--s900); display: flex; flex-direction: column;
+          background:
+            radial-gradient(1200px 600px at 80% -10%, #DCE3FE 0%, transparent 60%),
+            radial-gradient(900px 500px at -10% 110%, #E6FCF5 0%, transparent 55%),
+            var(--s50);
+        }
+
+        header {
+          background: rgba(255,255,255,.85); backdrop-filter: blur(12px);
+          border-bottom: 1px solid var(--s200);
+          padding: 0 1.5rem; height: 3.5rem;
+          display: flex; align-items: center; gap: .75rem;
+          flex-shrink: 0;
+        }
+        .logo img { height: 22px; display: block; }
+        .page-title { font-size: .875rem; color: var(--s500); padding-left: .75rem; border-left: 1px solid var(--s200); }
+        .header-spacer { flex: 1; }
+        .status {
+          display: flex; align-items: center; gap: .5rem;
+          font-size: .8125rem; color: var(--s500);
+          padding: .375rem .75rem; border-radius: 999px;
+          background: var(--s100); border: 1px solid var(--s200);
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+        .status.ok { color: var(--green); background: #E6FCF5; border-color: #C3FAE8; }
+        .status.ok .dot { animation: pulse 2s ease-in-out infinite; }
+        .status.err { color: var(--red); background: #FFF5F5; border-color: #FFE3E3; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+        .layout { flex: 1; display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
+        @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+
+        aside {
+          border-right: 1px solid var(--s200);
+          background: rgba(255,255,255,.6); backdrop-filter: blur(8px);
+          padding: 1.5rem; overflow-y: auto;
+          display: flex; flex-direction: column; gap: 1rem;
+        }
+        aside h2 {
+          font-size: .6875rem; font-weight: 600; color: var(--s500);
+          text-transform: uppercase; letter-spacing: .08em; margin-bottom: .5rem;
+        }
+        .field { display: flex; flex-direction: column; gap: .375rem; }
+        label { font-size: .75rem; font-weight: 500; color: var(--s600); }
+        input, select, textarea {
+          width: 100%; padding: .5rem .625rem; border: 1px solid var(--s200); border-radius: 8px;
+          font: inherit; font-size: .875rem; color: var(--s900); background: #fff;
+          transition: border-color .15s, box-shadow .15s;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(54,77,234,.12); }
+        textarea { resize: vertical; min-height: 96px; line-height: 1.5; }
+
+        .btn {
+          width: 100%; padding: .75rem 1rem; border: none; border-radius: 10px;
+          font-size: .9375rem; font-weight: 600; cursor: pointer; color: #fff; background: var(--brand);
+          transition: all .15s; display: flex; align-items: center; justify-content: center; gap: .5rem;
+          box-shadow: 0 1px 2px rgba(54,77,234,.3), 0 4px 12px rgba(54,77,234,.15);
+        }
+        .btn:hover { background: var(--brand-dark); transform: translateY(-1px); }
+        .btn:disabled { opacity: .5; cursor: default; transform: none; }
+        .btn.on { background: var(--red); box-shadow: 0 1px 2px rgba(250,82,82,.3), 0 4px 12px rgba(250,82,82,.15); }
+        .btn.on:hover { background: #e03131; }
+        .btn svg { width: 18px; height: 18px; }
+
+        main {
+          display: flex; flex-direction: column; min-height: 0;
+          padding: 1.5rem 2rem 2rem;
+        }
+
+        .transcript {
+          flex: 1; min-height: 0; display: flex; flex-direction: column;
+          background: #fff; border: 1px solid var(--s200); border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 4px 16px rgba(15,23,42,.04);
+        }
+        .transcript-hd {
+          padding: .75rem 1.25rem; background: var(--s50); border-bottom: 1px solid var(--s200);
+          font-size: .6875rem; font-weight: 600; color: var(--s500);
+          text-transform: uppercase; letter-spacing: .08em;
+          display: flex; justify-content: space-between; align-items: center;
+        }
+        .speakers { display: flex; gap: .375rem; }
+        .speaker {
+          display: flex; align-items: center; gap: .375rem;
+          padding: .25rem .625rem; border-radius: 999px;
+          background: var(--s100); color: var(--s400);
+          font-size: .6875rem; font-weight: 600;
+          text-transform: uppercase; letter-spacing: .05em;
+          transition: background .2s, color .2s;
+        }
+        .speaker .dot { width: 6px; height: 6px; }
+        .speaker.user.active { background: var(--brand-bg); color: var(--brand); }
+        .speaker.agent.active { background: #E6FCF5; color: var(--green); }
+        .speaker.active .dot { animation: pulse 1s ease-in-out infinite; }
+        #msgs { flex: 1; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: .5rem; }
+        .empty {
+          flex: 1; display: flex; align-items: center; justify-content: center;
+          color: var(--s400); font-size: .875rem;
+        }
+        .msg {
+          padding: .75rem 1rem; border-radius: 12px;
+          font-size: .9375rem; line-height: 1.5;
+          max-width: 85%; animation: slideIn .25s ease;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+        .msg .who {
+          font-size: .6875rem; font-weight: 600; text-transform: uppercase;
+          letter-spacing: .05em; color: var(--s500); margin-bottom: .25rem;
+        }
+        .msg.u { background: var(--brand-bg); align-self: flex-end; }
+        .msg.u .who { color: var(--brand); }
+        .msg.a { background: #E6FCF5; align-self: flex-start; }
+        .msg.a .who { color: var(--green); }
+      </style>
+    </head>
+    <body>
+    <header>
+      <a class="logo" href="https://www.assemblyai.com">
+        <img src="https://cdn.prod.website-files.com/67a08d9d7d19f8fb63692894/67b5bd3d9e8ee1a6b2410b9e_AssemblyAI%20Logo.svg" alt="AssemblyAI">
+      </a>
+      <span class="page-title">Voice Agent Quickstart</span>
+      <div class="header-spacer"></div>
+      <div class="status" id="status"><span class="dot"></span><span id="status-text">Ready</span></div>
+    </header>
+
+    <div class="layout">
+      <aside>
+        <div>
+          <h2>Configuration</h2>
+          <div class="field">
+            <label for="key">API key</label>
+            <input id="key" type="password" placeholder="Your AssemblyAI API key">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="mic">Microphone</label>
+          <select id="mic"><option value="">Default microphone</option></select>
+        </div>
+
+        <div class="field">
+          <label for="voice">Voice</label>
+          <select id="voice">
+            <optgroup label="English">
+              <option value="ivy" selected>🇺🇸 ivy</option>
+              <option value="james">🇺🇸 james</option>
+              <option value="tyler">🇺🇸 tyler</option>
+              <option value="winter">🇺🇸 winter</option>
+              <option value="bella">🇺🇸 bella</option>
+              <option value="david">🇺🇸 david</option>
+              <option value="kyle">🇺🇸 kyle</option>
+              <option value="helen">🇺🇸 helen</option>
+              <option value="martha">🇺🇸 martha</option>
+              <option value="river">🇺🇸 river</option>
+              <option value="emma">🇺🇸 emma</option>
+              <option value="victor">🇺🇸 victor</option>
+              <option value="eleanor">🇺🇸 eleanor</option>
+            </optgroup>
+            <optgroup label="Multilingual">
+              <option value="arjun">🇮🇳 arjun (Hindi/Hinglish)</option>
+              <option value="dmitri">🇷🇺 dmitri (Russian)</option>
+              <option value="pierre">🇫🇷 pierre (French)</option>
+              <option value="giulia">🇮🇹 giulia (Italian)</option>
+              <option value="luca">🇮🇹 luca (Italian)</option>
+              <option value="lucia">🇪🇸 lucia (Spanish)</option>
+              <option value="mateo">🇪🇸 mateo (Spanish)</option>
+              <option value="diego">🇨🇴 diego (Spanish, LatAm)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="prompt">System prompt</label>
+          <textarea id="prompt">You are a friendly voice assistant having a casual conversation. Keep replies short and natural, usually one or two sentences. Speak the way a person would in real conversation: relaxed, low-key, no exclamation marks, no over-enthusiastic phrases.</textarea>
+        </div>
+
+        <div class="field">
+          <label for="greeting">Greeting</label>
+          <input id="greeting" value="Hey, what's on your mind?">
+        </div>
+
+        <button class="btn" id="btn">
+          <svg id="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <rect x="9" y="2" width="6" height="10" rx="3"/>
+            <path d="M19 10v1a7 7 0 01-14 0v-1"/><path d="M12 18v4"/><path d="M8 22h8"/>
+          </svg>
+          <span id="btn-label">Connect</span>
+        </button>
+      </aside>
+
+      <main>
+        <div class="transcript" id="log">
+          <div class="transcript-hd">
+            <span>Transcript</span>
+            <div class="speakers">
+              <div class="speaker user" id="spk-user"><span class="dot"></span>You</div>
+              <div class="speaker agent" id="spk-agent"><span class="dot"></span>Agent</div>
+            </div>
+          </div>
+          <div id="msgs">
+            <div class="empty" id="empty-msg">Add your API key on the left and click Connect to start the conversation</div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+    const $ = (id) => document.getElementById(id);
+    const RATE = 24_000;
+
+    // Inline AudioWorklet that captures mic as PCM16 and posts to main thread
+    const workletUrl = URL.createObjectURL(new Blob([`
+      class P extends AudioWorkletProcessor {
+        process(inputs) {
+          const ch = inputs[0]?.[0];
+          if (ch) {
+            const buf = new Int16Array(ch.length);
+            for (let i = 0; i < ch.length; i++)
+              buf[i] = Math.max(-32768, Math.min(32767, ch[i] * 32767));
+            this.port.postMessage(buf.buffer, [buf.buffer]);
+          }
+          return true;
+        }
+      }
+      registerProcessor("pcm", P);
+    `], { type: 'application/javascript' }));
+
+    // --- Microphone enumeration ---
+    async function populateMics() {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const inputs = devices.filter(d => d.kind === 'audioinput');
+        const sel = $('mic');
+        const current = sel.value;
+        while (sel.firstChild) sel.removeChild(sel.firstChild);
+        const def = document.createElement('option');
+        def.value = '';
+        def.textContent = 'Default microphone';
+        sel.appendChild(def);
+        inputs.forEach((d, i) => {
+          const opt = document.createElement('option');
+          opt.value = d.deviceId;
+          opt.textContent = d.label || `Microphone ${i + 1}`;
+          sel.appendChild(opt);
+        });
+        if (current && inputs.some(d => d.deviceId === current)) sel.value = current;
+      } catch (e) { console.warn('enumerateDevices failed', e); }
+    }
+    populateMics();
+    navigator.mediaDevices?.addEventListener?.('devicechange', populateMics);
+
+    // --- Voice Agent ---
+    let ws, ctx, mic;
+
+    $('btn').onclick = () => (ws?.readyState <= 1) ? stop() : start();
+
+    async function start() {
+      const key = $('key').value.trim();
+      if (!key) return setStatus('Enter your API key', 'err');
+      $('btn').disabled = true;
+      setStatus('Connecting…');
+
+      try {
+        ctx = new AudioContext({ sampleRate: RATE });
+        await ctx.resume();
+        await ctx.audioWorklet.addModule(workletUrl);
+        const deviceId = $('mic').value;
+        mic = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: false,
+            ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+          },
+        });
+        populateMics();
+        const source = ctx.createMediaStreamSource(mic);
+        const worklet = new AudioWorkletNode(ctx, 'pcm');
+
+        const url = new URL('wss://agents.assemblyai.com/v1/ws');
+        url.searchParams.set('token', key);
+        ws = new WebSocket(url);
+        let ready = false, playT = 0;
+
+        worklet.port.onmessage = ({ data }) => {
+          if (!ready || ws.readyState !== 1) return;
+          const b = new Uint8Array(data);
+          let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+          ws.send(JSON.stringify({ type: 'input.audio', audio: btoa(s) }));
+        };
+        source.connect(worklet).connect(ctx.destination);
+
+        ws.onopen = () => ws.send(JSON.stringify({
+          type: 'session.update',
+          session: {
+            system_prompt: $('prompt').value,
+            greeting: $('greeting').value,
+            output: { voice: $('voice').value },
+          },
+        }));
+
+        ws.onmessage = ({ data }) => {
+          const m = JSON.parse(data);
+          switch (m.type) {
+            case 'input.speech.started':
+              setSpeaker('user', true); break;
+            case 'input.speech.stopped':
+              setSpeaker('user', false); break;
+            case 'reply.started':
+              setSpeaker('agent', true); break;
+            case 'session.ready':
+              ready = true;
+              setStatus('Connected', 'ok');
+              $('btn').disabled = false;
+              $('btn-label').textContent = 'Disconnect';
+              $('btn').classList.add('on');
+              clearEmpty();
+              break;
+
+            case 'reply.audio': {
+              const raw = atob(m.data);
+              const pcm = new Int16Array(raw.length / 2);
+              for (let i = 0; i < pcm.length; i++)
+                pcm[i] = raw.charCodeAt(i * 2) | (raw.charCodeAt(i * 2 + 1) << 8);
+              const f32 = new Float32Array(pcm.length);
+              for (let i = 0; i < pcm.length; i++) f32[i] = pcm[i] / 32768;
+              const buf = ctx.createBuffer(1, f32.length, RATE);
+              buf.getChannelData(0).set(f32);
+              const src = ctx.createBufferSource();
+              src.buffer = buf; src.connect(ctx.destination);
+              playT = Math.max(playT, ctx.currentTime);
+              src.start(playT); playT += buf.duration;
+              break;
+            }
+
+            case 'reply.done':
+              setSpeaker('agent', false);
+              if (m.status === 'interrupted') playT = ctx.currentTime;
+              break;
+
+            case 'transcript.user':
+              addMsg('You', m.text, 'u'); break;
+
+            case 'transcript.agent':
+              addMsg('Agent', m.text, 'a'); break;
+
+            case 'session.error':
+              setStatus('Error: ' + m.message, 'err'); break;
+          }
+        };
+
+        ws.onclose = () => { setStatus('Disconnected'); resetUI(); };
+        ws.onerror = () => { setStatus('Connection failed', 'err'); resetUI(); };
+      } catch (e) {
+        setStatus(e.message, 'err'); resetUI();
+      }
+    }
+
+    function stop() {
+      // Send session.end for a clean teardown — without it, the server keeps
+      // the session resumable (and billable) for 30 seconds after the socket closes.
+      try { ws?.send(JSON.stringify({ type: 'session.end' })); } catch {}
+      ws?.close(); mic?.getTracks().forEach(t => t.stop()); ctx?.close();
+      ws = ctx = mic = null; resetUI(); setStatus('Disconnected');
+    }
+
+    function resetUI() {
+      $('btn').disabled = false;
+      $('btn-label').textContent = 'Connect';
+      $('btn').classList.remove('on');
+      setSpeaker('user', false);
+      setSpeaker('agent', false);
+    }
+
+    function setStatus(msg, cls) {
+      $('status-text').textContent = msg;
+      $('status').className = 'status' + (cls ? ' ' + cls : '');
+    }
+
+    function setSpeaker(who, active) {
+      $('spk-' + who).classList.toggle('active', active);
+    }
+
+    function clearEmpty() {
+      const e = $('msgs').querySelector('.empty');
+      if (e) e.remove();
+    }
+
+    function addMsg(who, text, cls) {
+      clearEmpty();
+      const d = document.createElement('div');
+      d.className = 'msg ' + cls;
+      const whoEl = document.createElement('div');
+      whoEl.className = 'who';
+      whoEl.textContent = who;
+      const textEl = document.createElement('div');
+      textEl.textContent = text;
+      d.appendChild(whoEl);
+      d.appendChild(textEl);
+      $('msgs').appendChild(d);
+      $('msgs').scrollTop = $('msgs').scrollHeight;
+    }
+    </script>
+    </body>
+    </html>
+
+    ```
+
+    <Tip>
+      The AudioWorklet processor is inlined using a Blob URL so this works as a single file, with no extra `.js` file needed. The key line `new AudioContext({ sampleRate: 24000 })` forces the audio context to match the default `audio/pcm` encoding rate, avoiding any manual resampling.
+    </Tip>
+  </Step>
+
+  <Step title="Serve and open">
+    Browsers require a secure context for microphone access, so serve the file locally:
+
+    ```bash theme={null}
+    npx serve .
+    ```
+
+    Open `http://localhost:3000/voice-agent.html`, enter your API key, and click **Connect**.
+  </Step>
+</Steps>
+
+***
+
+## Pair with your AI coding assistant
+
+Building this with Claude Code, Cursor, or Windsurf? Drop the prompt below into your assistant's system prompt or rules file. It encodes the non-obvious gotchas this page doesn't lead with, points the assistant at the right reference pages for everything else, and gives it sensible defaults for audio, turn detection, and tool design.
+
+<Accordion title="AI assistant system prompt (copy into Claude Code / Cursor / Windsurf)">
+  ````markdown theme={null}
+  # Voice Agent API: AI Assistant System Prompt
+
+  > Use this as the system prompt for your AI coding assistant (Claude Code, Cursor, Windsurf, etc.) when building with AssemblyAI's Voice Agent API. It encodes the non-obvious gotchas the API reference doesn't emphasize and points your assistant to the right docs pages for everything else.
+
+  ## Role
+
+  You are an expert pair-programmer helping me build a real-time voice agent using **AssemblyAI's Voice Agent API**. Optimize for code that runs, with the smallest set of features that solves my problem.
+
+  **Default to a browser app** unless I tell you otherwise. Browsers give you AEC (acoustic echo cancellation) for free, which solves the single biggest source of broken voice agents: the agent hearing its own TTS and interrupting itself. Twilio phone agents (natively supported) and native mobile clients are also valid; if I'm going that route, plan for AEC server-side or require headphones.
+
+  **The docs are the source of truth.** Don't re-derive things from memory. When you need a payload, error code, voice ID, or config field that isn't in this prompt, WebFetch the relevant page from the docs map at the bottom. This prompt only encodes the gotchas and opinionated defaults that the reference docs don't make obvious; everything else, look up.
+
+  ## Seven non-obvious things about this API
+
+  1. **Audio is PCM16 mono at 24 kHz, base64-encoded.** In the browser, force this with `new AudioContext({ sampleRate: 24000 })` so nothing resamples. Default to Chrome/Edge. Safari ignores the constructor's `sampleRate` and needs manual resampling.
+
+  2. **Don't send `input.audio` before `session.ready`.** Buffer or drop early frames.
+
+  3. **`greeting` and `output.voice` are immutable after `session.ready`. `system_prompt`, `input.turn_detection`, `input.keyterms`, and `tools` are mutable.** Send another `session.update` with only the fields you're changing.
+
+  4. **Tool result: send it the moment your tool returns.** No buffering, no waiting on `reply.done`, no special timing dance. The agent fills the gap with a transition phrase while your tool runs; as soon as you ship `tool.result` the agent generates its next reply using the result. The `arguments` on `tool.call` is already a parsed object. The `result` on `tool.result` must be `JSON.stringify(value)`, not an object. Always echo the original `call_id`. Envelopes for reference:
+
+     ```
+     → { type:"tool.call",   call_id:"c_123", name:"get_weather", arguments:{ location:"London" } }
+     ← (run your tool)
+     → { type:"tool.result", call_id:"c_123", result:"{\"temp_c\":22}" }
+     ```
+
+  5. **On barge-in (`reply.done` with `status: "interrupted"`), flush the audio buffer immediately.** Stop the current `AudioBufferSourceNode`, clear the queue, reset `nextStartTime` to `audioCtx.currentTime`. Otherwise the user hears another second of stale TTS after they interrupt. Bonus: flushing on `input.speech.started` (not waiting for `reply.done`) makes barge-in feel ~300 ms snappier.
+
+  6. **In the browser, mint a short-lived token server-side** and pass it as `?token=...` on the WebSocket URL. Never expose the raw API key in client-side code.
+
+  7. **Send `session.end` before closing the socket on intentional disconnects.** If you just close the WebSocket, the server holds the session for 30 seconds so you can `session.resume` — and that window is billable. `session.end` short-circuits the grace window, emits a final `session.ended`, and closes the socket. Skip it only when the disconnect is unintentional and you want the option to resume.
+
+  ## Browser audio: exact `getUserMedia` constraints
+
+  ```js
+  navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,    // ON. Stops self-interruption loops.
+      noiseSuppression: false,   // OFF. Voice Focus runs server-side; double-stacking hurts ASR.
+      autoGainControl: true,     // ON. Gentle volume normalization.
+    },
+  });
+  ```
+
+  The non-obvious one is `noiseSuppression: false`. Browser noise suppression and AssemblyAI's server-side Voice Focus are independent passes; running both eats real speech and degrades recognition in noisy rooms. Trust the server.
+
+  ## Turn detection: recommended defaults
+
+  The factory defaults cut users off too fast in real conversation. Start with:
+
+  ```js
+  session.update({ input: { turn_detection: {
+    vad_threshold: 0.5, min_silence: 1400, max_silence: 4000, interrupt_response: true
+  }}});
+  ```
+
+  Erring 200-400 ms long is barely perceptible; erring short feels rude. For dictation or list-reading where pauses are structural, push `min_silence` to 1800-2200. Set `interrupt_response: false` for read-aloud / monologue agents only.
+
+  ### Adaptive pattern: slow down after the agent asks a question
+
+  When `transcript.agent` ends in `?`, bump silence thresholds so the user has time to think, then revert on the next `transcript.user`:
+
+  ```js
+  let baseline = { vad_threshold: 0.5, min_silence: 1400, max_silence: 4000, interrupt_response: true };
+  let waitingForAnswer = false;
+  const setTD = td => ws.send(JSON.stringify({ type:"session.update", session:{ input:{ turn_detection: td }}}));
+
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === "transcript.agent" && /\?\s*$/.test(m.text || "")) {
+      waitingForAnswer = true;
+      setTD({ ...baseline, min_silence: 2200, max_silence: 6000 });
+    }
+    if (m.type === "transcript.user" && waitingForAnswer) {
+      waitingForAnswer = false;
+      setTD(baseline);
+    }
+  };
+  ```
+
+  Same idea applies for other "thinking moments": after the agent reads a long menu, after "take your time", or after a tool result the user needs to react to.
+
+  ## Tools: when, and when not
+
+  **Use a tool when:** the agent needs external data or to take an external action, AND the result must influence what it says next. Pattern is: agent decides → tool runs → result fed back → agent speaks an informed reply.
+
+  **Do NOT use a tool for:**
+
+  - **Logging or analytics.** You already get every word via `transcript.user` and `transcript.agent`. Log those directly. A `log_event` tool just adds an LLM round-trip.
+  - **Extraction, summarization, classification of what was said.** Don't make the agent call `extract_order` mid-turn. Collect the transcript events and run a single AssemblyAI [LLM Gateway](/llm-gateway/overview) call against the finished (or in-progress) transcript when you actually need the structured output. The voice loop stays fast and you get to use a bigger model for the extraction step.
+  - **Persona or state changes the *client* can decide.** Prefer a `session.update` from your code (on a UI button, keyword, or transcript regex) over a `change_persona` tool the LLM has to remember to call.
+
+  Every extra tool is a chance for the agent to call it at the wrong moment. Ship with the smallest set that earns its keep.
+
+  ### Writing tool descriptions
+
+  Treat `description` and each parameter `description` as code, not docs:
+
+  - One sentence per tool. Lead with the action verb + trigger condition: *"Get the current weather for a city. Use when the user asks about weather or conditions in a specific place."*
+  - Spell out the return shape and units.
+  - Give each parameter an example value: *"location: city only, no country, e.g. 'London'."*
+  - Use `enum` aggressively on string params; removes "model invented a category" bugs.
+  - If a description needs more than 3 sentences, the tool is doing too much. Split it or shrink it.
+
+  ### Pair `keyterms` with any lookup tool
+
+  If you have a `lookup_company` tool, push the candidate company names into `input.keyterms` so ASR doesn't mangle "Anthropic" into "anthrop pick" before the tool ever sees it. Same for menus, contact lists, drug names, song titles. `keyterms` is mutable; narrow it as scope narrows.
+
+  ## Voice prompt writing: what's different from chat
+
+  - **No markdown.** TTS reads asterisks and bullets literally.
+  - Front-load the most important rule. Long prompts dilute attention.
+  - Define identity ("You are X") rather than listing behaviors.
+  - Give explicit permissions: "Have opinions. Crack jokes if it fits."
+  - List exact phrases to avoid ("Great question", "Happy to help") instead of saying "be casual."
+  - Round numbers when speaking: "around 2 in the afternoon," not "2:14 PM."
+  - No exclamation marks. No decision trees.
+  - Keep it short to start. Persona is iterated by ear, not by writing more words.
+
+  Full guide: https://www.assemblyai.com/docs/voice-agents/voice-agent-api/prompting-guide
+
+  ## Getting a browser app running
+
+  1. Fork the official quickstart by fetching https://www.assemblyai.com/docs/voice-agents/voice-agent-api#quickstart and saving the `<!DOCTYPE html>...</html>` block as `voice-agent.html`.
+  2. `npx serve .` and open `http://localhost:3000/voice-agent.html` (localhost counts as a secure context, so the mic works).
+  3. Edit in place; reload the tab.
+
+  ### Minimum-viable playback + flush (if you're not forking the quickstart)
+
+  ```js
+  const RATE = 24000;
+  const audioCtx = new AudioContext({ sampleRate: RATE });
+  let nextStartTime = 0;
+  const liveSources = new Set();
+
+  function playReplyAudio(b64) {
+    const raw = atob(b64);
+    const pcm = new Int16Array(raw.length / 2);
+    for (let i = 0; i < pcm.length; i++) pcm[i] = raw.charCodeAt(i*2) | (raw.charCodeAt(i*2+1) << 8);
+    const buf = audioCtx.createBuffer(1, pcm.length, RATE);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 32768;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf; src.connect(audioCtx.destination);
+    const startAt = Math.max(audioCtx.currentTime, nextStartTime);
+    src.start(startAt);
+    src.onended = () => liveSources.delete(src);
+    liveSources.add(src);
+    nextStartTime = startAt + buf.duration;
+  }
+
+  function flushPlayback() {
+    for (const s of liveSources) { try { s.onended = null; s.stop(0); s.disconnect(); } catch {} }
+    liveSources.clear();
+    nextStartTime = audioCtx.currentTime;
+  }
+  // reply.audio: playReplyAudio(msg.data)
+  // reply.done w/ status==="interrupted" OR input.speech.started: flushPlayback()
+  ```
+
+  ## Docs map: where to look for what
+
+  When you need something not covered above, WebFetch the right page rather than guessing:
+
+  - Full LLM-friendly dump (the firehose): https://www.assemblyai.com/docs/voice-agents/voice-agent-api/llms-full.txt
+  - Every event payload, every field: https://www.assemblyai.com/docs/voice-agents/voice-agent-api/events-reference
+  - Every config field, mutability rules: https://www.assemblyai.com/docs/voice-agents/voice-agent-api/session-configuration
+  - Tool schema, MCP integration: https://www.assemblyai.com/docs/voice-agents/voice-agent-api/tool-calling
+  - Voice IDs (English + multilingual): https://www.assemblyai.com/docs/voice-agents/voice-agent-api/voices
+  - Token endpoint, browser auth: https://www.assemblyai.com/docs/voice-agents/voice-agent-api/browser-integration
+  - Twilio phone agents: https://www.assemblyai.com/docs/voice-agents/voice-agent-api/connect-to-twilio
+  - Error codes and common failures: https://www.assemblyai.com/docs/voice-agents/voice-agent-api/troubleshooting
+  - LLM Gateway (transcript extraction / summarization): https://www.assemblyai.com/docs/llm-gateway/overview
+  - LLM Gateway over transcripts (recipe): https://www.assemblyai.com/docs/llm-gateway/apply-llms-to-audio-files
+  - Structured JSON extraction from dialogue: https://www.assemblyai.com/docs/guides/dialogue-data
+
+  ## Common errors at a glance
+
+  The three you'll hit first (full list at the troubleshooting URL above):
+
+  - `UNAUTHORIZED` (WebSocket close 1008): bad API key, or token expired before you connected. Mint a fresh token right before opening the socket.
+  - `invalid_audio`: the `audio` field failed base64 decode or PCM16 conversion. Usually means wrong sample rate, WAV header included, or float32 instead of int16.
+  - `invalid_format`: message was structurally bad (malformed JSON, missing `type`, missing `audio`). Usually a serialization bug, not an audio bug.
+
+  ## When in doubt
+
+  Ask me one focused question rather than guessing. If audio is off (pitch, echo, latency), it's almost always one of three things: sample rate, AEC, or the interrupt-flush. Check those three first. For anything else, the docs map above is the source of truth.
+  ````
+</Accordion>
+
+## Next steps
+
+* [Configure your agent](/voice-agents/voice-agent-api/session-configuration): system prompt, greeting, voice, tools, turn detection
+* [Events reference](/voice-agents/voice-agent-api/events-reference): every event with full payloads, plus the session event flow diagram
+* [Tool calling](/voice-agents/voice-agent-api/tool-calling): function calling, interactive vs hold execution, `reply.create`
+* [Audio format](/voice-agents/voice-agent-api/audio-format): PCM16 vs G.711, sending and playing audio, interruption flush
+* [Browser integration](/voice-agents/voice-agent-api/browser-integration): temporary tokens for client-side apps
+* [Troubleshooting](/voice-agents/voice-agent-api/troubleshooting): symptom-to-fix table and support logging
