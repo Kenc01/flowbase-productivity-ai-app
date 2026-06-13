@@ -49,14 +49,24 @@ function Router() {
           <Route path="/features" component={FeaturesPage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/faq" component={FaqPage} />
+          <Route path="/sign-in/:rest*">
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#08051c" }}>
+              <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" forceRedirectUrl="/dashboard" />
+            </div>
+          </Route>
           <Route path="/sign-in">
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#08051c" }}>
-              <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+              <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" forceRedirectUrl="/dashboard" />
+            </div>
+          </Route>
+          <Route path="/sign-up/:rest*">
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#08051c" }}>
+              <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" forceRedirectUrl="/dashboard" />
             </div>
           </Route>
           <Route path="/sign-up">
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#08051c" }}>
-              <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+              <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" forceRedirectUrl="/dashboard" />
             </div>
           </Route>
           <Route path="/dashboard">
@@ -99,7 +109,11 @@ function Router() {
 
 function App() {
   return (
-    <ClerkProvider publishableKey={clerkPubKey}>
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+    >
       <WouterRouter base={basePath}>
         <Router />
       </WouterRouter>

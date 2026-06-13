@@ -28,15 +28,6 @@ function uid() {
   );
 }
 
-function requireUser(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return null;
-  }
-  return userId;
-}
 
 function getSystemPrompt() {
   const today = new Date().toLocaleDateString("en-US", {
