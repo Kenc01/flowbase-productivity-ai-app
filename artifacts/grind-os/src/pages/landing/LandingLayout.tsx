@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  ArrowRight, Menu, X, Sparkles, Mic,
+  ArrowRight, Menu, X,
   Github, Twitter, Linkedin,
 } from "lucide-react";
 
@@ -44,9 +44,7 @@ export function LandingNav() {
 
         {/* Logo */}
         <a href={navHref("/")} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", marginRight: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: G, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Sparkles size={16} color="#fff" strokeWidth={2.2} />
-          </div>
+          <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="Grind OS" width={32} height={32} style={{ borderRadius: 9, display: "block" }} />
           <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: "1.1rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
             Grind OS
           </span>
@@ -130,9 +128,7 @@ export function LandingFooter() {
           {/* Brand */}
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, background: G, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Sparkles size={14} color="#fff" />
-              </div>
+              <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="Grind OS" width={30} height={30} style={{ borderRadius: 8, display: "block" }} />
               <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: "1rem", fontWeight: 800, color: "#fff" }}>Grind OS</span>
             </div>
             <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", lineHeight: 1.7, maxWidth: 260, margin: "0 0 20px" }}>
