@@ -1,0 +1,14 @@
+node_modules
+.git
+attached_assets
+flowbase-productivity-ai-app
+artifacts/grind-os/node_modules
+artifacts/api-server/node_modules
+lib/db/node_modules
+lib/api-zod/node_modules
+artifacts/api-server/dist
+artifacts/grind-os/dist
+*.map
+.replit
+replit.nix
+.agents
