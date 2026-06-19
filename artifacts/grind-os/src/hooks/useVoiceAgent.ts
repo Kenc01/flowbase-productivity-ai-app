@@ -25,19 +25,32 @@ export interface UseVoiceAgentOptions {
   onError: (msg: string) => void;
 }
 
-// AssemblyAI real-time STT expects 16kHz PCM16 mono
 const SAMPLE_RATE = 16_000;
+// Buffer 200ms of audio before sending — AssemblyAI requires min 50ms per chunk
+const BUFFER_SAMPLES = SAMPLE_RATE * 0.2; // 3200 samples = 200ms
 
+// AudioWorklet that buffers ~200ms of PCM16 before posting to the main thread
 const WORKLET_CODE = `
 class JarvisPcmCapture extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this._buf = [];
+    this._bufLen = 0;
+    this._target = ${BUFFER_SAMPLES};
+  }
   process(inputs) {
     const ch = inputs[0]?.[0];
     if (ch && ch.length > 0) {
-      const i16 = new Int16Array(ch.length);
       for (let i = 0; i < ch.length; i++) {
-        i16[i] = Math.max(-32768, Math.min(32767, Math.round(ch[i] * 32767)));
+        this._buf.push(Math.max(-32768, Math.min(32767, Math.round(ch[i] * 32767))));
       }
-      this.port.postMessage(i16.buffer, [i16.buffer]);
+      this._bufLen += ch.length;
+      if (this._bufLen >= this._target) {
+        const i16 = new Int16Array(this._buf);
+        this.port.postMessage(i16.buffer, [i16.buffer]);
+        this._buf = [];
+        this._bufLen = 0;
+      }
     }
     return true;
   }
@@ -56,14 +69,38 @@ function timeOfDay() {
   return "evening";
 }
 
+// Strip markdown so TTS doesn't say "asterisk asterisk" etc.
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/#{1,6}\s+/g, "")           // headings
+    .replace(/\*\*(.+?)\*\*/g, "$1")     // bold
+    .replace(/\*(.+?)\*/g, "$1")         // italic
+    .replace(/__(.+?)__/g, "$1")         // bold alt
+    .replace(/_(.+?)_/g, "$1")           // italic alt
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")  // code
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // links
+    .replace(/^[-*•]\s+/gm, "")         // bullets
+    .replace(/^\d+\.\s+/gm, "")         // numbered lists
+    .replace(/\n{2,}/g, ". ")           // double newlines → pause
+    .replace(/\n/g, " ")                // single newlines
+    .replace(/\s{2,}/g, " ")            // extra whitespace
+    .trim();
+}
+
+// Pick the most natural-sounding available voice
 function pickVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return null;
   const preferences = [
     "Google UK English Male",
+    "Microsoft Guy Online (Natural) - English (United States)",
+    "Microsoft Davis Online (Natural) - English (United States)",
+    "Microsoft Andrew Online (Natural) - English (United States)",
+    "Microsoft Brian Online (Natural) - English (United States)",
+    "Microsoft Eric Online (Natural) - English (United States)",
+    "Google US English",
     "Microsoft George",
     "Daniel",
-    "Google US English",
     "Google UK English Female",
   ];
   for (const pref of preferences) {
@@ -71,6 +108,23 @@ function pickVoice(): SpeechSynthesisVoice | null {
     if (v) return v;
   }
   return voices.find((v) => v.lang.startsWith("en")) ?? null;
+}
+
+// Split text into natural sentence-length chunks for faster TTS start
+function splitIntoChunks(text: string): string[] {
+  const sentences = text.match(/[^.!?]+[.!?]+[\s]*/g) ?? [text];
+  const chunks: string[] = [];
+  let current = "";
+  for (const s of sentences) {
+    if ((current + s).length > 200 && current.length > 0) {
+      chunks.push(current.trim());
+      current = s;
+    } else {
+      current += s;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length > 0 ? chunks : [text];
 }
 
 export function useVoiceAgent(opts: UseVoiceAgentOptions) {
@@ -85,14 +139,64 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
   const activeRef = useRef(false);
   const isSpeakingRef = useRef(false);
   const historyRef = useRef<Array<{ role: string; content: string }>>([]);
+  const speakQueueRef = useRef<string[]>([]);
+  const speakingChunkRef = useRef(false);
 
   // ── TTS via Web Speech API ─────────────────────────────────────────────────
 
   const stopSpeaking = useCallback(() => {
+    speakQueueRef.current = [];
+    speakingChunkRef.current = false;
     if (isSpeakingRef.current) {
       window.speechSynthesis.cancel();
       isSpeakingRef.current = false;
     }
+  }, []);
+
+  const speakNextChunk = useCallback(() => {
+    const chunk = speakQueueRef.current.shift();
+    if (!chunk) {
+      speakingChunkRef.current = false;
+      isSpeakingRef.current = false;
+      if (activeRef.current) optsRef.current.onStatusChange("listening");
+      return;
+    }
+
+    speakingChunkRef.current = true;
+    isSpeakingRef.current = true;
+
+    const utterance = new SpeechSynthesisUtterance(chunk);
+
+    const trySetVoice = () => {
+      const v = pickVoice();
+      if (v) utterance.voice = v;
+    };
+    trySetVoice();
+    if (!utterance.voice) {
+      window.speechSynthesis.addEventListener("voiceschanged", trySetVoice, { once: true });
+    }
+
+    utterance.rate = 0.95;   // slightly slower than default for clarity
+    utterance.pitch = 0.9;   // slightly deeper, more natural male tone
+    utterance.volume = 1.0;
+
+    utterance.onend = () => {
+      if (speakQueueRef.current.length > 0 && activeRef.current) {
+        speakNextChunk();
+      } else {
+        speakingChunkRef.current = false;
+        isSpeakingRef.current = false;
+        if (activeRef.current) optsRef.current.onStatusChange("listening");
+      }
+    };
+    utterance.onerror = (e) => {
+      if ((e as any).error === "interrupted") return;
+      speakingChunkRef.current = false;
+      isSpeakingRef.current = false;
+      if (activeRef.current) optsRef.current.onStatusChange("listening");
+    };
+
+    window.speechSynthesis.speak(utterance);
   }, []);
 
   const speak = useCallback(
@@ -100,37 +204,16 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
       stopSpeaking();
       if (!("speechSynthesis" in window) || !text.trim()) return;
 
-      const utterance = new SpeechSynthesisUtterance(text);
+      const cleaned = stripMarkdown(text);
+      if (!cleaned.trim()) return;
 
-      // Try to pick a good voice; retry once after voiceschanged fires
-      const trySetVoice = () => {
-        const v = pickVoice();
-        if (v) utterance.voice = v;
-      };
-      trySetVoice();
-      if (!utterance.voice) {
-        window.speechSynthesis.addEventListener("voiceschanged", trySetVoice, { once: true });
-      }
-
-      utterance.rate = 0.92;
-      utterance.pitch = 0.88;
-      utterance.volume = 1.0;
-
+      const chunks = splitIntoChunks(cleaned);
+      speakQueueRef.current = chunks;
       isSpeakingRef.current = true;
       optsRef.current.onStatusChange("speaking");
-
-      utterance.onend = () => {
-        isSpeakingRef.current = false;
-        if (activeRef.current) optsRef.current.onStatusChange("listening");
-      };
-      utterance.onerror = () => {
-        isSpeakingRef.current = false;
-        if (activeRef.current) optsRef.current.onStatusChange("listening");
-      };
-
-      window.speechSynthesis.speak(utterance);
+      speakNextChunk();
     },
-    [stopSpeaking]
+    [stopSpeaking, speakNextChunk]
   );
 
   // ── Groq chat via backend ──────────────────────────────────────────────────
@@ -142,7 +225,6 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
       stopSpeaking();
       onStatusChange("thinking");
 
-      // Emit user transcript to UI
       onMessage({ id: uid(), role: "user", text: userText, timestamp: new Date() });
       historyRef.current.push({ role: "user", content: userText });
 
@@ -152,12 +234,13 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
           {
             userMessage: userText,
             history: historyRef.current.slice(-12),
+            voiceMode: true,
           }
         );
 
         const responseText =
           data.message?.trim() ||
-          "I encountered an issue. Please try again.";
+          "I had a small hiccup — give me a moment and try again.";
 
         historyRef.current.push({ role: "assistant", content: responseText });
         onMessage({
@@ -169,7 +252,7 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
 
         if (activeRef.current) speak(responseText);
       } catch {
-        const errMsg = "I'm having trouble connecting. Please try again.";
+        const errMsg = "I'm having a bit of trouble connecting right now. Give it another shot.";
         onMessage({ id: uid(), role: "agent", text: errMsg, timestamp: new Date() });
         if (activeRef.current) speak(errMsg);
       }
@@ -198,14 +281,14 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
         const worklet = new AudioWorkletNode(ctx, "jarvis-pcm-capture");
         workletRef.current = worklet;
 
-        // Drain output silently (prevent feedback loop)
+        // Drain output silently
         const silent = ctx.createGain();
         silent.gain.value = 0;
         worklet.connect(silent);
         silent.connect(ctx.destination);
         source.connect(worklet);
 
-        // Send PCM16 binary frames to AssemblyAI (not base64, raw binary)
+        // Send buffered PCM16 frames — worklet already batches to 200ms
         worklet.port.onmessage = (e: MessageEvent) => {
           if (
             ws.readyState === WebSocket.OPEN &&
@@ -218,9 +301,7 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
 
         onStatusChange("listening");
       } catch {
-        onError(
-          "Microphone access denied. Please allow microphone use in your browser."
-        );
+        onError("Microphone access denied. Please allow microphone use in your browser.");
         onStatusChange("idle");
         activeRef.current = false;
       }
@@ -238,26 +319,19 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
     onStatusChange("connecting");
 
     try {
-      // 1. Get AssemblyAI short-lived streaming token from our backend
-      const { token } = await api.post<{ token: string }>(
-        "/assemblyai/token",
-        {}
-      );
+      const { token } = await api.post<{ token: string }>("/assemblyai/token", {});
       if (!token) throw new Error("No streaming token received from server");
 
-      // 2. Set up AudioContext + worklet
       const ctx = new (window.AudioContext as any)({ sampleRate: SAMPLE_RATE });
       audioCtxRef.current = ctx;
 
-      const blobUrl = URL.createObjectURL(
-        new Blob([WORKLET_CODE], { type: "application/javascript" })
-      );
+      const blob = new Blob([WORKLET_CODE], { type: "application/javascript" });
+      const blobUrl = URL.createObjectURL(blob);
       blobUrlRef.current = blobUrl;
       await ctx.audioWorklet.addModule(blobUrl);
       URL.revokeObjectURL(blobUrl);
       blobUrlRef.current = "";
 
-      // 3. Connect to AssemblyAI real-time STT WebSocket
       const ws = new WebSocket(
         `wss://streaming.assemblyai.com/v3/ws?token=${encodeURIComponent(token)}&sample_rate=${SAMPLE_RATE}&encoding=pcm_s16le`
       );
@@ -269,40 +343,31 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
 
       ws.onmessage = async (evt) => {
         let msg: any;
-        try {
-          msg = JSON.parse(evt.data as string);
-        } catch {
-          return;
-        }
+        try { msg = JSON.parse(evt.data as string); } catch { return; }
 
         const type: string = msg.message_type ?? msg.type ?? "";
 
         if (type === "SessionBegins" || type === "session.started") {
-          // Greet the user
-          const name = masterName.trim() || "sir";
-          const greetText = `Grind OS online. Good ${timeOfDay()}, Master ${name}. Ready when you are.`;
-          onMessage({
-            id: uid(),
-            role: "agent",
-            text: greetText,
-            timestamp: new Date(),
-          });
+          const name = masterName.trim() || "there";
+          const hour = new Date().getHours();
+          const tod = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+          const greets = [
+            `Hey ${name}, good ${tod}. I'm ready whenever you are.`,
+            `Good ${tod}, ${name}. What can I help you with today?`,
+            `${name}, good ${tod}. I'm listening.`,
+          ];
+          const greetText = greets[Math.floor(Math.random() * greets.length)];
+          onMessage({ id: uid(), role: "agent", text: greetText, timestamp: new Date() });
           historyRef.current.push({ role: "assistant", content: greetText });
           speak(greetText);
-        } else if (
-          type === "PartialTranscript" ||
-          type === "partial_transcript"
-        ) {
-          // Barge-in: if user starts speaking while JARVIS is talking, stop
+        } else if (type === "PartialTranscript" || type === "partial_transcript") {
+          // Barge-in: user speaking while JARVIS talks → stop immediately
           if (isSpeakingRef.current && (msg.text ?? "").trim().length > 3) {
             stopSpeaking();
           }
-        } else if (
-          type === "FinalTranscript" ||
-          type === "final_transcript"
-        ) {
+        } else if (type === "FinalTranscript" || type === "final_transcript") {
           const text: string = (msg.text ?? "").trim();
-          if (text) {
+          if (text && text.length > 1) {
             await sendToGroq(text);
           }
         } else if (msg.error) {
@@ -312,9 +377,7 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
 
       ws.onerror = () => {
         if (activeRef.current) {
-          onError(
-            "Voice connection error. Check your internet and try again."
-          );
+          onError("Voice connection lost. Please try again.");
           onStatusChange("idle");
           activeRef.current = false;
         }
@@ -327,10 +390,7 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
         if (activeRef.current) onStatusChange("idle");
       };
     } catch (err: any) {
-      console.error("Voice agent connect error:", err);
-      optsRef.current.onError(
-        err?.message ?? "Failed to start voice session"
-      );
+      optsRef.current.onError(err?.message ?? "Failed to start voice session");
       optsRef.current.onStatusChange("idle");
       activeRef.current = false;
     }
@@ -349,9 +409,7 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
     streamRef.current = null;
 
     if (wsRef.current) {
-      try {
-        wsRef.current.send(JSON.stringify({ terminate_session: true }));
-      } catch {}
+      try { wsRef.current.send(JSON.stringify({ terminate_session: true })); } catch {}
       wsRef.current.close(1000, "User ended session");
       wsRef.current = null;
     }

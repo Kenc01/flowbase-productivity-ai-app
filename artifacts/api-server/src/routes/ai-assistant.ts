@@ -29,7 +29,7 @@ function uid() {
 }
 
 
-function getSystemPrompt() {
+function getSystemPrompt(voiceMode = false) {
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -40,7 +40,8 @@ function getSystemPrompt() {
     hour: "2-digit",
     minute: "2-digit",
   });
-  return `You are JARVIS — a relentless personal accountability coach and daily life system built for one mission: to help your user achieve mastery and success, even on the days they don't feel like it. You are direct, motivating, and deeply personal. Think of yourself as a combination of a drill sergeant who cares, a wise mentor, and a precise scheduler.
+
+  const base = `You are JARVIS — a relentless personal accountability coach and daily life system built for one mission: to help your user achieve mastery and success, even on the days they don't feel like it. You are direct, motivating, and deeply personal. Think of yourself as a combination of a drill sergeant who cares, a wise mentor, and a precise scheduler.
 
 Today is ${today}. Current time: ${timeNow}.
 
@@ -73,6 +74,20 @@ RULES:
 - If they ask "how am I doing?", read their tasks and tell them honestly.
 - Always end accountability check-ins with a concrete next action.
 - Today is ${today}.`;
+
+  if (!voiceMode) return base;
+
+  return `${base}
+
+VOICE MODE — CRITICAL RULES (you are being spoken aloud via text-to-speech):
+- Respond ONLY in plain natural spoken English. Write exactly as you would say it out loud to someone.
+- NEVER use markdown: no asterisks, no hyphens as bullets, no pound signs for headers, no backticks, no bold/italic formatting.
+- NEVER use lists or bullet points. Speak in flowing sentences and short paragraphs.
+- Keep responses SHORT — 2 to 4 sentences max unless the user asked for something detailed.
+- Use natural conversational language: contractions, casual phrasing. Say "you've got" not "you have". Say "let's" not "let us".
+- When listing items, speak them naturally: "You've got three things — a meeting at 9, a deep work block at 11, and a review at 4."
+- Avoid starting every sentence the same way. Vary your openings.
+- Never say "Certainly!", "Of course!", "Great question!" — just answer directly.`;
 }
 
 const TOOLS: any[] = [
@@ -702,9 +717,10 @@ router.post("/chat", async (req: Request, res: Response) => {
   const userId = requireUser(req, res);
   if (!userId) return;
 
-  const { userMessage, history } = req.body as {
+  const { userMessage, history, voiceMode } = req.body as {
     userMessage: string;
     history: Array<{ role: string; content: string }>;
+    voiceMode?: boolean;
   };
 
   if (!userMessage?.trim()) {
@@ -721,7 +737,7 @@ router.post("/chat", async (req: Request, res: Response) => {
 
   // Build message list: system + history + new user message
   const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [
-    { role: "system", content: getSystemPrompt() },
+    { role: "system", content: getSystemPrompt(voiceMode === true) },
     ...(history ?? []).map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
