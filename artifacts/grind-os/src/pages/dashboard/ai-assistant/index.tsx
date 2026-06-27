@@ -710,12 +710,6 @@ export default function AIAssistantPage() {
               style={{ flex: 1, resize: "none", border: "none", background: "transparent", fontSize: 14, color: "var(--fb-text)", outline: "none", lineHeight: 1.6, maxHeight: 140, overflowY: "auto", padding: "5px 0", fontFamily: "inherit" }}
             />
 
-            {/* Voice mode */}
-            <button onClick={handleStartVoiceMode} title="Start JARVIS voice conversation" className="j-voice-hdr"
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 13px", height: 34, borderRadius: 9, border: "none", background: "linear-gradient(135deg, #10B981, #059669)", cursor: "pointer", color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(16,185,129,.3)", transition: "all .15s", animation: "j-glow 2.5s ease-in-out infinite" }}>
-              <Volume2 size={13} /> Voice
-            </button>
-
             {/* Send */}
             <button className="j-send" onClick={() => sendMessage(input)} disabled={!input.trim() || loading || recording || transcribing} title="Send (Enter)"
               style={{ width: 34, height: 34, borderRadius: 9, border: "none", background: "#7467F0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s" }}>
