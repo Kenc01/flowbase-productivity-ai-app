@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "node scripts/vercel-build.mjs",
+  "outputDirectory": "dist",
   "routes": [
     { "src": "^/api(.*)", "dest": "/api/index.mjs" },
     { "handle": "filesystem" },
