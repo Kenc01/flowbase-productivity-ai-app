@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-3.11"]
+modules = ["nodejs-20", "web", "bash"]
 
 [deployment]
 router = "application"
@@ -51,6 +51,7 @@ outputType = "webview"
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
+integrations = ["javascript_gemini_ai_integrations:2.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -73,3 +74,6 @@ externalPort = 3000
 [userenv.shared]
 VITE_CLERK_PUBLISHABLE_KEY = "pk_test_bmF0dXJhbC1zdGlua2J1Zy02MC5jbGVyay5hY2NvdW50cy5kZXYk"
 CLERK_PUBLISHABLE_KEY = "pk_test_bmF0dXJhbC1zdGlua2J1Zy02MC5jbGVyay5hY2NvdW50cy5kZXYk"
+
+[nix]
+channel = "stable-25_05"
