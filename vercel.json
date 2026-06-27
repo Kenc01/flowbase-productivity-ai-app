@@ -1,7 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "node scripts/vercel-build.mjs",
-  "outputDirectory": "dist",
+  "github": {
+    "enabled": false
+  },
   "routes": [
     { "src": "^/api(.*)", "dest": "/api/index.mjs" },
     { "handle": "filesystem" },
