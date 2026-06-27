@@ -18,7 +18,7 @@ const API_DIR    = process.argv[3] ?? "/tmp/vercel-api";
 if (!TOKEN) { console.error("VERCEL_TOKEN not set"); process.exit(1); }
 
 async function vercelApi(method, path, body, extraHeaders = {}) {
-  const url = `https://api.vercel.com${path}?teamId=${TEAM_ID}`;
+  const url = `https://api.vercel.com${path}?teamId=${TEAM_ID}&projectId=${PROJECT_ID}`;
   const res = await fetch(url, {
     method,
     headers: {
@@ -95,7 +95,6 @@ console.log(`\n→ Creating deployment (${allFiles.length} files)…`);
 const result = await vercelApi("POST", "/v13/deployments", {
   name: "grind-os",
   files: allFiles,
-  projectId: PROJECT_ID,
   target: "production",
   routes: [
     { src: "^/api(.*)", dest: "/api/index.mjs" },

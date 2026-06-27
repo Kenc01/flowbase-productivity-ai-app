@@ -27,15 +27,62 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Deploy to Vercel
-        run: pnpm dlx vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+      - name: Build frontend
+        run: BASE_PATH=/ pnpm --filter @workspace/grind-os run build
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+
+      - name: Build API bundle
+        run: |
+          cd artifacts/api-server
+          node --input-type=module << 'JSEOF'
+          import { createRequire } from "node:module";
+          import { build } from "esbuild";
+          import esbuildPluginPino from "esbuild-plugin-pino";
+          import { rm, mkdir } from "node:fs/promises";
+
+          globalThis.require = createRequire(new URL("file://" + process.cwd() + "/build.mjs"));
+
+          const outdir = "/tmp/vercel-api";
+          await rm(outdir, { recursive: true, force: true });
+          await mkdir(outdir, { recursive: true });
+
+          await build({
+            entryPoints: ["src/vercel-entry.ts"],
+            platform: "node", bundle: true, format: "esm",
+            outdir, outExtension: { ".js": ".mjs" },
+            logLevel: "warning",
+            external: [
+              "*.node","sharp","better-sqlite3","sqlite3","canvas","bcrypt","argon2",
+              "fsevents","re2","farmhash","xxhash-addon","bufferutil","utf-8-validate",
+              "ssh2","cpu-features","dtrace-provider","isolated-vm","lightningcss",
+              "pg-native","oracledb","mongodb-client-encryption","nodemailer","handlebars",
+              "knex","typeorm","protobufjs","onnxruntime-node","@tensorflow/*","@prisma/client",
+              "@mikro-orm/*","@grpc/*","@swc/*","@aws-sdk/*","@azure/*","@opentelemetry/*",
+              "@google-cloud/*","googleapis","firebase-admin","@parcel/watcher",
+              "@sentry/profiling-node","@tree-sitter/*","aws-sdk","classic-level","dd-trace",
+              "ffi-napi","grpc","hiredis","kerberos","leveldown","miniflare","mysql2",
+              "newrelic","odbc","piscina","realm","ref-napi","rocksdb","sass-embedded",
+              "sequelize","serialport","snappy","tinypool","usb","workerd","wrangler",
+              "zeromq","zeromq-prebuilt","playwright","puppeteer","puppeteer-core","electron",
+            ],
+            sourcemap: false,
+            plugins: [esbuildPluginPino({ transports: ["pino-pretty"] })],
+            banner: {
+              js: `import { createRequire as __crq } from 'node:module';
+          import __pth from 'node:path'; import __url from 'node:url';
+          globalThis.require = __crq(import.meta.url);
+          globalThis.__filename = __url.fileURLToPath(import.meta.url);
+          globalThis.__dirname = __pth.dirname(globalThis.__filename);`,
+            },
+          });
+          console.log("API bundle built.");
+          JSEOF
+
+      - name: Deploy via Vercel REST API
+        run: node scripts/vercel-deploy.mjs artifacts/grind-os/dist/public /tmp/vercel-api
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
-          CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
-          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
