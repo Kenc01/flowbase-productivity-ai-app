@@ -48,7 +48,7 @@ jobs:
           await mkdir(outdir, { recursive: true });
 
           await build({
-            entryPoints: ["src/vercel-entry.ts"],
+            entryPoints: { index: "src/vercel-entry.ts" },
             platform: "node", bundle: true, format: "esm",
             outdir, outExtension: { ".js": ".mjs" },
             logLevel: "warning",
