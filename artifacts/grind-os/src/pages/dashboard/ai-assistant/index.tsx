@@ -4,7 +4,8 @@ import {
   Bot, Send, Mic, Square, Loader2, CheckCircle2, AlertCircle,
   ArrowRight, Sparkles, Calendar, StickyNote, Kanban, LayoutTemplate,
   Trash2, Brain, Volume2, PhoneOff, Radio, Copy, Check,
-  Clock, ChevronRight, ListTodo, BarChart3,
+  Clock, ChevronRight, ListTodo, BarChart3, Plus, MessageSquare, X,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useVoiceAgent, type VoiceAgentMessage, type VoiceAgentStatus } from "@/hooks/useVoiceAgent";
@@ -25,6 +26,14 @@ interface Message {
   content: string;
   actions?: Action[];
   timestamp: Date;
+}
+
+interface Conversation {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -61,6 +70,35 @@ function fmtTime(h: number, m: number) {
   const ampm = h >= 12 ? "PM" : "AM";
   const hh = h % 12 === 0 ? 12 : h % 12;
   return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
+}
+
+// ── Conversation date grouping ─────────────────────────────────────────────────
+
+function groupConversations(convs: Conversation[]): { label: string; items: Conversation[] }[] {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
+
+  const groups: Record<string, Conversation[]> = {
+    Today: [],
+    Yesterday: [],
+    "Last 7 days": [],
+    Older: [],
+  };
+
+  for (const c of convs) {
+    const d = new Date(c.updatedAt);
+    const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    if (day >= today) groups["Today"].push(c);
+    else if (day >= yesterday) groups["Yesterday"].push(c);
+    else if (day >= weekAgo) groups["Last 7 days"].push(c);
+    else groups["Older"].push(c);
+  }
+
+  return Object.entries(groups)
+    .filter(([, items]) => items.length > 0)
+    .map(([label, items]) => ({ label, items }));
 }
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
@@ -162,7 +200,6 @@ function ToolResultCard({ action, onNavigate }: { action: Action; onNavigate: (h
         )}
       </div>
       <div style={{ padding: "8px 12px" }}>
-        {/* Tasks */}
         {action.tool === "get_tasks" && Array.isArray(result) && result.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {result.slice(0, 6).map((task: any, i: number) => (
@@ -175,7 +212,6 @@ function ToolResultCard({ action, onNavigate }: { action: Action; onNavigate: (h
             {result.length > 6 && <span style={{ fontSize: 11, color: "var(--fb-text-muted)" }}>+{result.length - 6} more</span>}
           </div>
         )}
-        {/* Calendar */}
         {action.tool === "get_schedule" && Array.isArray(result) && result.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {result.slice(0, 5).map((ev: any, i: number) => (
@@ -188,7 +224,6 @@ function ToolResultCard({ action, onNavigate }: { action: Action; onNavigate: (h
             {result.length > 5 && <span style={{ fontSize: 11, color: "var(--fb-text-muted)" }}>+{result.length - 5} more</span>}
           </div>
         )}
-        {/* Notes */}
         {action.tool === "get_notes" && Array.isArray(result) && result.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {result.slice(0, 6).map((note: any, i: number) => (
@@ -199,7 +234,6 @@ function ToolResultCard({ action, onNavigate }: { action: Action; onNavigate: (h
             {result.length > 6 && <span style={{ fontSize: 11, color: "var(--fb-text-muted)" }}>+{result.length - 6} more</span>}
           </div>
         )}
-        {/* Daily schedule */}
         {action.tool === "get_daily_schedule" && result?.blocks && result.blocks.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {result.blocks.slice(0, 6).map((b: any, i: number) => (
@@ -211,7 +245,6 @@ function ToolResultCard({ action, onNavigate }: { action: Action; onNavigate: (h
             ))}
           </div>
         )}
-        {/* Fallback */}
         {((!result || (Array.isArray(result) && result.length === 0)) || isCreate || action.tool === "clear_daily_schedule" || action.tool === "generate_ai_template") && (
           <p style={{ fontSize: 12, color: "var(--fb-text-muted)", margin: 0 }}>{action.summary}</p>
         )}
@@ -338,15 +371,127 @@ function VoiceModeOverlay({ status, lastText, lastRole, masterName, onStop }: {
   );
 }
 
+// ── Conversations Sidebar ─────────────────────────────────────────────────────
+
+function ConvSidebar({
+  conversations, currentId, loading, onSelect, onNew, onDelete,
+}: {
+  conversations: Conversation[];
+  currentId: string | null;
+  loading: boolean;
+  onSelect: (id: string) => void;
+  onNew: () => void;
+  onDelete: (id: string) => void;
+}) {
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setDeletingId(id);
+    await onDelete(id);
+    setDeletingId(null);
+  };
+
+  const groups = groupConversations(conversations);
+
+  return (
+    <div style={{
+      width: 240, flexShrink: 0, background: "var(--fb-surface)",
+      borderRight: "1px solid var(--fb-border)", display: "flex",
+      flexDirection: "column", overflow: "hidden",
+    }}>
+      {/* New Chat button */}
+      <div style={{ padding: "12px 10px 8px", flexShrink: 0 }}>
+        <button onClick={onNew} className="j-new-chat"
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid var(--fb-border)", background: "var(--fb-muted)", cursor: "pointer", fontSize: 13, color: "var(--fb-text)", fontWeight: 600, transition: "all .15s" }}>
+          <Plus size={15} color="#7467F0" />
+          New Chat
+        </button>
+      </div>
+
+      {/* Conversation list */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 6px 12px" }}>
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <Loader2 size={15} style={{ animation: "j-spin 1s linear infinite", color: "var(--fb-text-muted)" }} />
+          </div>
+        ) : conversations.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "28px 12px" }}>
+            <MessageSquare size={22} color="var(--fb-text-muted)" style={{ marginBottom: 8, opacity: 0.4 }} />
+            <p style={{ fontSize: 12, color: "var(--fb-text-muted)", margin: 0, lineHeight: 1.5 }}>No chats yet.<br />Start a new conversation.</p>
+          </div>
+        ) : (
+          groups.map(({ label, items }) => (
+            <div key={label}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--fb-text-muted)", letterSpacing: "0.07em", textTransform: "uppercase", padding: "10px 8px 4px", opacity: 0.6 }}>
+                {label}
+              </div>
+              {items.map((conv) => {
+                const isActive = conv.id === currentId;
+                const isHovered = hoverId === conv.id;
+                return (
+                  <div key={conv.id}
+                    onClick={() => onSelect(conv.id)}
+                    onMouseEnter={() => setHoverId(conv.id)}
+                    onMouseLeave={() => setHoverId(null)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "7px 8px", borderRadius: 8, cursor: "pointer",
+                      background: isActive ? "rgba(116,103,240,.15)" : isHovered ? "var(--fb-surface-hover)" : "transparent",
+                      border: isActive ? "1px solid rgba(116,103,240,.25)" : "1px solid transparent",
+                      marginBottom: 1, transition: "all .12s",
+                    }}>
+                    <MessageSquare size={13} color={isActive ? "#7467F0" : "var(--fb-text-muted)"} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.5 }} />
+                    <span style={{
+                      flex: 1, fontSize: 12.5, color: isActive ? "var(--fb-text)" : "var(--fb-text-muted)",
+                      fontWeight: isActive ? 600 : 400,
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                    }}>
+                      {conv.title}
+                    </span>
+                    {(isHovered || isActive) && (
+                      <button
+                        onClick={(e) => handleDelete(e, conv.id)}
+                        disabled={deletingId === conv.id}
+                        className="j-del-conv"
+                        title="Delete"
+                        style={{ width: 20, height: 20, borderRadius: 5, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .12s", opacity: deletingId === conv.id ? 0.4 : 1 }}>
+                        {deletingId === conv.id
+                          ? <Loader2 size={10} style={{ animation: "j-spin 1s linear infinite", color: "var(--fb-text-muted)" }} />
+                          : <Trash2 size={11} color="#F43F5E" />}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AIAssistantPage() {
   const [, navigate] = useLocation();
+
+  // Conversation state
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConvId, setCurrentConvId] = useState<string | null>(null);
+  const [convsLoading, setConvsLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Voice & recording state
   const [clearing, setClearing] = useState(false);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -365,21 +510,73 @@ export default function AIAssistantPage() {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesRef = useRef<Message[]>([]);
+  const currentConvIdRef = useRef<string | null>(null);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { currentConvIdRef.current = currentConvId; }, [currentConvId]);
 
+  // Load settings
   useEffect(() => {
     api.get<any>("/settings").then((s) => {
       if (s && !s.error) { setMasterName(s.masterName ?? ""); setVoiceAgentVoice(s.voiceAgentVoice ?? "Brian"); }
     }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    api.get<any[]>("/ai-assistant/history")
-      .then((rows) => setMessages(rows.map((r) => ({ id: r.id, role: r.role, content: r.content, actions: r.actions ?? [], timestamp: new Date(r.timestamp) }))))
-      .catch(() => {})
-      .finally(() => setHistoryLoading(false));
+  // Load conversations list
+  const loadConversations = useCallback(async () => {
+    try {
+      const rows = await api.get<Conversation[]>("/ai-assistant/conversations");
+      setConversations(rows);
+      return rows;
+    } catch {
+      return [];
+    }
   }, []);
 
+  useEffect(() => {
+    loadConversations().finally(() => setConvsLoading(false));
+  }, [loadConversations]);
+
+  // Load messages for a conversation
+  const loadMessages = useCallback(async (convId: string) => {
+    setHistoryLoading(true);
+    setMessages([]);
+    try {
+      const rows = await api.get<any[]>(`/ai-assistant/history?conversationId=${convId}`);
+      setMessages(rows.map((r) => ({
+        id: r.id, role: r.role, content: r.content,
+        actions: r.actions ?? [], timestamp: new Date(r.timestamp),
+      })));
+    } catch {}
+    finally { setHistoryLoading(false); }
+  }, []);
+
+  // Switch to a conversation
+  const selectConversation = useCallback((id: string) => {
+    if (id === currentConvIdRef.current) return;
+    setCurrentConvId(id);
+    loadMessages(id);
+  }, [loadMessages]);
+
+  // New chat
+  const startNewChat = useCallback(async () => {
+    // Don't create a conversation yet — it'll be created on first message
+    setCurrentConvId(null);
+    setMessages([]);
+  }, []);
+
+  // Delete a conversation
+  const deleteConversation = useCallback(async (id: string) => {
+    try {
+      await api.delete(`/ai-assistant/conversations/${id}`);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (currentConvIdRef.current === id) {
+        setCurrentConvId(null);
+        setMessages([]);
+      }
+    } catch {}
+  }, []);
+
+  // Scroll to bottom
   useEffect(() => {
     if (!historyLoading) setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 60);
   }, [messages, loading, historyLoading]);
@@ -408,21 +605,37 @@ export default function AIAssistantPage() {
 
     try {
       const history = messagesRef.current.map((m) => ({ role: m.role, content: m.content }));
-      const data = await api.post<{ message: string; actions: Action[] }>("/ai-assistant/chat", { userMessage: trimmed, history });
+      const convId = currentConvIdRef.current;
+      const data = await api.post<{ message: string; actions: Action[]; conversationId: string }>(
+        "/ai-assistant/chat",
+        { userMessage: trimmed, history, conversationId: convId ?? undefined }
+      );
       setMessages((prev) => [...prev, {
         id: uid(), role: "assistant",
         content: data.message ?? "Sorry, I couldn't generate a response.",
         actions: data.actions ?? [], timestamp: new Date(),
       }]);
+      // If this was a brand-new conversation, set its ID and refresh the list
+      if (!convId && data.conversationId) {
+        setCurrentConvId(data.conversationId);
+        loadConversations();
+      } else {
+        // Refresh to update title/updatedAt
+        loadConversations();
+      }
     } catch {
       setMessages((prev) => [...prev, { id: uid(), role: "assistant", content: "Something went wrong connecting to JARVIS. Please try again.", actions: [], timestamp: new Date() }]);
     } finally { setLoading(false); setActiveTool(null); }
-  }, [loading]);
+  }, [loading, loadConversations]);
 
-  const clearHistory = async () => {
-    if (!confirm("Clear your entire conversation history?")) return;
+  const clearCurrentChat = async () => {
+    if (!currentConvId) { setMessages([]); return; }
+    if (!confirm("Clear this conversation's messages?")) return;
     setClearing(true);
-    try { await api.delete("/ai-assistant/history"); setMessages([]); } catch {}
+    try {
+      await api.delete(`/ai-assistant/history?conversationId=${currentConvId}`);
+      setMessages([]);
+    } catch {}
     setClearing(false);
   };
 
@@ -509,220 +722,239 @@ export default function AIAssistantPage() {
         .j-copy-btn:hover{background:var(--fb-surface-hover)!important;border-color:var(--fb-border-strong)!important}
         .j-input-box:focus-within{border-color:rgba(116,103,240,.6)!important;box-shadow:0 0 0 3px rgba(116,103,240,.1)!important}
         .j-ptm:hover:not(:disabled){background:var(--fb-surface-hover)!important}
+        .j-new-chat:hover{background:var(--fb-surface-hover)!important;border-color:var(--fb-border-strong)!important}
+        .j-del-conv:hover{background:rgba(244,63,94,.12)!important}
+        .j-toggle-sidebar:hover{background:var(--fb-surface-hover)!important}
       `}</style>
 
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--fb-bg)", overflow: "hidden", position: "relative" }}>
+      <div style={{ display: "flex", height: "100%", background: "var(--fb-bg)", overflow: "hidden", position: "relative" }}>
 
-        {/* Voice overlay */}
-        {voiceMode && (
-          <VoiceModeOverlay status={voiceStatus} lastText={lastVoiceText} lastRole={lastVoiceRole} masterName={masterName} onStop={handleStopVoiceMode} />
+        {/* ── Conversations Sidebar ── */}
+        {sidebarOpen && (
+          <ConvSidebar
+            conversations={conversations}
+            currentId={currentConvId}
+            loading={convsLoading}
+            onSelect={selectConversation}
+            onNew={startNewChat}
+            onDelete={deleteConversation}
+          />
         )}
 
-        {/* ── Header ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "var(--fb-surface)", borderBottom: "1px solid var(--fb-border)", flexShrink: 0 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: "linear-gradient(135deg, #7467F0, #06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(116,103,240,.35)", flexShrink: 0 }}>
-            <Bot size={19} color="#fff" strokeWidth={1.8} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--fb-text)", fontFamily: "Outfit, sans-serif", letterSpacing: "-0.01em" }}>JARVIS</div>
-            <div style={{ fontSize: 11, color: "var(--fb-text-muted)" }}>
-              {masterName ? `Master ${masterName} · Groq AI` : "Personal AI · Groq + AssemblyAI"}
-            </div>
-          </div>
+        {/* ── Main chat area ── */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px rgba(16,185,129,.5)" }} />
-            <span style={{ fontSize: 11, color: "var(--fb-text-muted)", fontWeight: 500 }}>Online</span>
-          </div>
-
-          {messages.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(116,103,240,.15)", border: "1px solid rgba(116,103,240,.3)", borderRadius: 20, padding: "3px 10px" }}>
-              <Brain size={11} color="#7467F0" />
-              <span style={{ fontSize: 11, color: "#a78bfa", fontWeight: 600 }}>{messages.length} remembered</span>
-            </div>
+          {/* Voice overlay */}
+          {voiceMode && (
+            <VoiceModeOverlay status={voiceStatus} lastText={lastVoiceText} lastRole={lastVoiceRole} masterName={masterName} onStop={handleStopVoiceMode} />
           )}
 
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={handleStartVoiceMode} className="j-voice-hdr"
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20, border: "none", background: "linear-gradient(135deg, #10B981, #059669)", cursor: "pointer", color: "#fff", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 10px rgba(16,185,129,.3)", transition: "all .15s", animation: "j-glow 2.5s ease-in-out infinite" }}>
-              <Mic size={13} /> Voice
+          {/* ── Header ── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: "var(--fb-surface)", borderBottom: "1px solid var(--fb-border)", flexShrink: 0 }}>
+
+            {/* Sidebar toggle */}
+            <button onClick={() => setSidebarOpen((v) => !v)} className="j-toggle-sidebar"
+              title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+              style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s" }}>
+              {sidebarOpen
+                ? <PanelLeftClose size={16} color="var(--fb-text-muted)" />
+                : <PanelLeftOpen size={16} color="var(--fb-text-muted)" />}
             </button>
+
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #7467F0, #06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(116,103,240,.35)", flexShrink: 0 }}>
+              <Bot size={18} color="#fff" strokeWidth={1.8} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "var(--fb-text)", fontFamily: "Outfit, sans-serif", letterSpacing: "-0.01em" }}>JARVIS</div>
+              <div style={{ fontSize: 11, color: "var(--fb-text-muted)" }}>
+                {masterName ? `Master ${masterName} · Groq AI` : "Personal AI · Groq + AssemblyAI"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px rgba(16,185,129,.5)" }} />
+              <span style={{ fontSize: 11, color: "var(--fb-text-muted)", fontWeight: 500 }}>Online</span>
+            </div>
+
             {messages.length > 0 && (
-              <button className="j-clear" onClick={clearHistory} disabled={clearing}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, background: "var(--fb-muted)", border: "1px solid var(--fb-border)", cursor: "pointer", fontSize: 12, color: "var(--fb-text-muted)", fontWeight: 500, transition: "all .15s" }}>
-                <Trash2 size={13} /> Clear
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(116,103,240,.15)", border: "1px solid rgba(116,103,240,.3)", borderRadius: 20, padding: "3px 10px" }}>
+                <Brain size={11} color="#7467F0" />
+                <span style={{ fontSize: 11, color: "#a78bfa", fontWeight: 600 }}>{messages.length} msgs</span>
+              </div>
             )}
-          </div>
-        </div>
 
-        {/* ── Messages ── */}
-        <div style={{ flex: 1, overflowY: "auto", padding: isEmpty ? 0 : "20px 20px 4px", display: "flex", flexDirection: "column" }}>
-
-          {historyLoading ? (
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--fb-text-muted)" }}>
-              <Loader2 size={18} style={{ animation: "j-spin 1s linear infinite" }} />
-              <span style={{ fontSize: 14 }}>Loading conversation…</span>
-            </div>
-          ) : isEmpty ? (
-            /* ── Empty State ── */
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", maxWidth: 600, margin: "0 auto", width: "100%" }}>
-              <div style={{ width: 80, height: 80, borderRadius: 22, background: "linear-gradient(135deg, #7467F0 0%, #06B6D4 100%)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 22, boxShadow: "0 12px 40px rgba(116,103,240,.4)" }}>
-                <Bot size={38} color="#fff" strokeWidth={1.5} />
-              </div>
-              <h2 style={{ fontSize: 26, fontWeight: 800, color: "var(--fb-text)", margin: 0, marginBottom: 10, letterSpacing: "-0.02em", textAlign: "center", fontFamily: "Outfit, sans-serif" }}>
-                {masterName ? `Ready, Master ${masterName}.` : "Meet JARVIS"}
-              </h2>
-              <p style={{ fontSize: 14, color: "var(--fb-text-muted)", margin: 0, marginBottom: 28, textAlign: "center", maxWidth: 360, lineHeight: 1.65 }}>
-                Your personal AI system. I read your tasks, schedule, and notes — and create new ones. Chat or go hands-free with Voice Mode.
-              </p>
-
-              {/* Voice CTA */}
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
               <button onClick={handleStartVoiceMode} className="j-voice-hdr"
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 28px", borderRadius: 99, border: "none", background: "linear-gradient(135deg, #10B981, #059669)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 28, boxShadow: "0 6px 24px rgba(16,185,129,.4)", transition: "all .2s", animation: "j-glow 2.5s ease-in-out infinite" }}>
-                <Mic size={17} /> Start Voice Conversation
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20, border: "none", background: "linear-gradient(135deg, #10B981, #059669)", cursor: "pointer", color: "#fff", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 10px rgba(16,185,129,.3)", transition: "all .15s", animation: "j-glow 2.5s ease-in-out infinite" }}>
+                <Mic size={13} /> Voice
               </button>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 480, marginBottom: 18 }}>
-                <div style={{ flex: 1, height: 1, background: "var(--fb-border)" }} />
-                <span style={{ fontSize: 11, color: "var(--fb-text-muted)", whiteSpace: "nowrap" }}>or try a prompt</span>
-                <div style={{ flex: 1, height: 1, background: "var(--fb-border)" }} />
-              </div>
-
-              {/* Suggestions */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(196px, 1fr))", gap: 8, width: "100%", maxWidth: 510 }}>
-                {SUGGESTIONS.map((s) => {
-                  const Icon = s.icon;
-                  return (
-                    <button key={s.label} className="j-suggest" onClick={() => sendMessage(s.label)}
-                      style={{ display: "flex", alignItems: "flex-start", gap: 10, background: "var(--fb-surface)", border: "1px solid var(--fb-border)", borderRadius: 12, padding: "11px 13px", cursor: "pointer", textAlign: "left", transition: "all .15s" }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: `${s.color}20`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Icon size={14} color={s.color} strokeWidth={2} />
-                      </div>
-                      <span style={{ fontSize: 12, color: "var(--fb-text)", fontWeight: 500, lineHeight: 1.45 }}>{s.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Capability tags */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 24, justifyContent: "center" }}>
-                {["Reads tasks & calendar", "Creates notes & events", "Builds schedules", "Voice chat", "Accountability coach"].map((cap) => (
-                  <span key={cap} style={{ fontSize: 11, color: "#a78bfa", background: "rgba(116,103,240,.12)", border: "1px solid rgba(116,103,240,.22)", borderRadius: 20, padding: "3px 10px" }}>{cap}</span>
-                ))}
-              </div>
+              {messages.length > 0 && (
+                <button className="j-clear" onClick={clearCurrentChat} disabled={clearing}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, background: "var(--fb-muted)", border: "1px solid var(--fb-border)", cursor: "pointer", fontSize: 12, color: "var(--fb-text-muted)", fontWeight: 500, transition: "all .15s" }}>
+                  <Trash2 size={13} /> Clear
+                </button>
+              )}
             </div>
-          ) : (
-            /* ── Chat ── */
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 800, width: "100%", margin: "0 auto" }}>
-              {messages.map((msg) => (
-                <div key={msg.id} className="j-msg" style={{ display: "flex", flexDirection: msg.role === "user" ? "row-reverse" : "row", alignItems: "flex-start", gap: 10 }}>
-                  {msg.role === "assistant" && (
-                    <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg, #7467F0, #06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(116,103,240,.3)", marginTop: 2 }}>
-                      <Bot size={15} color="#fff" strokeWidth={2} />
-                    </div>
-                  )}
-                  <div style={{ maxWidth: "78%", minWidth: 0, display: "flex", flexDirection: "column", gap: 2, alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
-                    <div className={msg.role === "assistant" ? "j-wrap" : ""} style={{ position: "relative" }}>
-                      <div style={{
-                        background: msg.role === "user" ? "linear-gradient(135deg, #7467F0, #5b50d6)" : "var(--fb-surface)",
-                        color: "var(--fb-text)",
-                        borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "4px 18px 18px 18px",
-                        padding: msg.role === "user" ? "11px 15px" : "12px 17px",
-                        fontSize: 14,
-                        lineHeight: 1.65,
-                        border: msg.role === "assistant" ? "1px solid var(--fb-border)" : "none",
-                        boxShadow: msg.role === "assistant" ? "0 2px 10px rgba(0,0,0,.15)" : "0 4px 14px rgba(116,103,240,.3)",
-                        whiteSpace: msg.role === "user" ? "pre-wrap" : undefined,
-                        wordBreak: "break-word",
-                      }}>
-                        {msg.role === "user" ? msg.content : renderMarkdown(msg.content)}
-                      </div>
-                      {msg.role === "assistant" && <CopyButton text={msg.content} />}
-                    </div>
-                    {msg.role === "assistant" && msg.actions && msg.actions.length > 0 && (
-                      <div style={{ width: "100%" }}>
-                        {msg.actions.map((a, i) => <ToolResultCard key={i} action={a} onNavigate={navigate} />)}
+          </div>
+
+          {/* ── Messages ── */}
+          <div style={{ flex: 1, overflowY: "auto", padding: isEmpty ? 0 : "20px 20px 4px", display: "flex", flexDirection: "column" }}>
+
+            {historyLoading ? (
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--fb-text-muted)" }}>
+                <Loader2 size={18} style={{ animation: "j-spin 1s linear infinite" }} />
+                <span style={{ fontSize: 14 }}>Loading conversation…</span>
+              </div>
+            ) : isEmpty ? (
+              /* ── Empty State ── */
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", maxWidth: 600, margin: "0 auto", width: "100%" }}>
+                <div style={{ width: 80, height: 80, borderRadius: 22, background: "linear-gradient(135deg, #7467F0 0%, #06B6D4 100%)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 22, boxShadow: "0 12px 40px rgba(116,103,240,.4)" }}>
+                  <Bot size={38} color="#fff" strokeWidth={1.5} />
+                </div>
+                <h2 style={{ fontSize: 26, fontWeight: 800, color: "var(--fb-text)", margin: 0, marginBottom: 10, letterSpacing: "-0.02em", textAlign: "center", fontFamily: "Outfit, sans-serif" }}>
+                  {masterName ? `Ready, Master ${masterName}.` : "Meet JARVIS"}
+                </h2>
+                <p style={{ fontSize: 14, color: "var(--fb-text-muted)", margin: 0, marginBottom: 28, textAlign: "center", maxWidth: 360, lineHeight: 1.65 }}>
+                  Your personal AI system. I read your tasks, schedule, and notes — and create new ones. Chat or go hands-free with Voice Mode.
+                </p>
+
+                <button onClick={handleStartVoiceMode} className="j-voice-hdr"
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 28px", borderRadius: 99, border: "none", background: "linear-gradient(135deg, #10B981, #059669)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 28, boxShadow: "0 6px 24px rgba(16,185,129,.4)", transition: "all .2s", animation: "j-glow 2.5s ease-in-out infinite" }}>
+                  <Mic size={17} /> Start Voice Conversation
+                </button>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 480, marginBottom: 18 }}>
+                  <div style={{ flex: 1, height: 1, background: "var(--fb-border)" }} />
+                  <span style={{ fontSize: 11, color: "var(--fb-text-muted)", whiteSpace: "nowrap" }}>or try a prompt</span>
+                  <div style={{ flex: 1, height: 1, background: "var(--fb-border)" }} />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(196px, 1fr))", gap: 8, width: "100%", maxWidth: 510 }}>
+                  {SUGGESTIONS.map((s) => {
+                    const Icon = s.icon;
+                    return (
+                      <button key={s.label} className="j-suggest" onClick={() => sendMessage(s.label)}
+                        style={{ display: "flex", alignItems: "flex-start", gap: 10, background: "var(--fb-surface)", border: "1px solid var(--fb-border)", borderRadius: 12, padding: "11px 13px", cursor: "pointer", textAlign: "left", transition: "all .15s" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: `${s.color}20`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <Icon size={14} color={s.color} strokeWidth={2} />
+                        </div>
+                        <span style={{ fontSize: 12, color: "var(--fb-text)", fontWeight: 500, lineHeight: 1.45 }}>{s.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 24, justifyContent: "center" }}>
+                  {["Reads tasks & calendar", "Creates notes & events", "Builds schedules", "Voice chat", "Accountability coach"].map((cap) => (
+                    <span key={cap} style={{ fontSize: 11, color: "#a78bfa", background: "rgba(116,103,240,.12)", border: "1px solid rgba(116,103,240,.22)", borderRadius: 20, padding: "3px 10px" }}>{cap}</span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* ── Chat messages ── */
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 800, width: "100%", margin: "0 auto" }}>
+                {messages.map((msg) => (
+                  <div key={msg.id} className="j-msg" style={{ display: "flex", flexDirection: msg.role === "user" ? "row-reverse" : "row", alignItems: "flex-start", gap: 10 }}>
+                    {msg.role === "assistant" && (
+                      <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: "linear-gradient(135deg, #7467F0, #06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(116,103,240,.3)", marginTop: 2 }}>
+                        <Bot size={15} color="#fff" strokeWidth={2} />
                       </div>
                     )}
-                    <div style={{ fontSize: 10, color: "var(--fb-text-muted)", marginTop: 2, opacity: 0.7 }}>
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    <div style={{ maxWidth: "78%", minWidth: 0, display: "flex", flexDirection: "column", gap: 2, alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
+                      <div className={msg.role === "assistant" ? "j-wrap" : ""} style={{ position: "relative" }}>
+                        <div style={{
+                          background: msg.role === "user" ? "linear-gradient(135deg, #7467F0, #5b50d6)" : "var(--fb-surface)",
+                          color: "var(--fb-text)",
+                          borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "4px 18px 18px 18px",
+                          padding: msg.role === "user" ? "11px 15px" : "12px 17px",
+                          fontSize: 14,
+                          lineHeight: 1.65,
+                          border: msg.role === "assistant" ? "1px solid var(--fb-border)" : "none",
+                          boxShadow: msg.role === "assistant" ? "0 2px 10px rgba(0,0,0,.15)" : "0 4px 14px rgba(116,103,240,.3)",
+                          whiteSpace: msg.role === "user" ? "pre-wrap" : undefined,
+                          wordBreak: "break-word",
+                        }}>
+                          {msg.role === "user" ? msg.content : renderMarkdown(msg.content)}
+                        </div>
+                        {msg.role === "assistant" && <CopyButton text={msg.content} />}
+                      </div>
+                      {msg.role === "assistant" && msg.actions && msg.actions.length > 0 && (
+                        <div style={{ width: "100%" }}>
+                          {msg.actions.map((a, i) => <ToolResultCard key={i} action={a} onNavigate={navigate} />)}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 10, color: "var(--fb-text-muted)", marginTop: 2, opacity: 0.7 }}>
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
-              {loading && (
-                <div className="j-msg" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg, #7467F0, #06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px rgba(116,103,240,.3)" }}>
-                    <Bot size={15} color="#fff" strokeWidth={2} />
+                {loading && (
+                  <div className="j-msg" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg, #7467F0, #06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px rgba(116,103,240,.3)" }}>
+                      <Bot size={15} color="#fff" strokeWidth={2} />
+                    </div>
+                    <div style={{ background: "var(--fb-surface)", border: "1px solid var(--fb-border)", borderRadius: "4px 18px 18px 18px", boxShadow: "0 2px 10px rgba(0,0,0,.15)", minWidth: 80 }}>
+                      <TypingIndicator activeTool={activeTool} />
+                    </div>
                   </div>
-                  <div style={{ background: "var(--fb-surface)", border: "1px solid var(--fb-border)", borderRadius: "4px 18px 18px 18px", boxShadow: "0 2px 10px rgba(0,0,0,.15)", minWidth: 80 }}>
-                    <TypingIndicator activeTool={activeTool} />
-                  </div>
-                </div>
-              )}
-              <div ref={bottomRef} style={{ height: 4 }} />
-            </div>
-          )}
-        </div>
-
-        {/* ── Error banner ── */}
-        {voiceError && (
-          <div style={{ margin: "0 20px 6px", padding: "10px 14px", background: "rgba(244,63,94,.1)", border: "1px solid rgba(244,63,94,.28)", borderRadius: 10, fontSize: 13, color: "#f87171", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <AlertCircle size={13} />
-            <span style={{ flex: 1 }}>{voiceError}</span>
-            <button onClick={() => setVoiceError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#f87171", fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
+                )}
+                <div ref={bottomRef} style={{ height: 4 }} />
+              </div>
+            )}
           </div>
-        )}
 
-        {/* ── Input ── */}
-        <div style={{ padding: "10px 20px 14px", background: "var(--fb-surface)", borderTop: "1px solid var(--fb-border)", flexShrink: 0 }}>
-
-          {/* Recording bar */}
-          {(recording || transcribing) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "8px 12px", background: recording ? "rgba(244,63,94,.1)" : "rgba(6,182,212,.1)", border: `1px solid ${recording ? "rgba(244,63,94,.28)" : "rgba(6,182,212,.28)"}`, borderRadius: 8 }}>
-              {transcribing
-                ? <><Loader2 size={12} color="#06B6D4" style={{ animation: "j-spin 1s linear infinite" }} /><span style={{ fontSize: 12, color: "#06B6D4" }}>Transcribing…</span></>
-                : <><div style={{ width: 6, height: 6, borderRadius: "50%", background: "#F43F5E", animation: "j-pulse 1.5s ease-in-out infinite" }} /><span style={{ fontSize: 12, color: "#f87171", fontWeight: 600 }}>Recording {fmtSecs(recSeconds)}</span><span style={{ fontSize: 11, color: "var(--fb-text-muted)" }}> — tap stop when done</span></>
-              }
+          {/* ── Error banner ── */}
+          {voiceError && (
+            <div style={{ margin: "0 16px 6px", padding: "10px 14px", background: "rgba(244,63,94,.1)", border: "1px solid rgba(244,63,94,.28)", borderRadius: 10, fontSize: 13, color: "#f87171", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <AlertCircle size={13} />
+              <span style={{ flex: 1 }}>{voiceError}</span>
+              <button onClick={() => setVoiceError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#f87171", fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
             </div>
           )}
 
-          {/* Input row */}
-          <div className="j-input-box" style={{ display: "flex", gap: 8, alignItems: "flex-end", background: "var(--fb-muted)", border: "1.5px solid var(--fb-border)", borderRadius: 16, padding: "7px 9px", transition: "all .15s" }}>
+          {/* ── Input ── */}
+          <div style={{ padding: "10px 16px 14px", background: "var(--fb-surface)", borderTop: "1px solid var(--fb-border)", flexShrink: 0 }}>
 
-            {/* Push-to-talk */}
-            <button className="j-ptm" onClick={recording ? stopRecording : startRecording} disabled={transcribing} title={recording ? "Stop recording" : "Voice to text"}
-              style={{ width: 34, height: 34, borderRadius: 9, border: "none", background: recording ? "rgba(244,63,94,.15)" : "var(--fb-surface)", cursor: transcribing ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s", animation: recording ? "j-pulse 1.5s ease-in-out infinite" : "none" }}>
-              {transcribing
-                ? <Loader2 size={15} color="#06B6D4" style={{ animation: "j-spin 1s linear infinite" }} />
-                : recording ? <Square size={15} color="#F43F5E" fill="#F43F5E" /> : <Mic size={15} color="#7467F0" />}
-            </button>
+            {(recording || transcribing) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "8px 12px", background: recording ? "rgba(244,63,94,.1)" : "rgba(6,182,212,.1)", border: `1px solid ${recording ? "rgba(244,63,94,.28)" : "rgba(6,182,212,.28)"}`, borderRadius: 8 }}>
+                {transcribing
+                  ? <><Loader2 size={12} color="#06B6D4" style={{ animation: "j-spin 1s linear infinite" }} /><span style={{ fontSize: 12, color: "#06B6D4" }}>Transcribing…</span></>
+                  : <><div style={{ width: 6, height: 6, borderRadius: "50%", background: "#F43F5E", animation: "j-pulse 1.5s ease-in-out infinite" }} /><span style={{ fontSize: 12, color: "#f87171", fontWeight: 600 }}>Recording {fmtSecs(recSeconds)}</span><span style={{ fontSize: 11, color: "var(--fb-text-muted)" }}> — tap stop when done</span></>
+                }
+              </div>
+            )}
 
-            {/* Textarea */}
-            <textarea ref={textareaRef} value={input}
-              onChange={(e) => { setInput(e.target.value); autoResize(); }}
-              onKeyDown={handleKeyDown}
-              placeholder={recording ? "Recording…" : masterName ? `Message JARVIS, Master ${masterName}…` : "Ask JARVIS about tasks, schedule, notes…"}
-              rows={1}
-              disabled={loading || recording || transcribing}
-              style={{ flex: 1, resize: "none", border: "none", background: "transparent", fontSize: 14, color: "var(--fb-text)", outline: "none", lineHeight: 1.6, maxHeight: 140, overflowY: "auto", padding: "5px 0", fontFamily: "inherit" }}
-            />
+            <div className="j-input-box" style={{ display: "flex", gap: 8, alignItems: "flex-end", background: "var(--fb-muted)", border: "1.5px solid var(--fb-border)", borderRadius: 16, padding: "7px 9px", transition: "all .15s" }}>
+              <button className="j-ptm" onClick={recording ? stopRecording : startRecording} disabled={transcribing} title={recording ? "Stop recording" : "Voice to text"}
+                style={{ width: 34, height: 34, borderRadius: 9, border: "none", background: recording ? "rgba(244,63,94,.15)" : "var(--fb-surface)", cursor: transcribing ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s", animation: recording ? "j-pulse 1.5s ease-in-out infinite" : "none" }}>
+                {transcribing
+                  ? <Loader2 size={15} color="#06B6D4" style={{ animation: "j-spin 1s linear infinite" }} />
+                  : recording ? <Square size={15} color="#F43F5E" fill="#F43F5E" /> : <Mic size={15} color="#7467F0" />}
+              </button>
 
-            {/* Send */}
-            <button className="j-send" onClick={() => sendMessage(input)} disabled={!input.trim() || loading || recording || transcribing} title="Send (Enter)"
-              style={{ width: 34, height: 34, borderRadius: 9, border: "none", background: "#7467F0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s" }}>
-              {loading ? <Loader2 size={14} color="#fff" style={{ animation: "j-spin 1s linear infinite" }} /> : <Send size={14} color="#fff" />}
-            </button>
-          </div>
+              <textarea ref={textareaRef} value={input}
+                onChange={(e) => { setInput(e.target.value); autoResize(); }}
+                onKeyDown={handleKeyDown}
+                placeholder={recording ? "Recording…" : masterName ? `Message JARVIS, Master ${masterName}…` : "Ask JARVIS about tasks, schedule, notes…"}
+                rows={1}
+                disabled={loading || recording || transcribing}
+                style={{ flex: 1, resize: "none", border: "none", background: "transparent", fontSize: 14, color: "var(--fb-text)", outline: "none", lineHeight: 1.6, maxHeight: 140, overflowY: "auto", padding: "5px 0", fontFamily: "inherit" }}
+              />
 
-          {/* Hint row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 7 }}>
-            <span style={{ fontSize: 11, color: "var(--fb-text-muted)", opacity: 0.6 }}>Enter to send · Shift+Enter for new line</span>
-            <span style={{ fontSize: 11, color: "var(--fb-text-muted)", opacity: 0.4 }}>·</span>
-            <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>Voice</span>
-            <span style={{ fontSize: 11, color: "var(--fb-text-muted)", opacity: 0.6 }}>= real-time AI speech</span>
+              <button className="j-send" onClick={() => sendMessage(input)} disabled={!input.trim() || loading || recording || transcribing} title="Send (Enter)"
+                style={{ width: 34, height: 34, borderRadius: 9, border: "none", background: "#7467F0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s" }}>
+                {loading ? <Loader2 size={14} color="#fff" style={{ animation: "j-spin 1s linear infinite" }} /> : <Send size={14} color="#fff" />}
+              </button>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 7 }}>
+              <span style={{ fontSize: 11, color: "var(--fb-text-muted)", opacity: 0.6 }}>Enter to send · Shift+Enter for new line</span>
+              <span style={{ fontSize: 11, color: "var(--fb-text-muted)", opacity: 0.4 }}>·</span>
+              <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>Voice</span>
+              <span style={{ fontSize: 11, color: "var(--fb-text-muted)", opacity: 0.6 }}>= real-time AI speech</span>
+            </div>
           </div>
         </div>
       </div>

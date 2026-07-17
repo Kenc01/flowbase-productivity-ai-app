@@ -8,5 +8,6 @@ export * from "./collaborators";
 export * from "./ai-templates";
 export * from "./settings";
 export * from "./chat-messages";
+export * from "./conversations";
 export * from "./daily-schedule";
 export * from "./goals";

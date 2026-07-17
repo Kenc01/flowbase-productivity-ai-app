@@ -8,9 +8,10 @@ import {
   calendarEventsTable,
   notesTable,
   chatMessagesTable,
+  conversationsTable,
   dailyScheduleBlocksTable,
 } from "@workspace/db";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, desc } from "drizzle-orm";
 import Groq from "groq-sdk";
 
 const router = Router();
@@ -671,16 +672,73 @@ async function callGroq(
   throw new Error("All models failed");
 }
 
-// GET /history — load saved conversation for this user
+// GET /conversations — list all conversations for this user
+router.get("/conversations", async (req: Request, res: Response) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  try {
+    const rows = await db
+      .select()
+      .from(conversationsTable)
+      .where(eq(conversationsTable.userId, userId))
+      .orderBy(desc(conversationsTable.updatedAt));
+    return res.json(rows);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /conversations — create a new conversation
+router.post("/conversations", async (req: Request, res: Response) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  try {
+    const id = uid();
+    await db.insert(conversationsTable).values({ id, userId, title: "New Chat" });
+    const [conv] = await db
+      .select()
+      .from(conversationsTable)
+      .where(eq(conversationsTable.id, id));
+    return res.json(conv);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /conversations/:id — delete a conversation and its messages
+router.delete("/conversations/:id", async (req: Request, res: Response) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  const { id } = req.params;
+  try {
+    await db
+      .delete(chatMessagesTable)
+      .where(and(eq(chatMessagesTable.conversationId, id), eq(chatMessagesTable.userId, userId)));
+    await db
+      .delete(conversationsTable)
+      .where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, userId)));
+    return res.status(204).end();
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /history — load messages, optionally filtered by conversationId
 router.get("/history", async (req: Request, res: Response) => {
   const userId = requireUser(req, res);
   if (!userId) return;
+
+  const { conversationId } = req.query as { conversationId?: string };
 
   try {
     const rows = await db
       .select()
       .from(chatMessagesTable)
-      .where(eq(chatMessagesTable.userId, userId))
+      .where(
+        conversationId
+          ? and(eq(chatMessagesTable.userId, userId), eq(chatMessagesTable.conversationId, conversationId))
+          : eq(chatMessagesTable.userId, userId)
+      )
       .orderBy(asc(chatMessagesTable.createdAt));
 
     const messages = rows.map((r) => ({
@@ -697,15 +755,21 @@ router.get("/history", async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /history — clear all messages for this user
+// DELETE /history — clear messages for a conversation (or all if no conversationId)
 router.delete("/history", async (req: Request, res: Response) => {
   const userId = requireUser(req, res);
   if (!userId) return;
 
+  const { conversationId } = req.query as { conversationId?: string };
+
   try {
     await db
       .delete(chatMessagesTable)
-      .where(eq(chatMessagesTable.userId, userId));
+      .where(
+        conversationId
+          ? and(eq(chatMessagesTable.userId, userId), eq(chatMessagesTable.conversationId, conversationId))
+          : eq(chatMessagesTable.userId, userId)
+      );
     return res.status(204).end();
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -717,10 +781,11 @@ router.post("/chat", async (req: Request, res: Response) => {
   const userId = requireUser(req, res);
   if (!userId) return;
 
-  const { userMessage, history, voiceMode } = req.body as {
+  const { userMessage, history, voiceMode, conversationId: incomingConvId } = req.body as {
     userMessage: string;
     history: Array<{ role: string; content: string }>;
     voiceMode?: boolean;
+    conversationId?: string;
   };
 
   if (!userMessage?.trim()) {
@@ -734,6 +799,20 @@ router.post("/chat", async (req: Request, res: Response) => {
     return res.status(500).json({ error: "GROQ_API_KEY not configured" });
 
   const groq = new Groq({ apiKey: groqKey });
+
+  // Resolve or create conversation
+  let conversationId = incomingConvId ?? "";
+  if (!conversationId) {
+    conversationId = uid();
+    const title = userMessage.trim().slice(0, 80);
+    await db.insert(conversationsTable).values({ id: conversationId, userId, title });
+  } else if (!history || history.length === 0) {
+    // First message in an existing empty conv — set the title from the message
+    await db
+      .update(conversationsTable)
+      .set({ title: userMessage.trim().slice(0, 80) })
+      .where(and(eq(conversationsTable.id, conversationId), eq(conversationsTable.userId, userId)));
+  }
 
   // Build message list: system + history + new user message
   const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [
@@ -791,11 +870,12 @@ router.post("/chat", async (req: Request, res: Response) => {
 
     const aiContent = completion.choices[0].message.content ?? "";
 
-    // Persist both messages to DB
+    // Persist both messages to DB with conversationId
     await db.insert(chatMessagesTable).values([
       {
         id: uid(),
         userId,
+        conversationId,
         role: "user",
         content: userMessage,
         actionsJson: "[]",
@@ -803,13 +883,20 @@ router.post("/chat", async (req: Request, res: Response) => {
       {
         id: uid(),
         userId,
+        conversationId,
         role: "assistant",
         content: aiContent,
         actionsJson: JSON.stringify(actions),
       },
     ]);
 
-    return res.json({ message: aiContent, actions });
+    // Update conversation's updatedAt so it surfaces at the top of the list
+    await db
+      .update(conversationsTable)
+      .set({ updatedAt: new Date() })
+      .where(and(eq(conversationsTable.id, conversationId), eq(conversationsTable.userId, userId)));
+
+    return res.json({ message: aiContent, actions, conversationId });
   } catch (err: any) {
     console.error("AI Assistant chat error:", err);
     return res.status(500).json({ error: err.message ?? "AI error" });
