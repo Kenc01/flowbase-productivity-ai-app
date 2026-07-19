@@ -24,11 +24,14 @@ export interface UseVoiceAgentOptions {
   onError: (msg: string) => void;
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
 const SAMPLE_RATE = 16_000;
-const BUFFER_SAMPLES = SAMPLE_RATE * 0.2; // 200ms chunks
+const BUFFER_SAMPLES = SAMPLE_RATE * 0.2; // 200 ms per worklet flush
 const BASE = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
 
-// AudioWorklet that buffers ~200ms of PCM16 before posting to the main thread
+// ── AudioWorklet (buffers 200 ms of PCM16 before posting) ────────────────────
+
 const WORKLET_CODE = `
 class JarvisPcmCapture extends AudioWorkletProcessor {
   constructor() {
@@ -57,11 +60,13 @@ class JarvisPcmCapture extends AudioWorkletProcessor {
 registerProcessor("jarvis-pcm-capture", JarvisPcmCapture);
 `;
 
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
 function uid() {
   return Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
 }
 
-// Strip markdown so TTS doesn't say "asterisk asterisk" etc.
+/** Strip markdown so TTS doesn't say "asterisk asterisk" */
 function stripMarkdown(text: string): string {
   return text
     .replace(/#{1,6}\s+/g, "")
@@ -79,98 +84,103 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
-// Fallback: pick the most natural browser voice
-function pickVoice(): SpeechSynthesisVoice | null {
+/** Split cleaned text into sentence-length chunks for sequential TTS */
+function splitSentences(text: string): string[] {
+  if (!text.trim()) return [];
+  const matches = text.match(/[^.!?]+[.!?]+\s*/g) ?? [];
+  const sentences = matches.map((s) => s.trim()).filter((s) => s.length > 1);
+  // Append trailing text that had no sentence-ending punctuation
+  const covered = matches.join("").length;
+  const remainder = text.slice(covered).trim();
+  if (remainder.length > 1) sentences.push(remainder);
+  return sentences.length ? sentences : [text.trim()];
+}
+
+/** Pick the best available browser voice (fallback only) */
+function pickBrowserVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis?.getVoices() ?? [];
-  if (!voices.length) return null;
   const preferences = [
     "Google UK English Male",
     "Microsoft Guy Online (Natural) - English (United States)",
     "Microsoft Davis Online (Natural) - English (United States)",
-    "Microsoft Andrew Online (Natural) - English (United States)",
-    "Microsoft Brian Online (Natural) - English (United States)",
     "Google US English",
     "Daniel",
   ];
-  for (const pref of preferences) {
-    const v = voices.find((v) => v.name.includes(pref));
+  for (const name of preferences) {
+    const v = voices.find((v) => v.name.includes(name));
     if (v) return v;
   }
   return voices.find((v) => v.lang.startsWith("en")) ?? null;
 }
 
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
 export function useVoiceAgent(opts: UseVoiceAgentOptions) {
   const optsRef = useRef(opts);
   useEffect(() => { optsRef.current = opts; });
 
-  // ── STT / microphone refs ────────────────────────────────────────────────────
-  const wsRef = useRef<WebSocket | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const workletRef = useRef<AudioWorkletNode | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const blobUrlRef = useRef<string>("");
-  const activeRef = useRef(false);
-  const isSpeakingRef = useRef(false);
-  const historyRef = useRef<Array<{ role: string; content: string }>>([]);
+  // STT / microphone
+  const wsRef        = useRef<WebSocket | null>(null);
+  const micCtxRef    = useRef<AudioContext | null>(null);
+  const workletRef   = useRef<AudioWorkletNode | null>(null);
+  const streamRef    = useRef<MediaStream | null>(null);
+  const blobUrlRef   = useRef<string>("");
 
-  // ── TTS / output refs ────────────────────────────────────────────────────────
-  const outputCtxRef = useRef<AudioContext | null>(null);
-  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const audioQueueRef = useRef<string[]>([]);
-  const isPlayingTtsRef = useRef(false);
-  const ttsAbortRef = useRef(false);
+  // Session state
+  const activeRef      = useRef(false);
+  const isSpeakingRef  = useRef(false);
+  const historyRef     = useRef<Array<{ role: string; content: string }>>([]);
 
-  // ── TTS helpers ──────────────────────────────────────────────────────────────
+  // TTS / output audio
+  const outCtxRef         = useRef<AudioContext | null>(null);
+  const currentSrcRef     = useRef<AudioBufferSourceNode | null>(null);
+  const audioQueueRef     = useRef<string[]>([]);
+  const isPlayingTtsRef   = useRef(false);
+  const ttsAbortRef       = useRef(false);
 
-  const getOutputCtx = useCallback((): AudioContext => {
-    if (!outputCtxRef.current || outputCtxRef.current.state === "closed") {
-      outputCtxRef.current = new AudioContext();
-    }
-    return outputCtxRef.current;
-  }, []);
+  // ── Stop all TTS (barge-in + cleanup) ─────────────────────────────────────
 
-  /**
-   * Stop all TTS immediately (barge-in support + cleanup).
-   * Stops Web Audio playback and clears the sentence queue.
-   */
   const stopSpeaking = useCallback(() => {
     ttsAbortRef.current = true;
     audioQueueRef.current = [];
     isPlayingTtsRef.current = false;
-    try { currentSourceRef.current?.stop(); } catch {}
-    currentSourceRef.current = null;
-    if (isSpeakingRef.current) {
-      window.speechSynthesis?.cancel();
-    }
+    try { currentSrcRef.current?.stop(); } catch {}
+    currentSrcRef.current = null;
+    if (isSpeakingRef.current) window.speechSynthesis?.cancel();
     isSpeakingRef.current = false;
-    // Re-enable after a short delay so barge-in detection settles
+    // Re-enable after a short settle period
     setTimeout(() => { ttsAbortRef.current = false; }, 200);
   }, []);
 
-  /**
-   * Play a single sentence via Groq PlayAI TTS (WAV audio over Web Audio API).
-   * Falls back to browser speechSynthesis if the API call fails.
-   */
+  // ── Play one sentence via Groq PlayAI TTS ─────────────────────────────────
+  // Falls back to browser speechSynthesis if the API call fails.
+
   const playOneChunk = useCallback(async (text: string): Promise<void> => {
     return new Promise(async (resolve) => {
       if (ttsAbortRef.current) { resolve(); return; }
 
       try {
-        const response = await fetch(`${BASE}/api/ai-assistant/tts`, {
+        const res = await fetch(`${BASE}/api/ai-assistant/tts`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, voice: optsRef.current.voice ?? "Fritz-PlayAI" }),
+          body: JSON.stringify({
+            text,
+            voice: optsRef.current.voice ?? "Fritz-PlayAI",
+          }),
           signal: AbortSignal.timeout(12_000),
         });
 
-        if (!response.ok || ttsAbortRef.current) { resolve(); return; }
+        if (!res.ok || ttsAbortRef.current) { resolve(); return; }
 
-        const arrayBuf = await response.arrayBuffer();
+        const arrayBuf = await res.arrayBuffer();
         if (ttsAbortRef.current) { resolve(); return; }
 
-        const ctx = getOutputCtx();
+        // Use the output context that was pre-created during connect()
+        const ctx = outCtxRef.current;
+        if (!ctx || ctx.state === "closed") { resolve(); return; }
         if (ctx.state === "suspended") await ctx.resume();
+        if (ttsAbortRef.current) { resolve(); return; }
 
         const audioBuf = await ctx.decodeAudioData(arrayBuf.slice(0));
         if (ttsAbortRef.current) { resolve(); return; }
@@ -178,15 +188,16 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
         const src = ctx.createBufferSource();
         src.buffer = audioBuf;
         src.connect(ctx.destination);
-        currentSourceRef.current = src;
-        src.onended = () => { currentSourceRef.current = null; resolve(); };
+        currentSrcRef.current = src;
+        src.onended = () => { currentSrcRef.current = null; resolve(); };
         src.start();
       } catch {
-        // Fallback to browser speechSynthesis
-        if (ttsAbortRef.current) { resolve(); return; }
-        if (!("speechSynthesis" in window)) { resolve(); return; }
+        // ── Fallback: browser speechSynthesis ──────────────────────────────
+        if (ttsAbortRef.current || !("speechSynthesis" in window)) {
+          resolve(); return;
+        }
         const utterance = new SpeechSynthesisUtterance(text);
-        const v = pickVoice();
+        const v = pickBrowserVoice();
         if (v) utterance.voice = v;
         utterance.rate = 0.95;
         utterance.pitch = 0.9;
@@ -195,15 +206,18 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
         window.speechSynthesis.speak(utterance);
       }
     });
-  }, [getOutputCtx]);
+  }, []);
 
-  // Keep a stable ref to drainQueue so it can self-recurse without stale closures
-  const drainQueueRef = useRef<() => void>(() => {});
+  // ── Sentence queue drain (plays one chunk at a time) ──────────────────────
 
-  const drainQueue = useCallback(async () => {
+  // Self-referencing via a ref so the async recursion is always latest.
+  const drainRef = useRef<() => void>(() => {});
+
+  const drain = useCallback(async () => {
     if (isPlayingTtsRef.current || ttsAbortRef.current) return;
     const text = audioQueueRef.current.shift();
     if (!text) {
+      // Queue empty — session goes back to listening
       isPlayingTtsRef.current = false;
       isSpeakingRef.current = false;
       if (activeRef.current) optsRef.current.onStatusChange("listening");
@@ -213,169 +227,127 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
     await playOneChunk(text);
     isPlayingTtsRef.current = false;
     if (!ttsAbortRef.current && activeRef.current) {
-      drainQueueRef.current(); // next sentence
-    } else if (!activeRef.current) {
+      drainRef.current(); // next sentence
+    } else {
       isSpeakingRef.current = false;
     }
   }, [playOneChunk]);
 
-  // Keep ref in sync with latest drainQueue
-  drainQueueRef.current = drainQueue;
+  // Keep the ref in sync with the latest drain callback
+  drainRef.current = drain;
 
-  /** Push a sentence into the playback queue; starts draining if idle. */
+  /** Push a sentence into the TTS playback queue and start draining if idle */
   const enqueueSentence = useCallback((sentence: string) => {
     if (!sentence.trim()) return;
     audioQueueRef.current.push(sentence);
-    if (!isPlayingTtsRef.current) {
-      drainQueueRef.current();
+    if (!isPlayingTtsRef.current) drainRef.current();
+  }, []);
+
+  // ── Chat — uses the full /chat endpoint so tool calls work ───────────────
+  // (Asking to "create a schedule" triggers create_schedule_block /
+  //  create_calendar_event tools. The streaming /chat-stream endpoint doesn't
+  //  handle tool calls, which caused the "stays on listening" bug.)
+
+  const sendToAI = useCallback(async (userText: string) => {
+    const { onMessage, onStatusChange } = optsRef.current;
+
+    stopSpeaking();
+    onStatusChange("thinking");
+
+    onMessage({ id: uid(), role: "user", text: userText, timestamp: new Date() });
+    historyRef.current.push({ role: "user", content: userText });
+
+    try {
+      const res = await fetch(`${BASE}/api/ai-assistant/chat`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userMessage: userText,
+          history: historyRef.current.slice(-12),
+          voiceMode: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`API ${res.status}: ${body}`);
+      }
+
+      const data = (await res.json()) as { message: string; actions?: any[] };
+      const replyText =
+        (data.message ?? "").trim() ||
+        "I had a small hiccup — give it another shot.";
+
+      historyRef.current.push({ role: "assistant", content: replyText });
+      onMessage({ id: uid(), role: "agent", text: replyText, timestamp: new Date() });
+
+      if (!activeRef.current) return;
+
+      // Split into sentences and queue each for Groq TTS
+      const sentences = splitSentences(stripMarkdown(replyText));
+      isSpeakingRef.current = true;
+      onStatusChange("speaking");
+      for (const s of sentences) enqueueSentence(s);
+    } catch (err) {
+      console.error("Voice chat error:", err);
+      const msg = "I'm having a bit of trouble right now. Give it another shot.";
+      onMessage({ id: uid(), role: "agent", text: msg, timestamp: new Date() });
+      if (activeRef.current) {
+        isSpeakingRef.current = true;
+        onStatusChange("speaking");
+        enqueueSentence(msg);
+      }
+    }
+  }, [stopSpeaking, enqueueSentence]);
+
+  // ── Microphone → AssemblyAI streaming STT ────────────────────────────────
+
+  const startMic = useCallback(async (ws: WebSocket, ctx: AudioContext) => {
+    const { onError, onStatusChange } = optsRef.current;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: SAMPLE_RATE,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      streamRef.current = stream;
+
+      const source = ctx.createMediaStreamSource(stream);
+      const worklet = new AudioWorkletNode(ctx, "jarvis-pcm-capture");
+      workletRef.current = worklet;
+
+      // Route worklet output to silence so mic isn't looped to speakers
+      const silent = ctx.createGain();
+      silent.gain.value = 0;
+      worklet.connect(silent);
+      silent.connect(ctx.destination);
+      source.connect(worklet);
+
+      // Stream PCM16 to AssemblyAI, but NOT while JARVIS is speaking (avoid echo)
+      worklet.port.onmessage = (e: MessageEvent) => {
+        if (
+          ws.readyState === WebSocket.OPEN &&
+          !isSpeakingRef.current &&
+          activeRef.current
+        ) {
+          ws.send(e.data as ArrayBuffer);
+        }
+      };
+
+      onStatusChange("listening");
+    } catch {
+      onError("Microphone access denied. Please allow microphone use in your browser.");
+      onStatusChange("idle");
+      activeRef.current = false;
     }
   }, []);
 
-  // ── Streaming chat (SSE) → sentence-by-sentence TTS ─────────────────────────
-
-  const sendToGroq = useCallback(
-    async (userText: string) => {
-      const { onMessage, onStatusChange } = optsRef.current;
-
-      stopSpeaking();
-      onStatusChange("thinking");
-
-      onMessage({ id: uid(), role: "user", text: userText, timestamp: new Date() });
-      historyRef.current.push({ role: "user", content: userText });
-
-      try {
-        const response = await fetch(`${BASE}/api/ai-assistant/chat-stream`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userMessage: userText,
-            history: historyRef.current.slice(-12),
-          }),
-        });
-
-        if (!response.ok || !response.body) {
-          throw new Error(`Stream failed: ${response.status}`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let sseBuffer = "";
-        let fullText = "";
-        let sentenceCount = 0;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          sseBuffer += decoder.decode(value, { stream: true });
-          // SSE events are separated by double newlines
-          const blocks = sseBuffer.split("\n\n");
-          sseBuffer = blocks.pop() ?? "";
-
-          for (const block of blocks) {
-            if (!block.startsWith("data: ")) continue;
-            try {
-              const data = JSON.parse(block.slice(6));
-
-              if (data.sentence && activeRef.current) {
-                const clean = stripMarkdown(data.sentence);
-                if (!clean) continue;
-                // Start speaking status on the first sentence
-                if (sentenceCount === 0) {
-                  isSpeakingRef.current = true;
-                  onStatusChange("speaking");
-                }
-                sentenceCount++;
-                enqueueSentence(clean);
-              }
-
-              if (data.done && data.fullText) {
-                fullText = data.fullText;
-              }
-            } catch { /* ignore malformed events */ }
-          }
-        }
-
-        // Add complete message to history and UI after stream ends
-        if (fullText) {
-          historyRef.current.push({ role: "assistant", content: fullText });
-          onMessage({ id: uid(), role: "agent", text: fullText, timestamp: new Date() });
-        }
-
-        // If no sentences came through, resume listening manually
-        if (sentenceCount === 0) {
-          isSpeakingRef.current = false;
-          if (activeRef.current) onStatusChange("listening");
-        }
-        // Otherwise the queue drain will flip status back to "listening" when done
-      } catch (err) {
-        console.error("Voice chat-stream error:", err);
-        const errMsg =
-          "I'm having a bit of trouble connecting right now. Give it another shot.";
-        onMessage({ id: uid(), role: "agent", text: errMsg, timestamp: new Date() });
-        if (activeRef.current) {
-          isSpeakingRef.current = true;
-          onStatusChange("speaking");
-          enqueueSentence(errMsg);
-        }
-      }
-    },
-    [stopSpeaking, enqueueSentence]
-  );
-
-  // ── Microphone → AssemblyAI streaming STT ────────────────────────────────────
-
-  const startMic = useCallback(
-    async (ws: WebSocket, ctx: AudioContext) => {
-      const { onError, onStatusChange } = optsRef.current;
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            sampleRate: SAMPLE_RATE,
-            channelCount: 1,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-        streamRef.current = stream;
-
-        const source = ctx.createMediaStreamSource(stream);
-        const worklet = new AudioWorkletNode(ctx, "jarvis-pcm-capture");
-        workletRef.current = worklet;
-
-        // Drain worklet output silently (don't play mic back to speakers)
-        const silent = ctx.createGain();
-        silent.gain.value = 0;
-        worklet.connect(silent);
-        silent.connect(ctx.destination);
-        source.connect(worklet);
-
-        // Send buffered PCM16 frames; pause during TTS playback (avoids echo)
-        worklet.port.onmessage = (e: MessageEvent) => {
-          if (
-            ws.readyState === WebSocket.OPEN &&
-            !isSpeakingRef.current &&
-            activeRef.current
-          ) {
-            ws.send(e.data as ArrayBuffer);
-          }
-        };
-
-        onStatusChange("listening");
-      } catch {
-        onError(
-          "Microphone access denied. Please allow microphone use in your browser."
-        );
-        onStatusChange("idle");
-        activeRef.current = false;
-      }
-    },
-    []
-  );
-
-  // ── Connect session ───────────────────────────────────────────────────────────
+  // ── Connect ───────────────────────────────────────────────────────────────
 
   const connect = useCallback(async () => {
     const { masterName, onMessage, onStatusChange, onError } = optsRef.current;
@@ -385,48 +357,56 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
     onStatusChange("connecting");
 
     try {
-      // Get short-lived AssemblyAI streaming token from our backend
-      const { token } = await (async () => {
-        const r = await fetch(`${BASE}/api/assemblyai/token`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: "{}",
-        });
-        if (!r.ok) throw new Error("No streaming token");
-        return r.json() as Promise<{ token: string }>;
-      })();
-      if (!token) throw new Error("No streaming token received from server");
+      // Fetch a short-lived AssemblyAI streaming token
+      const tokenRes = await fetch(`${BASE}/api/assemblyai/token`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!tokenRes.ok) throw new Error("Could not get streaming token");
+      const { token } = (await tokenRes.json()) as { token: string };
+      if (!token) throw new Error("Empty streaming token");
 
-      const ctx = new (window.AudioContext as any)({ sampleRate: SAMPLE_RATE });
-      audioCtxRef.current = ctx;
+      // ── Create AudioContexts during this user-gesture handler ────────────
+      // (Browsers block AudioContext.resume() outside a user gesture — doing
+      //  it here while handling the "start voice" click keeps it unlocked.)
+      const micCtx = new (window.AudioContext as any)({ sampleRate: SAMPLE_RATE });
+      micCtxRef.current = micCtx;
 
+      // Separate output context at the system's native rate for best TTS quality
+      const outCtx = new AudioContext();
+      outCtxRef.current = outCtx;
+
+      // Register the PCM worklet
       const blob = new Blob([WORKLET_CODE], { type: "application/javascript" });
       const blobUrl = URL.createObjectURL(blob);
       blobUrlRef.current = blobUrl;
-      await ctx.audioWorklet.addModule(blobUrl);
+      await micCtx.audioWorklet.addModule(blobUrl);
       URL.revokeObjectURL(blobUrl);
       blobUrlRef.current = "";
 
+      // Open AssemblyAI streaming WebSocket
       const ws = new WebSocket(
-        `wss://streaming.assemblyai.com/v3/ws?token=${encodeURIComponent(token)}&sample_rate=${SAMPLE_RATE}&encoding=pcm_s16le`
+        `wss://streaming.assemblyai.com/v3/ws` +
+        `?token=${encodeURIComponent(token)}` +
+        `&sample_rate=${SAMPLE_RATE}` +
+        `&encoding=pcm_s16le`
       );
       wsRef.current = ws;
 
-      ws.onopen = () => {
-        startMic(ws, ctx);
-      };
+      ws.onopen = () => startMic(ws, micCtx);
 
       ws.onmessage = async (evt) => {
         let msg: any;
         try { msg = JSON.parse(evt.data as string); } catch { return; }
-
         const type: string = msg.message_type ?? msg.type ?? "";
 
         if (type === "SessionBegins" || type === "session.started") {
+          // Greet the user
           const name = masterName.trim() || "there";
-          const hour = new Date().getHours();
-          const tod = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+          const h = new Date().getHours();
+          const tod = h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
           const greets = [
             `Hey ${name}, good ${tod}. I'm ready whenever you are.`,
             `Good ${tod}, ${name}. What can I help you with today?`,
@@ -435,20 +415,20 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
           const greetText = greets[Math.floor(Math.random() * greets.length)];
           onMessage({ id: uid(), role: "agent", text: greetText, timestamp: new Date() });
           historyRef.current.push({ role: "assistant", content: greetText });
-          // Speak greeting through Groq TTS
           isSpeakingRef.current = true;
           onStatusChange("speaking");
           enqueueSentence(greetText);
+
         } else if (type === "PartialTranscript" || type === "partial_transcript") {
-          // Barge-in: user speaks while JARVIS is talking → stop immediately
+          // Barge-in: cut JARVIS off if user starts talking
           if (isSpeakingRef.current && (msg.text ?? "").trim().length > 3) {
             stopSpeaking();
           }
+
         } else if (type === "FinalTranscript" || type === "final_transcript") {
           const text: string = (msg.text ?? "").trim();
-          if (text && text.length > 1) {
-            await sendToGroq(text);
-          }
+          if (text.length > 1) await sendToAI(text);
+
         } else if (msg.error) {
           console.error("AssemblyAI STT error:", msg.error);
         }
@@ -473,9 +453,9 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
       optsRef.current.onStatusChange("idle");
       activeRef.current = false;
     }
-  }, [startMic, stopSpeaking, sendToGroq, enqueueSentence]);
+  }, [startMic, stopSpeaking, sendToAI, enqueueSentence]);
 
-  // ── Disconnect session ────────────────────────────────────────────────────────
+  // ── Disconnect ────────────────────────────────────────────────────────────
 
   const disconnect = useCallback(() => {
     activeRef.current = false;
@@ -495,11 +475,11 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
       wsRef.current = null;
     }
 
-    audioCtxRef.current?.close().catch(() => {});
-    audioCtxRef.current = null;
+    micCtxRef.current?.close().catch(() => {});
+    micCtxRef.current = null;
 
-    outputCtxRef.current?.close().catch(() => {});
-    outputCtxRef.current = null;
+    outCtxRef.current?.close().catch(() => {});
+    outCtxRef.current = null;
 
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
@@ -511,9 +491,7 @@ export function useVoiceAgent(opts: UseVoiceAgentOptions) {
   }, [stopSpeaking]);
 
   // Cleanup on unmount
-  useEffect(() => {
-    return () => { disconnect(); };
-  }, []);
+  useEffect(() => () => { disconnect(); }, []);
 
   return { connect, disconnect };
 }
