@@ -964,6 +964,146 @@ router.post("/transcribe", async (req: Request, res: Response) => {
   }
 });
 
+// ── Groq PlayAI TTS proxy ─────────────────────────────────────────────────────
+// Returns WAV audio for a piece of text using the playai-tts model.
+
+router.post("/tts", async (req: Request, res: Response) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+
+  const { text, voice = "Fritz-PlayAI" } = req.body as {
+    text?: string;
+    voice?: string;
+  };
+  if (!text?.trim()) return res.status(400).json({ error: "text is required" });
+
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "GROQ_API_KEY not configured" });
+
+  try {
+    const ttsRes = await fetch("https://api.groq.com/openai/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "playai-tts",
+        input: text.slice(0, 500),
+        voice,
+        response_format: "wav",
+      }),
+    });
+
+    if (!ttsRes.ok) {
+      const body = await ttsRes.text();
+      console.error("Groq TTS error:", ttsRes.status, body);
+      return res.status(ttsRes.status).json({ error: "TTS request failed" });
+    }
+
+    res.setHeader("Content-Type", "audio/wav");
+    res.setHeader("Cache-Control", "no-cache");
+
+    const reader = (ttsRes.body as any).getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(Buffer.from(value));
+    }
+    res.end();
+  } catch (err: any) {
+    console.error("TTS proxy error:", err?.message);
+    return res.status(500).json({ error: "TTS failed" });
+  }
+});
+
+// ── Streaming chat (SSE) — emits sentences as they complete ───────────────────
+// Used by voice mode to start TTS after the first sentence, not the full reply.
+
+router.post("/chat-stream", async (req: Request, res: Response) => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+
+  const { userMessage, history = [] } = req.body as {
+    userMessage: string;
+    history: Array<{ role: string; content: string }>;
+  };
+
+  if (!userMessage?.trim())
+    return res.status(400).json({ error: "userMessage is required" });
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof (res as any).flushHeaders === "function") (res as any).flushHeaders();
+
+  const emit = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    emit({ error: "GROQ_API_KEY not configured" });
+    return res.end();
+  }
+
+  const groq = new Groq({ apiKey });
+
+  const messages: any[] = [
+    { role: "system", content: getSystemPrompt(true) },
+    ...history
+      .slice(-12)
+      .map((m) => ({ role: m.role, content: m.content })),
+    { role: "user", content: userMessage },
+  ];
+
+  let stream: any;
+  for (const model of GROQ_MODELS) {
+    try {
+      stream = await groq.chat.completions.create({
+        model,
+        messages,
+        stream: true,
+        max_tokens: 300,
+        temperature: 0.7,
+      });
+      break;
+    } catch (e: any) {
+      if (e?.status === 429 && model !== GROQ_MODELS[GROQ_MODELS.length - 1])
+        continue;
+      emit({ error: e?.message ?? "AI error" });
+      return res.end();
+    }
+  }
+
+  let tokenBuffer = "";
+  let fullText = "";
+  // Regex: match sentence endings followed by whitespace (or end of buffer)
+  const SENTENCE_END = /([^.!?]*[.!?]+)\s*/g;
+
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content ?? "";
+    if (!delta) continue;
+    tokenBuffer += delta;
+    fullText += delta;
+
+    // Flush complete sentences as soon as they're ready
+    let match: RegExpExecArray | null;
+    SENTENCE_END.lastIndex = 0;
+    let lastEnd = 0;
+    while ((match = SENTENCE_END.exec(tokenBuffer)) !== null) {
+      const sentence = match[1].trim();
+      if (sentence.length > 1) emit({ sentence });
+      lastEnd = match.index + match[0].length;
+    }
+    tokenBuffer = tokenBuffer.slice(lastEnd);
+  }
+
+  // Emit any trailing text that didn't end with punctuation
+  if (tokenBuffer.trim().length > 1) emit({ sentence: tokenBuffer.trim() });
+
+  emit({ done: true, fullText });
+  res.end();
+});
+
 // ── Voice Agent Tool Execution ─────────────────────────────────────────────────
 // Called by the frontend voice agent hook when the AI requests a tool call.
 
