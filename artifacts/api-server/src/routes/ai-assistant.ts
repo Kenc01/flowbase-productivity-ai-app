@@ -13,6 +13,7 @@ import {
 } from "@workspace/db";
 import { eq, and, asc, desc } from "drizzle-orm";
 import Groq from "groq-sdk";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 const router = Router();
 
@@ -672,6 +673,111 @@ async function callGroq(
   throw new Error("All models failed");
 }
 
+// ── Gemini Flash helpers ──────────────────────────────────────────────────────
+
+/** Convert a JSON-Schema type string to Gemini's SchemaType enum */
+function toGeminiSchemaType(t: string): SchemaType {
+  const map: Record<string, SchemaType> = {
+    object: SchemaType.OBJECT,
+    string: SchemaType.STRING,
+    number: SchemaType.NUMBER,
+    integer: SchemaType.INTEGER,
+    boolean: SchemaType.BOOLEAN,
+    array: SchemaType.ARRAY,
+  };
+  return map[t?.toLowerCase()] ?? SchemaType.STRING;
+}
+
+function convertGeminiProp(prop: any): any {
+  const out: any = { type: toGeminiSchemaType(prop.type) };
+  if (prop.description) out.description = prop.description;
+  if (prop.enum)        out.enum = prop.enum;
+  if (prop.properties) {
+    out.properties = {};
+    for (const [k, v] of Object.entries(prop.properties)) {
+      out.properties[k] = convertGeminiProp(v);
+    }
+  }
+  if (prop.items) out.items = convertGeminiProp(prop.items);
+  return out;
+}
+
+/** TOOLS array converted to Gemini's FunctionDeclaration format */
+const GEMINI_TOOLS = TOOLS.map((t) => ({
+  name: t.function.name,
+  description: t.function.description,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: Object.fromEntries(
+      Object.entries(t.function.parameters.properties ?? {}).map(([k, v]) => [
+        k,
+        convertGeminiProp(v),
+      ])
+    ),
+    required: t.function.parameters.required ?? [],
+  },
+}));
+
+/**
+ * Run a full Gemini Flash chat turn (with tool-call loop) and return the
+ * final text + list of executed actions — same shape as the Groq path.
+ */
+async function callGeminiChat(
+  history: Array<{ role: string; content: string }>,
+  userMessage: string,
+  systemPrompt: string,
+  userId: string,
+  voiceMode: boolean
+): Promise<{ text: string; actions: Array<{ tool: string; summary: string; success: boolean; result: any; link?: string }> }> {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  if (!apiKey) throw new Error("GOOGLE_GENERATIVE_AI_API_KEY not configured");
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.0-flash",
+    tools: [{ functionDeclarations: GEMINI_TOOLS }],
+    systemInstruction: systemPrompt,
+  });
+
+  // Convert history: "assistant" → "model", wrap text in parts array
+  const geminiHistory = history.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const chat = model.startChat({ history: geminiHistory });
+  let result = await chat.sendMessage(userMessage);
+
+  const actions: Array<{ tool: string; summary: string; success: boolean; result: any; link?: string }> = [];
+  const functionCalls = result.response.functionCalls();
+
+  if (functionCalls && functionCalls.length > 0) {
+    const toolResponses: any[] = [];
+
+    for (const call of functionCalls) {
+      const exec = await executeTool(call.name, (call.args ?? {}) as any, userId);
+      actions.push({
+        tool: call.name,
+        summary: exec.summary,
+        success: exec.success,
+        result: exec.result,
+        link: exec.link,
+      });
+      toolResponses.push({
+        functionResponse: {
+          name: call.name,
+          response: { success: exec.success, summary: exec.summary, data: exec.result },
+        },
+      });
+    }
+
+    // Second turn: send tool results back to get the final spoken reply
+    result = await chat.sendMessage(toolResponses);
+  }
+
+  return { text: result.response.text().trim(), actions };
+}
+
 // GET /conversations — list all conversations for this user
 router.get("/conversations", async (req: Request, res: Response) => {
   const userId = requireUser(req, res);
@@ -781,24 +887,19 @@ router.post("/chat", async (req: Request, res: Response) => {
   const userId = requireUser(req, res);
   if (!userId) return;
 
-  const { userMessage, history, voiceMode, conversationId: incomingConvId } = req.body as {
+  const { userMessage, history, voiceMode, conversationId: incomingConvId, model: modelParam } = req.body as {
     userMessage: string;
     history: Array<{ role: string; content: string }>;
     voiceMode?: boolean;
     conversationId?: string;
+    model?: string; // "groq" | "gemini" — defaults to "groq"
   };
 
   if (!userMessage?.trim()) {
     return res.status(400).json({ error: "userMessage required" });
   }
 
-  const groqKey = (process.env.GROQ_API_KEY ?? "")
-    .trim()
-    .replace(/^["']|["']$/g, "");
-  if (!groqKey)
-    return res.status(500).json({ error: "GROQ_API_KEY not configured" });
-
-  const groq = new Groq({ apiKey: groqKey });
+  const useGemini = modelParam === "gemini";
 
   // Resolve or create conversation
   let conversationId = incomingConvId ?? "";
@@ -807,90 +908,66 @@ router.post("/chat", async (req: Request, res: Response) => {
     const title = userMessage.trim().slice(0, 80);
     await db.insert(conversationsTable).values({ id: conversationId, userId, title });
   } else if (!history || history.length === 0) {
-    // First message in an existing empty conv — set the title from the message
     await db
       .update(conversationsTable)
       .set({ title: userMessage.trim().slice(0, 80) })
       .where(and(eq(conversationsTable.id, conversationId), eq(conversationsTable.userId, userId)));
   }
 
-  // Build message list: system + history + new user message
-  const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [
-    { role: "system", content: getSystemPrompt(voiceMode === true) },
-    ...(history ?? []).map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    })),
-    { role: "user", content: userMessage },
-  ];
-
-  const actions: Array<{
-    tool: string;
-    summary: string;
-    success: boolean;
-    result: any;
-    link?: string;
-  }> = [];
+  const systemPrompt = getSystemPrompt(voiceMode === true);
+  const safeHistory = (history ?? []).map((m) => ({ role: m.role, content: m.content }));
 
   try {
-    let completion = await callGroq(groq, groqMessages, true, 1200);
-    const first = completion.choices[0];
+    let aiContent = "";
+    let actions: Array<{ tool: string; summary: string; success: boolean; result: any; link?: string }> = [];
 
-    // Tool calling loop
-    if (first.finish_reason === "tool_calls" && first.message.tool_calls) {
-      groqMessages.push(first.message as Groq.Chat.ChatCompletionMessageParam);
+    if (useGemini) {
+      // ── Gemini Flash path ──────────────────────────────────────────────────
+      const result = await callGeminiChat(safeHistory, userMessage, systemPrompt, userId, voiceMode === true);
+      aiContent = result.text;
+      actions = result.actions;
+    } else {
+      // ── Groq path (default) ────────────────────────────────────────────────
+      const groqKey = (process.env.GROQ_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
+      if (!groqKey) return res.status(500).json({ error: "GROQ_API_KEY not configured" });
+      const groq = new Groq({ apiKey: groqKey });
 
-      for (const call of first.message.tool_calls) {
-        let args: any = {};
-        try { args = JSON.parse(call.function.arguments); } catch {}
+      const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [
+        { role: "system", content: systemPrompt },
+        ...safeHistory.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        { role: "user", content: userMessage },
+      ];
 
-        const exec = await executeTool(call.function.name, args, userId);
-        actions.push({
-          tool: call.function.name,
-          summary: exec.summary,
-          success: exec.success,
-          result: exec.result,
-          link: exec.link,
-        });
+      let completion = await callGroq(groq, groqMessages, true, 1200);
+      const first = completion.choices[0];
 
-        // For read tools, pass the full data to the AI so it can summarize
-        groqMessages.push({
-          role: "tool",
-          tool_call_id: call.id,
-          content: JSON.stringify({
-            success: exec.success,
-            summary: exec.summary,
-            data: exec.result,
-          }),
-        });
+      if (first.finish_reason === "tool_calls" && first.message.tool_calls) {
+        groqMessages.push(first.message as Groq.Chat.ChatCompletionMessageParam);
+
+        for (const call of first.message.tool_calls) {
+          let args: any = {};
+          try { args = JSON.parse(call.function.arguments); } catch {}
+          const exec = await executeTool(call.function.name, args, userId);
+          actions.push({ tool: call.function.name, summary: exec.summary, success: exec.success, result: exec.result, link: exec.link });
+          groqMessages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: JSON.stringify({ success: exec.success, summary: exec.summary, data: exec.result }),
+          });
+        }
+
+        completion = await callGroq(groq, groqMessages, false, 800);
       }
 
-      completion = await callGroq(groq, groqMessages, false, 800);
+      aiContent = completion.choices[0].message.content ?? "";
     }
 
-    const aiContent = completion.choices[0].message.content ?? "";
-
-    // Persist both messages to DB with conversationId
+    // Persist both messages
     await db.insert(chatMessagesTable).values([
-      {
-        id: uid(),
-        userId,
-        conversationId,
-        role: "user",
-        content: userMessage,
-        actionsJson: "[]",
-      },
-      {
-        id: uid(),
-        userId,
-        conversationId,
-        role: "assistant",
-        content: aiContent,
-        actionsJson: JSON.stringify(actions),
-      },
+      { id: uid(), userId, conversationId, role: "user", content: userMessage, actionsJson: "[]" },
+      { id: uid(), userId, conversationId, role: "assistant", content: aiContent, actionsJson: JSON.stringify(actions) },
     ]);
 
-    // Update conversation's updatedAt so it surfaces at the top of the list
     await db
       .update(conversationsTable)
       .set({ updatedAt: new Date() })

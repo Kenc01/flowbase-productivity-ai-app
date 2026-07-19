@@ -490,6 +490,7 @@ export default function AIAssistantPage() {
   const [loading, setLoading] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<"groq" | "gemini">("groq");
 
   // Voice & recording state
   const [clearing, setClearing] = useState(false);
@@ -608,7 +609,7 @@ export default function AIAssistantPage() {
       const convId = currentConvIdRef.current;
       const data = await api.post<{ message: string; actions: Action[]; conversationId: string }>(
         "/ai-assistant/chat",
-        { userMessage: trimmed, history, conversationId: convId ?? undefined }
+        { userMessage: trimmed, history, conversationId: convId ?? undefined, model: selectedModel }
       );
       setMessages((prev) => [...prev, {
         id: uid(), role: "assistant",
@@ -767,13 +768,34 @@ export default function AIAssistantPage() {
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: "var(--fb-text)", fontFamily: "Outfit, sans-serif", letterSpacing: "-0.01em" }}>JARVIS</div>
               <div style={{ fontSize: 11, color: "var(--fb-text-muted)" }}>
-                {masterName ? `Master ${masterName} · Groq AI` : "Personal AI · Groq + AssemblyAI"}
+                {masterName ? `Master ${masterName}` : "Personal AI"} · {selectedModel === "gemini" ? "Gemini Flash" : "Groq AI"}
               </div>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px rgba(16,185,129,.5)" }} />
               <span style={{ fontSize: 11, color: "var(--fb-text-muted)", fontWeight: 500 }}>Online</span>
+            </div>
+
+            {/* ── Model picker ── */}
+            <div style={{ display: "flex", background: "var(--fb-muted)", border: "1px solid var(--fb-border)", borderRadius: 20, padding: 3, gap: 2 }}>
+              {(["groq", "gemini"] as const).map((m) => {
+                const active = selectedModel === m;
+                const label = m === "groq" ? "⚡ Groq" : "✦ Gemini";
+                const activeColor = m === "groq" ? "#7467F0" : "#4285F4";
+                return (
+                  <button key={m} onClick={() => setSelectedModel(m)}
+                    style={{
+                      padding: "3px 11px", borderRadius: 16, border: "none", cursor: "pointer",
+                      fontSize: 11, fontWeight: 700, transition: "all .15s",
+                      background: active ? activeColor : "transparent",
+                      color: active ? "#fff" : "var(--fb-text-muted)",
+                      boxShadow: active ? `0 1px 6px ${activeColor}55` : "none",
+                    }}>
+                    {label}
+                  </button>
+                );
+              })}
             </div>
 
             {messages.length > 0 && (
