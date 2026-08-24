@@ -18,9 +18,9 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 const router = Router();
 
 const GROQ_MODELS = [
-  "llama-3.3-70b-versatile",
-  "llama-3.1-70b-versatile",
-  "llama-3.1-8b-instant",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "qwen/qwen3.6-27b",
 ];
 
 function uid() {
@@ -29,7 +29,6 @@ function uid() {
     Math.random().toString(36).slice(2, 10)
   );
 }
-
 
 function getSystemPrompt(voiceMode = false) {
   const today = new Date().toLocaleDateString("en-US", {
@@ -281,7 +280,8 @@ const TOOLS: any[] = [
         properties: {
           date: {
             type: "string",
-            description: "Date in YYYY-MM-DD format. Use today's date if not specified.",
+            description:
+              "Date in YYYY-MM-DD format. Use today's date if not specified.",
           },
         },
         required: ["date"],
@@ -298,18 +298,54 @@ const TOOLS: any[] = [
         type: "object",
         properties: {
           date: { type: "string", description: "Date in YYYY-MM-DD format" },
-          label: { type: "string", description: "Name/description of the time block (e.g. 'Morning Workout', 'Deep Work Session')" },
+          label: {
+            type: "string",
+            description:
+              "Name/description of the time block (e.g. 'Morning Workout', 'Deep Work Session')",
+          },
           type: {
             type: "string",
-            enum: ["wake", "sleep", "school", "study", "gym", "free", "meal", "rest", "work", "other"],
+            enum: [
+              "wake",
+              "sleep",
+              "school",
+              "study",
+              "gym",
+              "free",
+              "meal",
+              "rest",
+              "work",
+              "other",
+            ],
             description: "Category of block",
           },
-          startHour: { type: "number", description: "Start hour in 24h format (0-23)" },
-          startMin: { type: "number", description: "Start minute (0, 15, 30, or 45)" },
-          endHour: { type: "number", description: "End hour in 24h format (0-24, use 24 for midnight end)" },
-          endMin: { type: "number", description: "End minute (0, 15, 30, or 45)" },
+          startHour: {
+            type: "number",
+            description: "Start hour in 24h format (0-23)",
+          },
+          startMin: {
+            type: "number",
+            description: "Start minute (0, 15, 30, or 45)",
+          },
+          endHour: {
+            type: "number",
+            description:
+              "End hour in 24h format (0-24, use 24 for midnight end)",
+          },
+          endMin: {
+            type: "number",
+            description: "End minute (0, 15, 30, or 45)",
+          },
         },
-        required: ["date", "label", "type", "startHour", "startMin", "endHour", "endMin"],
+        required: [
+          "date",
+          "label",
+          "type",
+          "startHour",
+          "startMin",
+          "endHour",
+          "endMin",
+        ],
       },
     },
   },
@@ -333,7 +369,7 @@ const TOOLS: any[] = [
 async function executeTool(
   name: string,
   args: any,
-  userId: string
+  userId: string,
 ): Promise<{ success: boolean; result: any; summary: string; link?: string }> {
   try {
     switch (name) {
@@ -381,12 +417,12 @@ async function executeTool(
 
         let filtered = tasks;
         if (args.filter === "todo") {
-          filtered = tasks.filter(
-            (t) => (colMap[t.columnId] ?? "").toLowerCase().includes("to do")
+          filtered = tasks.filter((t) =>
+            (colMap[t.columnId] ?? "").toLowerCase().includes("to do"),
           );
         } else if (args.filter === "in_progress") {
           filtered = tasks.filter((t) =>
-            (colMap[t.columnId] ?? "").toLowerCase().includes("progress")
+            (colMap[t.columnId] ?? "").toLowerCase().includes("progress"),
           );
         }
 
@@ -411,9 +447,7 @@ async function executeTool(
           .where(eq(notesTable.userId, userId));
 
         const sorted = notes
-          .sort((a, b) =>
-            a.updatedAt < b.updatedAt ? 1 : -1
-          )
+          .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
           .slice(0, limit);
 
         return {
@@ -433,7 +467,9 @@ async function executeTool(
 
         if (!board) {
           const boardId = uid();
-          const c1 = uid(), c2 = uid(), c3 = uid();
+          const c1 = uid(),
+            c2 = uid(),
+            c3 = uid();
           [board] = await db
             .insert(kanbanBoardsTable)
             .values({
@@ -457,11 +493,11 @@ async function executeTool(
           .where(
             and(
               eq(kanbanColumnsTable.boardId, board.id),
-              eq(kanbanColumnsTable.userId, userId)
-            )
+              eq(kanbanColumnsTable.userId, userId),
+            ),
           );
         const todoCol = columns.sort(
-          (a: { order: number }, b: { order: number }) => a.order - b.order
+          (a: { order: number }, b: { order: number }) => a.order - b.order,
         )[0];
 
         const [task] = await db
@@ -488,7 +524,9 @@ async function executeTool(
 
       case "create_kanban_board": {
         const boardId = uid();
-        const c1 = uid(), c2 = uid(), c3 = uid();
+        const c1 = uid(),
+          c2 = uid(),
+          c3 = uid();
         const [board] = await db
           .insert(kanbanBoardsTable)
           .values({
@@ -536,7 +574,12 @@ async function executeTool(
 
       case "create_note": {
         const palette = [
-          "#F43F5E", "#8B5CF6", "#06B6D4", "#10B981", "#F59E0B", "#3B82F6",
+          "#F43F5E",
+          "#8B5CF6",
+          "#06B6D4",
+          "#10B981",
+          "#F59E0B",
+          "#3B82F6",
         ];
         const [note] = await db
           .insert(notesTable)
@@ -545,7 +588,8 @@ async function executeTool(
             userId,
             title: args.title,
             content: args.content ?? "",
-            color: args.color ?? palette[Math.floor(Math.random() * palette.length)],
+            color:
+              args.color ?? palette[Math.floor(Math.random() * palette.length)],
             symbol: "📝",
             pinned: false,
           })
@@ -574,22 +618,26 @@ async function executeTool(
           .where(
             and(
               eq(dailyScheduleBlocksTable.userId, userId),
-              eq(dailyScheduleBlocksTable.date, args.date)
-            )
+              eq(dailyScheduleBlocksTable.date, args.date),
+            ),
           );
         const sorted = rows.sort(
-          (a, b) => a.startHour * 60 + a.startMin - (b.startHour * 60 + b.startMin)
+          (a, b) =>
+            a.startHour * 60 + a.startMin - (b.startHour * 60 + b.startMin),
         );
-        const text = sorted.length === 0
-          ? "No schedule set for this date."
-          : sorted.map(b => {
-              const fmt = (h: number, m: number) => {
-                const ampm = h >= 12 ? "PM" : "AM";
-                const hh = h % 12 === 0 ? 12 : h % 12;
-                return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
-              };
-              return `${fmt(b.startHour, b.startMin)} – ${fmt(b.endHour, b.endMin)}: ${b.label} (${b.type})`;
-            }).join("\n");
+        const text =
+          sorted.length === 0
+            ? "No schedule set for this date."
+            : sorted
+                .map((b) => {
+                  const fmt = (h: number, m: number) => {
+                    const ampm = h >= 12 ? "PM" : "AM";
+                    const hh = h % 12 === 0 ? 12 : h % 12;
+                    return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
+                  };
+                  return `${fmt(b.startHour, b.startMin)} – ${fmt(b.endHour, b.endMin)}: ${b.label} (${b.type})`;
+                })
+                .join("\n");
         return {
           success: true,
           result: { blocks: sorted, text },
@@ -632,8 +680,8 @@ async function executeTool(
           .where(
             and(
               eq(dailyScheduleBlocksTable.userId, userId),
-              eq(dailyScheduleBlocksTable.date, args.date)
-            )
+              eq(dailyScheduleBlocksTable.date, args.date),
+            ),
           );
         return {
           success: true,
@@ -655,7 +703,7 @@ async function callGroq(
   groq: Groq,
   messages: Groq.Chat.ChatCompletionMessageParam[],
   useTools: boolean,
-  maxTokens = 1000
+  maxTokens = 1000,
 ): Promise<Groq.Chat.ChatCompletion> {
   for (const model of GROQ_MODELS) {
     try {
@@ -691,7 +739,7 @@ function toGeminiSchemaType(t: string): SchemaType {
 function convertGeminiProp(prop: any): any {
   const out: any = { type: toGeminiSchemaType(prop.type) };
   if (prop.description) out.description = prop.description;
-  if (prop.enum)        out.enum = prop.enum;
+  if (prop.enum) out.enum = prop.enum;
   if (prop.properties) {
     out.properties = {};
     for (const [k, v] of Object.entries(prop.properties)) {
@@ -712,7 +760,7 @@ const GEMINI_TOOLS = TOOLS.map((t) => ({
       Object.entries(t.function.parameters.properties ?? {}).map(([k, v]) => [
         k,
         convertGeminiProp(v),
-      ])
+      ]),
     ),
     required: t.function.parameters.required ?? [],
   },
@@ -727,14 +775,29 @@ async function callGeminiChat(
   userMessage: string,
   systemPrompt: string,
   userId: string,
-  voiceMode: boolean
-): Promise<{ text: string; actions: Array<{ tool: string; summary: string; success: boolean; result: any; link?: string }> }> {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
-  if (!apiKey) throw new Error("GOOGLE_GENERATIVE_AI_API_KEY not configured");
+  voiceMode: boolean,
+): Promise<{
+  text: string;
+  actions: Array<{
+    tool: string;
+    summary: string;
+    success: boolean;
+    result: any;
+    link?: string;
+  }>;
+}> {
+  const apiKey = (
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY
+  )?.trim();
+  if (!apiKey) {
+    throw new Error(
+      "GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY not configured",
+    );
+  }
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     tools: [{ functionDeclarations: GEMINI_TOOLS }],
     systemInstruction: systemPrompt,
   });
@@ -748,14 +811,24 @@ async function callGeminiChat(
   const chat = model.startChat({ history: geminiHistory });
   let result = await chat.sendMessage(userMessage);
 
-  const actions: Array<{ tool: string; summary: string; success: boolean; result: any; link?: string }> = [];
+  const actions: Array<{
+    tool: string;
+    summary: string;
+    success: boolean;
+    result: any;
+    link?: string;
+  }> = [];
   const functionCalls = result.response.functionCalls();
 
   if (functionCalls && functionCalls.length > 0) {
     const toolResponses: any[] = [];
 
     for (const call of functionCalls) {
-      const exec = await executeTool(call.name, (call.args ?? {}) as any, userId);
+      const exec = await executeTool(
+        call.name,
+        (call.args ?? {}) as any,
+        userId,
+      );
       actions.push({
         tool: call.name,
         summary: exec.summary,
@@ -766,7 +839,11 @@ async function callGeminiChat(
       toolResponses.push({
         functionResponse: {
           name: call.name,
-          response: { success: exec.success, summary: exec.summary, data: exec.result },
+          response: {
+            success: exec.success,
+            summary: exec.summary,
+            data: exec.result,
+          },
         },
       });
     }
@@ -800,7 +877,9 @@ router.post("/conversations", async (req: Request, res: Response) => {
   if (!userId) return;
   try {
     const id = uid();
-    await db.insert(conversationsTable).values({ id, userId, title: "New Chat" });
+    await db
+      .insert(conversationsTable)
+      .values({ id, userId, title: "New Chat" });
     const [conv] = await db
       .select()
       .from(conversationsTable)
@@ -819,10 +898,20 @@ router.delete("/conversations/:id", async (req: Request, res: Response) => {
   try {
     await db
       .delete(chatMessagesTable)
-      .where(and(eq(chatMessagesTable.conversationId, id), eq(chatMessagesTable.userId, userId)));
+      .where(
+        and(
+          eq(chatMessagesTable.conversationId, id),
+          eq(chatMessagesTable.userId, userId),
+        ),
+      );
     await db
       .delete(conversationsTable)
-      .where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, userId)));
+      .where(
+        and(
+          eq(conversationsTable.id, id),
+          eq(conversationsTable.userId, userId),
+        ),
+      );
     return res.status(204).end();
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -842,8 +931,11 @@ router.get("/history", async (req: Request, res: Response) => {
       .from(chatMessagesTable)
       .where(
         conversationId
-          ? and(eq(chatMessagesTable.userId, userId), eq(chatMessagesTable.conversationId, conversationId))
-          : eq(chatMessagesTable.userId, userId)
+          ? and(
+              eq(chatMessagesTable.userId, userId),
+              eq(chatMessagesTable.conversationId, conversationId),
+            )
+          : eq(chatMessagesTable.userId, userId),
       )
       .orderBy(asc(chatMessagesTable.createdAt));
 
@@ -873,8 +965,11 @@ router.delete("/history", async (req: Request, res: Response) => {
       .delete(chatMessagesTable)
       .where(
         conversationId
-          ? and(eq(chatMessagesTable.userId, userId), eq(chatMessagesTable.conversationId, conversationId))
-          : eq(chatMessagesTable.userId, userId)
+          ? and(
+              eq(chatMessagesTable.userId, userId),
+              eq(chatMessagesTable.conversationId, conversationId),
+            )
+          : eq(chatMessagesTable.userId, userId),
       );
     return res.status(204).end();
   } catch (err: any) {
@@ -887,7 +982,13 @@ router.post("/chat", async (req: Request, res: Response) => {
   const userId = requireUser(req, res);
   if (!userId) return;
 
-  const { userMessage, history, voiceMode, conversationId: incomingConvId, model: modelParam } = req.body as {
+  const {
+    userMessage,
+    history,
+    voiceMode,
+    conversationId: incomingConvId,
+    model: modelParam,
+  } = req.body as {
     userMessage: string;
     history: Array<{ role: string; content: string }>;
     voiceMode?: boolean;
@@ -906,35 +1007,63 @@ router.post("/chat", async (req: Request, res: Response) => {
   if (!conversationId) {
     conversationId = uid();
     const title = userMessage.trim().slice(0, 80);
-    await db.insert(conversationsTable).values({ id: conversationId, userId, title });
+    await db
+      .insert(conversationsTable)
+      .values({ id: conversationId, userId, title });
   } else if (!history || history.length === 0) {
     await db
       .update(conversationsTable)
       .set({ title: userMessage.trim().slice(0, 80) })
-      .where(and(eq(conversationsTable.id, conversationId), eq(conversationsTable.userId, userId)));
+      .where(
+        and(
+          eq(conversationsTable.id, conversationId),
+          eq(conversationsTable.userId, userId),
+        ),
+      );
   }
 
   const systemPrompt = getSystemPrompt(voiceMode === true);
-  const safeHistory = (history ?? []).map((m) => ({ role: m.role, content: m.content }));
+  const safeHistory = (history ?? []).map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
 
   try {
     let aiContent = "";
-    let actions: Array<{ tool: string; summary: string; success: boolean; result: any; link?: string }> = [];
+    let actions: Array<{
+      tool: string;
+      summary: string;
+      success: boolean;
+      result: any;
+      link?: string;
+    }> = [];
 
     if (useGemini) {
       // ── Gemini Flash path ──────────────────────────────────────────────────
-      const result = await callGeminiChat(safeHistory, userMessage, systemPrompt, userId, voiceMode === true);
+      const result = await callGeminiChat(
+        safeHistory,
+        userMessage,
+        systemPrompt,
+        userId,
+        voiceMode === true,
+      );
       aiContent = result.text;
       actions = result.actions;
     } else {
       // ── Groq path (default) ────────────────────────────────────────────────
-      const groqKey = (process.env.GROQ_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
-      if (!groqKey) return res.status(500).json({ error: "GROQ_API_KEY not configured" });
+      const groqKey = (process.env.GROQ_API_KEY ?? "")
+        .trim()
+        .replace(/^["']|["']$/g, "");
+      if (!groqKey)
+        return res.status(500).json({ error: "GROQ_API_KEY not configured" });
       const groq = new Groq({ apiKey: groqKey });
 
       const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
-        ...safeHistory.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        ...safeHistory.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
         { role: "user", content: userMessage },
       ];
 
@@ -942,17 +1071,31 @@ router.post("/chat", async (req: Request, res: Response) => {
       const first = completion.choices[0];
 
       if (first.finish_reason === "tool_calls" && first.message.tool_calls) {
-        groqMessages.push(first.message as Groq.Chat.ChatCompletionMessageParam);
+        groqMessages.push(
+          first.message as Groq.Chat.ChatCompletionMessageParam,
+        );
 
         for (const call of first.message.tool_calls) {
           let args: any = {};
-          try { args = JSON.parse(call.function.arguments); } catch {}
+          try {
+            args = JSON.parse(call.function.arguments);
+          } catch {}
           const exec = await executeTool(call.function.name, args, userId);
-          actions.push({ tool: call.function.name, summary: exec.summary, success: exec.success, result: exec.result, link: exec.link });
+          actions.push({
+            tool: call.function.name,
+            summary: exec.summary,
+            success: exec.success,
+            result: exec.result,
+            link: exec.link,
+          });
           groqMessages.push({
             role: "tool",
             tool_call_id: call.id,
-            content: JSON.stringify({ success: exec.success, summary: exec.summary, data: exec.result }),
+            content: JSON.stringify({
+              success: exec.success,
+              summary: exec.summary,
+              data: exec.result,
+            }),
           });
         }
 
@@ -964,14 +1107,33 @@ router.post("/chat", async (req: Request, res: Response) => {
 
     // Persist both messages
     await db.insert(chatMessagesTable).values([
-      { id: uid(), userId, conversationId, role: "user", content: userMessage, actionsJson: "[]" },
-      { id: uid(), userId, conversationId, role: "assistant", content: aiContent, actionsJson: JSON.stringify(actions) },
+      {
+        id: uid(),
+        userId,
+        conversationId,
+        role: "user",
+        content: userMessage,
+        actionsJson: "[]",
+      },
+      {
+        id: uid(),
+        userId,
+        conversationId,
+        role: "assistant",
+        content: aiContent,
+        actionsJson: JSON.stringify(actions),
+      },
     ]);
 
     await db
       .update(conversationsTable)
       .set({ updatedAt: new Date() })
-      .where(and(eq(conversationsTable.id, conversationId), eq(conversationsTable.userId, userId)));
+      .where(
+        and(
+          eq(conversationsTable.id, conversationId),
+          eq(conversationsTable.userId, userId),
+        ),
+      );
 
     return res.json({ message: aiContent, actions, conversationId });
   } catch (err: any) {
@@ -1008,11 +1170,14 @@ router.post("/transcribe", async (req: Request, res: Response) => {
       throw new Error(`Upload failed: ${uploadRes.statusText}`);
     const { upload_url } = (await uploadRes.json()) as { upload_url: string };
 
-    const transcriptRes = await fetch("https://api.assemblyai.com/v2/transcript", {
-      method: "POST",
-      headers: { Authorization: apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ audio_url: upload_url }),
-    });
+    const transcriptRes = await fetch(
+      "https://api.assemblyai.com/v2/transcript",
+      {
+        method: "POST",
+        headers: { Authorization: apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ audio_url: upload_url }),
+      },
+    );
     if (!transcriptRes.ok)
       throw new Error(`Transcript request failed: ${transcriptRes.statusText}`);
     const { id } = (await transcriptRes.json()) as { id: string };
@@ -1022,14 +1187,15 @@ router.post("/transcribe", async (req: Request, res: Response) => {
       await new Promise((r) => setTimeout(r, 1500));
       const pollRes = await fetch(
         `https://api.assemblyai.com/v2/transcript/${id}`,
-        { headers: { Authorization: apiKey } }
+        { headers: { Authorization: apiKey } },
       );
       const data = (await pollRes.json()) as {
         status: string;
         text?: string;
         error?: string;
       };
-      if (data.status === "completed") return res.json({ text: data.text ?? "" });
+      if (data.status === "completed")
+        return res.json({ text: data.text ?? "" });
       if (data.status === "error")
         throw new Error(data.error ?? "Transcription error");
     }
@@ -1055,7 +1221,8 @@ router.post("/tts", async (req: Request, res: Response) => {
   if (!text?.trim()) return res.status(400).json({ error: "text is required" });
 
   const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "GROQ_API_KEY not configured" });
+  if (!apiKey)
+    return res.status(500).json({ error: "GROQ_API_KEY not configured" });
 
   try {
     const ttsRes = await fetch("https://api.groq.com/openai/v1/audio/speech", {
@@ -1112,7 +1279,8 @@ router.post("/chat-stream", async (req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  if (typeof (res as any).flushHeaders === "function") (res as any).flushHeaders();
+  if (typeof (res as any).flushHeaders === "function")
+    (res as any).flushHeaders();
 
   const emit = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
@@ -1126,9 +1294,7 @@ router.post("/chat-stream", async (req: Request, res: Response) => {
 
   const messages: any[] = [
     { role: "system", content: getSystemPrompt(true) },
-    ...history
-      .slice(-12)
-      .map((m) => ({ role: m.role, content: m.content })),
+    ...history.slice(-12).map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: userMessage },
   ];
 

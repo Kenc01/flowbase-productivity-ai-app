@@ -1,6 +1,11 @@
+import path from "node:path";
+import dotenv from "dotenv";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
+
+dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
+dotenv.config();
 
 const { Pool } = pg;
 
@@ -14,7 +19,9 @@ if (!dbUrl) {
 
 export const pool = new Pool({
   connectionString: dbUrl,
-  ssl: process.env.NEON_DATABASE_URL ? { rejectUnauthorized: false } : undefined,
+  ssl: process.env.NEON_DATABASE_URL
+    ? { rejectUnauthorized: false }
+    : undefined,
 });
 export const db = drizzle(pool, { schema });
 

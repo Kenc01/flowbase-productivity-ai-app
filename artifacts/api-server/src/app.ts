@@ -1,12 +1,20 @@
-import 'dotenv/config';
+import path from "node:path";
+import dotenv from "dotenv";
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
-import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
+import {
+  CLERK_PROXY_PATH,
+  clerkProxyMiddleware,
+  getClerkProxyHost,
+} from "./middlewares/clerkProxyMiddleware";
 import { replitAuthMiddleware } from "./middlewares/replitAuth";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
+dotenv.config();
 
 const app: Express = express();
 
@@ -21,7 +29,7 @@ app.use(
         return { statusCode: res.statusCode };
       },
     },
-  })
+  }),
 );
 
 // Clerk proxy — must be BEFORE express.json()
@@ -39,7 +47,7 @@ app.use(
       const host = getClerkProxyHost(req);
       return host ? `https://${host}${CLERK_PROXY_PATH}` : undefined;
     },
-  } as any)
+  } as any),
 );
 
 app.use(replitAuthMiddleware);
